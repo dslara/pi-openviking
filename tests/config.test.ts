@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { ConfigResolver } from '../src/config';
 
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn(),
+  readFileSync: vi.fn(),
+}));
+
 describe('ConfigResolver', () => {
   const originalEnv = process.env;
 
@@ -16,7 +21,7 @@ describe('ConfigResolver', () => {
 
   it('uses cwd basename as agentId when no other sources exist', () => {
     vi.spyOn(process, 'cwd').mockReturnValue('/home/user/my-project');
-    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
 
     const resolver = new ConfigResolver();
     const config = resolver.load();
@@ -26,11 +31,11 @@ describe('ConfigResolver', () => {
 
   it('prefers package.json name over cwd basename', () => {
     vi.spyOn(process, 'cwd').mockReturnValue('/home/user/my-project');
-    vi.spyOn(fs, 'existsSync').mockImplementation((p) => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => {
       if (typeof p === 'string' && p.endsWith('package.json')) return true;
       return false;
     });
-    vi.spyOn(fs, 'readFileSync').mockReturnValue(
+    vi.mocked(fs.readFileSync).mockReturnValue(
       JSON.stringify({ name: 'cool-app' })
     );
 
@@ -43,11 +48,11 @@ describe('ConfigResolver', () => {
   it('prefers env var OV_AGENT_ID over all other sources', () => {
     process.env.OV_AGENT_ID = 'env-agent';
     vi.spyOn(process, 'cwd').mockReturnValue('/home/user/my-project');
-    vi.spyOn(fs, 'existsSync').mockImplementation((p) => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => {
       if (typeof p === 'string' && p.endsWith('package.json')) return true;
       return false;
     });
-    vi.spyOn(fs, 'readFileSync').mockReturnValue(
+    vi.mocked(fs.readFileSync).mockReturnValue(
       JSON.stringify({ name: 'cool-app' })
     );
 
@@ -59,13 +64,13 @@ describe('ConfigResolver', () => {
 
   it('loads agentId and server url from local openviking.json', () => {
     vi.spyOn(process, 'cwd').mockReturnValue('/home/user/my-project');
-    vi.spyOn(fs, 'existsSync').mockImplementation((p) => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => {
       if (typeof p !== 'string') return false;
       if (p.endsWith('package.json')) return true;
       if (p.endsWith('openviking.json')) return true;
       return false;
     });
-    vi.spyOn(fs, 'readFileSync').mockImplementation((p) => {
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
       if (typeof p === 'string' && p.endsWith('package.json')) {
         return JSON.stringify({ name: 'pkg-name' });
       }
@@ -84,13 +89,13 @@ describe('ConfigResolver', () => {
 
   it('loads from global ~/.pi/openviking.json when local file missing', () => {
     vi.spyOn(process, 'cwd').mockReturnValue('/home/user/my-project');
-    vi.spyOn(fs, 'existsSync').mockImplementation((p) => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => {
       if (typeof p !== 'string') return false;
       if (p.endsWith('package.json')) return true;
       if (p.includes('.pi') && p.endsWith('openviking.json')) return true;
       return false;
     });
-    vi.spyOn(fs, 'readFileSync').mockImplementation((p) => {
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
       if (typeof p === 'string' && p.endsWith('package.json')) {
         return JSON.stringify({ name: 'pkg-name' });
       }
@@ -109,7 +114,7 @@ describe('ConfigResolver', () => {
   it('throws clear error when KIMI_API_KEY is missing', () => {
     delete process.env.KIMI_API_KEY;
     vi.spyOn(process, 'cwd').mockReturnValue('/home/user/my-project');
-    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
 
     const resolver = new ConfigResolver();
 
@@ -118,7 +123,7 @@ describe('ConfigResolver', () => {
 
   it('generateOvConf produces valid OpenViking config JSON', () => {
     vi.spyOn(process, 'cwd').mockReturnValue('/home/user/my-project');
-    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
 
     const resolver = new ConfigResolver();
     const config = resolver.load();

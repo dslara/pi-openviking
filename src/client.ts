@@ -168,4 +168,19 @@ export class OVClient {
   async getSessionContext(sessionId: string): Promise<unknown> {
     return this.request('GET', `/sessions/${sessionId}/context`);
   }
+
+  async getOrCreateSession(name: string): Promise<unknown> {
+    try {
+      return await this.request('GET', `/sessions?name=${encodeURIComponent(name)}`);
+    } catch (err) {
+      if (err instanceof OVNotFoundError) {
+        return this.request('POST', '/sessions', { name });
+      }
+      throw err;
+    }
+  }
+
+  async syncMessage(sessionId: string, parts: unknown[]): Promise<unknown> {
+    return this.request('POST', `/sessions/${sessionId}/messages`, { parts });
+  }
 }
