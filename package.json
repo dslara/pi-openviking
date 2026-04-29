@@ -5,22 +5,20 @@
   "keywords": [
     "pi-package"
   ],
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
   "scripts": {
-    "build": "tsc",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run"
   },
   "devDependencies": {
-    "@sinclair/typebox": "^0.32.0",
     "@types/bun": "latest",
-    "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.5"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*"
+    "@mariozechner/pi-tui": "*",
+    "@sinclair/typebox": "*"
   }
 }
