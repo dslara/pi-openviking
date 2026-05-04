@@ -65,7 +65,7 @@ describe("OpenVikingClient", () => {
 
       const client = createClient(defaultConfig);
       await expect(client.createSession()).rejects.toThrow(
-        "OpenViking createSession failed: server error (HTTP 500)",
+        "OpenViking createSession failed: boom (HTTP 500)",
       );
     });
 
@@ -135,7 +135,7 @@ describe("OpenVikingClient", () => {
 
       const client = createClient(defaultConfig);
       await expect(client.search("sess-1", "q")).rejects.toThrow(
-        "OpenViking search failed: server error (HTTP 503)",
+        "OpenViking search failed: overloaded (HTTP 503)",
       );
     });
   });
@@ -164,7 +164,7 @@ describe("OpenVikingClient", () => {
 
       const client = createClient(defaultConfig);
       await expect(client.sendMessage("sess-1", "user", "hi")).rejects.toThrow(
-        "OpenViking sendMessage failed: server error (HTTP 401)",
+        "OpenViking sendMessage failed: bad key (HTTP 401)",
       );
     });
   });
@@ -184,19 +184,18 @@ describe("OpenVikingClient", () => {
       expect(result.content).toBe("# API Docs\n\nHello world");
     });
 
-    test("passes offset and limit as query params", async () => {
+    test("passes level in path", async () => {
       restoreFetch = mockFetch(async (url) => {
-        expect(url).toContain("offset=100");
-        expect(url).toContain("limit=500");
+        expect(url).toBe("http://localhost:1933/api/v1/content/abstract?uri=viking%3A%2F%2Fdocs%2Fapi.md");
         return {
           status: 200,
-          body: { status: "ok", result: "partial content" },
+          body: { status: "ok", result: "abstract text" },
         };
       });
 
       const client = createClient(defaultConfig);
-      const result = await client.read("viking://docs/api.md", 100, 500);
-      expect(result.content).toBe("partial content");
+      const result = await client.read("viking://docs/api.md", "abstract");
+      expect(result.content).toBe("abstract text");
     });
 
     test("throws user-facing error on server error", async () => {
@@ -207,7 +206,7 @@ describe("OpenVikingClient", () => {
 
       const client = createClient(defaultConfig);
       await expect(client.read("viking://missing")).rejects.toThrow(
-        "OpenViking read failed: server error (HTTP 404)",
+        "OpenViking read failed: no such file (HTTP 404)",
       );
     });
 
@@ -224,30 +223,29 @@ describe("OpenVikingClient", () => {
     }, 15000);
   });
 
-  describe("browse", () => {
-    test("returns overview with children on success", async () => {
+  describe("fsList", () => {
+    test("returns children on success", async () => {
       restoreFetch = mockFetch(async (url) => {
-        expect(url).toBe("http://localhost:1933/api/v1/content/overview?uri=viking%3A%2F%2Fresources%2Fdocs%2F");
+        expect(url).toBe("http://localhost:1933/api/v1/fs/ls?uri=viking%3A%2F%2Fresources%2Fdocs%2F");
         return {
           status: 200,
           body: {
             status: "ok",
-            result: {
-              uri: "viking://resources/docs/",
-              children: [
-                { uri: "viking://resources/docs/api.md", type: "file", abstract: "API reference" },
-                { uri: "viking://resources/docs/guides/", type: "directory", abstract: "Guides" },
-              ],
-            },
+            result: [
+              { uri: "viking://resources/docs/api.md", isDir: false, abstract: "API reference" },
+              { uri: "viking://resources/docs/guides/", isDir: true, abstract: "Guides" },
+            ],
           },
         };
       });
 
       const client = createClient(defaultConfig);
-      const result = await client.browse("viking://resources/docs/");
+      const result = await client.fsList("viking://resources/docs/");
       expect(result.uri).toBe("viking://resources/docs/");
       expect(result.children).toHaveLength(2);
       expect(result.children[0].uri).toBe("viking://resources/docs/api.md");
+      expect(result.children[0].type).toBe("file");
+      expect(result.children[1].type).toBe("directory");
     });
 
     test("throws user-facing error on server error", async () => {
@@ -257,8 +255,8 @@ describe("OpenVikingClient", () => {
       }));
 
       const client = createClient(defaultConfig);
-      await expect(client.browse("viking://resources/unknown/")).rejects.toThrow(
-        "OpenViking browse failed: server error (HTTP 500)",
+      await expect(client.fsList("viking://resources/unknown/")).rejects.toThrow(
+        "OpenViking fsList failed: boom (HTTP 500)",
       );
     });
 
@@ -270,12 +268,85 @@ describe("OpenVikingClient", () => {
 
       const controller = new AbortController();
       const client = createClient(defaultConfig);
-      const promise = client.browse("viking://resources/", controller.signal);
+      const promise = client.fsList("viking://resources/", controller.signal);
       setTimeout(() => controller.abort(), 10);
       await expect(promise).rejects.toThrow(
-        "OpenViking browse failed: request aborted",
+        "OpenViking fsList failed: request aborted",
       );
     }, 15000);
+  });
+
+  describe("fsTree", () => {
+    test("returns tree on success", async () => {
+      restoreFetch = mockFetch(async (url) => {
+        expect(url).toBe("http://localhost:1933/api/v1/fs/tree?uri=viking%3A%2F%2Fresources%2F");
+        return {
+          status: 200,
+          body: {
+            status: "ok",
+            result: [
+              { uri: "viking://resources/docs/", isDir: true },
+            ],
+          },
+        };
+      });
+
+      const client = createClient(defaultConfig);
+      const result = await client.fsTree("viking://resources/");
+      expect(result.uri).toBe("viking://resources/");
+      expect(result.children).toHaveLength(1);
+      expect(result.children[0].type).toBe("directory");
+    });
+
+    test("throws user-facing error on server error", async () => {
+      restoreFetch = mockFetch(async () => ({
+        status: 503,
+        body: { status: "error", error: { code: "UNAVAILABLE", message: "down" } },
+      }));
+
+      const client = createClient(defaultConfig);
+      await expect(client.fsTree("viking://x/")).rejects.toThrow(
+        "OpenViking fsTree failed: down (HTTP 503)",
+      );
+    });
+  });
+
+  describe("fsStat", () => {
+    test("returns stat on success", async () => {
+      restoreFetch = mockFetch(async (url) => {
+        expect(url).toBe("http://localhost:1933/api/v1/fs/stat?uri=viking%3A%2F%2Fresources%2Ffile.md");
+        return {
+          status: 200,
+          body: {
+            status: "ok",
+            result: {
+              name: "file.md",
+              size: 42,
+              mode: 420,
+              modTime: "2026-04-30T00:00:00Z",
+              isDir: false,
+            },
+          },
+        };
+      });
+
+      const client = createClient(defaultConfig);
+      const result = await client.fsStat("viking://resources/file.md");
+      expect(result.uri).toBe("viking://resources/file.md");
+      expect(result.children[0].type).toBe("file");
+    });
+
+    test("throws user-facing error on server error", async () => {
+      restoreFetch = mockFetch(async () => ({
+        status: 404,
+        body: { status: "error", error: { code: "NOT_FOUND", message: "missing" } },
+      }));
+
+      const client = createClient(defaultConfig);
+      await expect(client.fsStat("viking://missing")).rejects.toThrow(
+        "OpenViking fsStat failed: missing (HTTP 404)",
+      );
+    });
   });
 
   describe("commit", () => {
@@ -308,7 +379,7 @@ describe("OpenVikingClient", () => {
 
       const client = createClient(defaultConfig);
       await expect(client.commit("sess-1")).rejects.toThrow(
-        "OpenViking commit failed: server error (HTTP 500)",
+        "OpenViking commit failed: boom (HTTP 500)",
       );
     });
   });

@@ -7,6 +7,135 @@ const SEARCH_PARAMS = Type.Object({
   limit: Type.Optional(Type.Number({ description: "Maximum results to return (default 10)" })),
 });
 
+const MEMREAD_PARAMS = Type.Object({
+  uri: Type.String({ description: "viking:// URI to read" }),
+  level: Type.Optional(Type.Union([
+    Type.Literal("auto"),
+    Type.Literal("abstract"),
+    Type.Literal("overview"),
+    Type.Literal("read"),
+  ], { description: "Content level (auto detects from fs/stat)", default: "auto" })),
+});
+
+const MEMBROWSE_PARAMS = Type.Object({
+  uri: Type.String({ description: "viking:// URI to browse" }),
+  view: Type.Optional(Type.Union([
+    Type.Literal("list"),
+    Type.Literal("tree"),
+    Type.Literal("stat"),
+  ], { description: "Browse view", default: "list" })),
+});
+
+export function registerMemreadTool(pi: ExtensionAPI, client: OpenVikingClient) {
+  pi.registerTool({
+    name: "memread",
+    label: "Memory Read",
+    description:
+      "Read content from a viking:// URI at a specific detail level. " +
+      "Use after memsearch to retrieve full content of a discovered resource.",
+    promptSnippet: "Read content from a viking:// URI",
+    parameters: MEMREAD_PARAMS,
+
+    async execute(_toolCallId, params, signal) {
+      const uri = params.uri as string;
+      if (!uri.startsWith("viking://")) {
+        return {
+          content: [{ type: "text", text: "Invalid URI: must start with viking://" }],
+          details: {},
+          isError: true,
+        };
+      }
+
+      const level = (params.level as "auto" | "abstract" | "overview" | "read" | undefined) ?? "auto";
+
+      try {
+        let resolvedLevel = level;
+        if (resolvedLevel === "auto") {
+          const stat = await client.fsStat(uri, signal);
+          const entry = stat.children?.[0];
+          resolvedLevel = entry?.type === "directory" ? "overview" : "read";
+        }
+        const result = await client.read(uri, resolvedLevel, signal);
+        return {
+          content: [{ type: "text", text: result.content }],
+          details: {},
+        };
+      } catch (err) {
+        const msg = (err as Error).message;
+        return {
+          content: [{ type: "text", text: msg }],
+          details: {},
+          isError: true,
+        };
+      }
+    },
+  });
+}
+
+export function registerMembrowseTool(pi: ExtensionAPI, client: OpenVikingClient) {
+  pi.registerTool({
+    name: "membrowse",
+    label: "Memory Browse",
+    description:
+      "Browse the OpenViking filesystem at a viking:// URI. " +
+      "Use after memsearch to explore directories or inspect file metadata.",
+    promptSnippet: "Browse the OpenViking filesystem at a viking:// URI",
+    parameters: MEMBROWSE_PARAMS,
+
+    async execute(_toolCallId, params, signal) {
+      const uri = params.uri as string;
+      if (!uri.startsWith("viking://")) {
+        return {
+          content: [{ type: "text", text: "Invalid URI: must start with viking://" }],
+          details: {},
+          isError: true,
+        };
+      }
+
+      const view = (params.view as "list" | "tree" | "stat" | undefined) ?? "list";
+
+      try {
+        let result;
+        switch (view) {
+          case "tree":
+            result = await client.fsTree(uri, signal);
+            break;
+          case "stat":
+            result = await client.fsStat(uri, signal);
+            break;
+          default:
+            result = await client.fsList(uri, signal);
+            break;
+        }
+
+        const parts: string[] = [];
+        parts.push(`URI: ${result.uri}`);
+        if (result.children && result.children.length > 0) {
+          parts.push("Children:");
+          for (const child of result.children) {
+            parts.push(`- ${child.uri} (${child.type})`);
+            if (child.abstract) parts.push(`  ${child.abstract}`);
+          }
+        } else {
+          parts.push("No children.");
+        }
+
+        return {
+          content: [{ type: "text", text: parts.join("\n") }],
+          details: {},
+        };
+      } catch (err) {
+        const msg = (err as Error).message;
+        return {
+          content: [{ type: "text", text: msg }],
+          details: {},
+          isError: true,
+        };
+      }
+    },
+  });
+}
+
 export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient) {
   let sessionId: string | undefined;
   const notifiedPerCtx = new WeakMap<object, boolean>();

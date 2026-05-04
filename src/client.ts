@@ -22,8 +22,10 @@ export interface OpenVikingClient {
   createSession(signal?: AbortSignal): Promise<string>;
   sendMessage(sessionId: string, role: string, content: string, signal?: AbortSignal): Promise<void>;
   search(sessionId: string, query: string, limit?: number, signal?: AbortSignal): Promise<SearchResult>;
-  read(uri: string, offset?: number, limit?: number, signal?: AbortSignal): Promise<ReadResult>;
-  browse(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
+  read(uri: string, level?: "abstract" | "overview" | "read", signal?: AbortSignal): Promise<ReadResult>;
+  fsList(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
+  fsTree(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
+  fsStat(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   commit(sessionId: string, signal?: AbortSignal): Promise<string>;
 }
 
@@ -31,6 +33,37 @@ class OpenVikingError extends Error {
   constructor(method: string, message: string) {
     super(`OpenViking ${method} failed: ${message}`);
   }
+}
+
+/** Raw OV fs/ls and fs/tree entry shape */
+interface OVFsEntry {
+  uri: string;
+  size?: number;
+  isDir?: boolean;
+  modTime?: string;
+  abstract?: string;
+  rel_path?: string;
+  [k: string]: unknown;
+}
+
+/** Raw OV fs/stat response */
+interface OVStatResult {
+  name: string;
+  size?: number;
+  mode?: number;
+  modTime?: string;
+  isDir?: boolean;
+  [k: string]: unknown;
+}
+
+function normalizeFsEntry(e: OVFsEntry): { uri: string; type: string; abstract?: string; [k: string]: unknown } {
+  return {
+    uri: e.uri,
+    type: e.isDir ? "directory" : "file",
+    abstract: e.abstract,
+    size: e.size,
+    modTime: e.modTime,
+  };
 }
 
 export function createClient(config: OpenVikingConfig): OpenVikingClient {
@@ -41,26 +74,28 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
     "X-OpenViking-User": config.user,
   };
 
-  async function request(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<unknown> {
+  async function request(method: string, path: string, opts?: { body?: unknown; httpMethod?: string }, signal?: AbortSignal): Promise<unknown> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), config.timeout);
 
-    // Link external signal
     const onAbort = () => controller.abort();
     signal?.addEventListener("abort", onAbort);
 
+    const httpMethod = opts?.httpMethod ?? (opts?.body ? "POST" : "GET");
+
     try {
       const res = await fetch(`${config.endpoint}${path}`, {
-        method: "POST",
+        method: httpMethod,
         headers,
-        body: body ? JSON.stringify(body) : undefined,
+        body: opts?.body ? JSON.stringify(opts.body) : undefined,
         signal: controller.signal,
       });
 
       const json = (await res.json()) as { status: string; result?: unknown; error?: { code: string; message: string } };
 
       if (!res.ok) {
-        throw new OpenVikingError(method, `server error (HTTP ${res.status})`);
+        const errMsg = json.error?.message ?? `HTTP ${res.status}`;
+        throw new OpenVikingError(method, `${errMsg} (HTTP ${res.status})`);
       }
 
       return json.result;
@@ -81,7 +116,7 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
 
   return {
     async createSession(signal?) {
-      const result = (await request("createSession", "/api/v1/sessions", undefined, signal)) as { session_id: string };
+      const result = (await request("createSession", "/api/v1/sessions", { httpMethod: "POST" }, signal)) as { session_id: string };
       return result.session_id;
     },
 
@@ -89,7 +124,7 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
       await request(
         "sendMessage",
         `/api/v1/sessions/${sessionId}/messages`,
-        { role, content },
+        { body: { role, content } },
         signal,
       );
     },
@@ -98,38 +133,61 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
       return (await request(
         "search",
         "/api/v1/search/find",
-        { session_id: sessionId, query, mode: "fast", limit },
+        { body: { session_id: sessionId, query, mode: "fast", limit } },
         signal,
       )) as SearchResult;
     },
 
-    async read(uri, offset, limit, signal?) {
+    async read(uri, level = "read", signal?) {
       const params = new URLSearchParams({ uri });
-      if (offset !== undefined) params.set("offset", String(offset));
-      if (limit !== undefined) params.set("limit", String(limit));
       const result = (await request(
         "read",
-        `/api/v1/content/read?${params.toString()}`,
+        `/api/v1/content/${level}?${params.toString()}`,
         undefined,
         signal,
       )) as string;
       return { content: result };
     },
 
-    async browse(uri, signal?) {
-      return (await request(
-        "browse",
-        `/api/v1/content/overview?uri=${encodeURIComponent(uri)}`,
+    async fsList(uri, signal?) {
+      const raw = (await request(
+        "fsList",
+        `/api/v1/fs/ls?uri=${encodeURIComponent(uri)}`,
         undefined,
         signal,
-      )) as BrowseResult;
+      )) as Array<OVFsEntry>;
+      return { uri, children: raw.map(normalizeFsEntry) };
+    },
+
+    async fsTree(uri, signal?) {
+      const raw = (await request(
+        "fsTree",
+        `/api/v1/fs/tree?uri=${encodeURIComponent(uri)}`,
+        undefined,
+        signal,
+      )) as Array<OVFsEntry>;
+      return { uri, children: raw.map(normalizeFsEntry) };
+    },
+
+    async fsStat(uri, signal?) {
+      const raw = (await request(
+        "fsStat",
+        `/api/v1/fs/stat?uri=${encodeURIComponent(uri)}`,
+        undefined,
+        signal,
+      )) as OVStatResult;
+      const entryType = raw.isDir ? "directory" : "file";
+      return {
+        uri,
+        children: [{ uri, type: entryType, abstract: raw.name }],
+      };
     },
 
     async commit(sessionId, signal?) {
       const result = (await request(
         "commit",
         `/api/v1/sessions/${sessionId}/commit`,
-        {},
+        { body: {} },
         signal,
       )) as { task_id: string };
       return result.task_id;

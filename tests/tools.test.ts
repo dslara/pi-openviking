@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import type { OpenVikingClient, SearchResult } from "../src/client";
-import { registerMemsearchTool } from "../src/tools";
+import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool } from "../src/tools";
 
 function mockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient {
   return {
@@ -12,7 +12,9 @@ function mockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient
       total: 0,
     } as SearchResult)),
     read: vi.fn(async () => ({ content: "mock content" })),
-    browse: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
+    fsList: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
+    fsTree: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
+    fsStat: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
     commit: vi.fn(async () => "task-1"),
     ...overrides,
   };
@@ -142,5 +144,163 @@ describe("memsearch tool", () => {
 
     await tool.execute("tc-1", { query: "test" }, undefined, undefined, ctx);
     expect(ctx.ui.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe("memread tool", () => {
+  let pi: ReturnType<typeof createMockPi>;
+
+  beforeEach(() => {
+    pi = createMockPi();
+  });
+
+  test("registers with promptSnippet and no promptGuidelines", () => {
+    const client = mockClient();
+    registerMemreadTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memread");
+    expect(tool).toBeDefined();
+    expect(tool!.promptSnippet).toBeDefined();
+    expect(tool!.promptGuidelines).toBeUndefined();
+  });
+
+  test("reads content at explicit read level", async () => {
+    const client = mockClient({
+      read: vi.fn(async () => ({ content: "# Hello\n\nWorld" })),
+    });
+    registerMemreadTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memread")!;
+    const result = await tool.execute("tc-1", { uri: "viking://docs/readme.md", level: "read" });
+
+    expect(client.read).toHaveBeenCalledWith("viking://docs/readme.md", "read", undefined);
+    expect(result.content[0].text).toBe("# Hello\n\nWorld");
+  });
+
+  test("auto-level resolves to read for files", async () => {
+    const client = mockClient({
+      fsStat: vi.fn(async () => ({ uri: "viking://docs/readme.md", children: [{ uri: "viking://docs/readme.md", type: "file" }] })),
+      read: vi.fn(async () => ({ content: "file content" })),
+    });
+    registerMemreadTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memread")!;
+    const result = await tool.execute("tc-1", { uri: "viking://docs/readme.md", level: "auto" });
+
+    expect(client.fsStat).toHaveBeenCalledWith("viking://docs/readme.md", undefined);
+    expect(client.read).toHaveBeenCalledWith("viking://docs/readme.md", "read", undefined);
+    expect(result.content[0].text).toBe("file content");
+  });
+
+  test("auto-level resolves to overview for directories", async () => {
+    const client = mockClient({
+      fsStat: vi.fn(async () => ({ uri: "viking://docs/", children: [{ uri: "viking://docs/", type: "directory" }] })),
+      read: vi.fn(async () => ({ content: "dir overview" })),
+    });
+    registerMemreadTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memread")!;
+    const result = await tool.execute("tc-1", { uri: "viking://docs/", level: "auto" });
+
+    expect(client.fsStat).toHaveBeenCalledWith("viking://docs/", undefined);
+    expect(client.read).toHaveBeenCalledWith("viking://docs/", "overview", undefined);
+    expect(result.content[0].text).toBe("dir overview");
+  });
+
+  test("returns error for invalid URI prefix", async () => {
+    const client = mockClient();
+    registerMemreadTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memread")!;
+    const result = await tool.execute("tc-1", { uri: "https://example.com", level: "read" });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("viking://");
+    expect(client.read).not.toHaveBeenCalled();
+  });
+});
+
+describe("membrowse tool", () => {
+  let pi: ReturnType<typeof createMockPi>;
+
+  beforeEach(() => {
+    pi = createMockPi();
+  });
+
+  test("registers with promptSnippet and no promptGuidelines", () => {
+    const client = mockClient();
+    registerMembrowseTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "membrowse");
+    expect(tool).toBeDefined();
+    expect(tool!.promptSnippet).toBeDefined();
+    expect(tool!.promptGuidelines).toBeUndefined();
+  });
+
+  test("lists directory contents", async () => {
+    const client = mockClient({
+      fsList: vi.fn(async () => ({
+        uri: "viking://resources/docs/",
+        children: [
+          { uri: "viking://resources/docs/api.md", type: "file", abstract: "API ref" },
+          { uri: "viking://resources/docs/guides/", type: "directory" },
+        ],
+      })),
+    });
+    registerMembrowseTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "membrowse")!;
+    const result = await tool.execute("tc-1", { uri: "viking://resources/docs/", view: "list" });
+
+    expect(client.fsList).toHaveBeenCalledWith("viking://resources/docs/", undefined);
+    expect(result.content[0].text).toContain("api.md");
+    expect(result.content[0].text).toContain("guides/");
+  });
+
+  test("returns tree view", async () => {
+    const client = mockClient({
+      fsTree: vi.fn(async () => ({
+        uri: "viking://resources/",
+        children: [
+          { uri: "viking://resources/docs/", type: "directory" },
+          { uri: "viking://resources/README.md", type: "file" },
+        ],
+      })),
+    });
+    registerMembrowseTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "membrowse")!;
+    const result = await tool.execute("tc-1", { uri: "viking://resources/", view: "tree" });
+
+    expect(client.fsTree).toHaveBeenCalledWith("viking://resources/", undefined);
+    expect(result.content[0].text).toContain("README.md");
+  });
+
+  test("returns stat view", async () => {
+    const client = mockClient({
+      fsStat: vi.fn(async () => ({
+        uri: "viking://resources/file.md",
+        children: [{ uri: "viking://resources/file.md", type: "file" }],
+      })),
+    });
+    registerMembrowseTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "membrowse")!;
+    const result = await tool.execute("tc-1", { uri: "viking://resources/file.md", view: "stat" });
+
+    expect(client.fsStat).toHaveBeenCalledWith("viking://resources/file.md", undefined);
+    expect(result.content[0].text).toContain("file");
+  });
+
+  test("returns error for invalid URI prefix", async () => {
+    const client = mockClient();
+    registerMembrowseTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "membrowse")!;
+    const result = await tool.execute("tc-1", { uri: "http://example.com", view: "list" });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("viking://");
+    expect(client.fsList).not.toHaveBeenCalled();
   });
 });

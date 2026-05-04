@@ -8,7 +8,9 @@ function mockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient
     sendMessage: vi.fn(async () => {}),
     search: vi.fn(async () => ({ memories: [], resources: [], total: 0 })),
     read: vi.fn(async () => ({ content: "" })),
-    browse: vi.fn(async () => ({ uri: "", children: [] })),
+    fsList: vi.fn(async () => ({ uri: "", children: [] })),
+    fsTree: vi.fn(async () => ({ uri: "", children: [] })),
+    fsStat: vi.fn(async () => ({ uri: "", children: [] })),
     commit: vi.fn(async () => "task-1"),
     ...overrides,
   };
