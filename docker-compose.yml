@@ -1,4 +1,16 @@
 services:
+  model-runner:
+    image: docker/model-runner:latest
+    container_name: docker-model-runner
+    environment:
+      - LLAMA_ARG_BATCH=8192
+      - LLAMA_ARG_UBATCH=8192
+    volumes:
+      - model-runner-models:/models
+    ports:
+      - "127.0.0.1:12434:12434"
+    restart: unless-stopped
+
   openviking:
     image: ghcr.io/volcengine/openviking:v0.3.13
     container_name: pi-openviking
@@ -10,3 +22,16 @@ services:
       - ${HOME}/.openviking/data:/app/data
     network_mode: host
     restart: unless-stopped
+    depends_on:
+      - model-runner
+
+models:
+  embedding:
+    model: huggingface.co/ggml-org/bge-m3-q8_0-gguf:latest
+    context_size: 8192
+
+
+volumes:
+  model-runner-models:
+    external: true
+    name: docker-model-runner-models
