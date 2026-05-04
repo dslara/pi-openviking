@@ -21,7 +21,7 @@ export interface BrowseResult {
 export interface OpenVikingClient {
   createSession(signal?: AbortSignal): Promise<string>;
   sendMessage(sessionId: string, role: string, content: string, signal?: AbortSignal): Promise<void>;
-  search(sessionId: string, query: string, limit?: number, signal?: AbortSignal): Promise<SearchResult>;
+  search(sessionId: string | undefined, query: string, limit?: number, signal?: AbortSignal): Promise<SearchResult>;
   read(uri: string, level?: "abstract" | "overview" | "read", signal?: AbortSignal): Promise<ReadResult>;
   fsList(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   fsTree(uri: string, signal?: AbortSignal): Promise<BrowseResult>;

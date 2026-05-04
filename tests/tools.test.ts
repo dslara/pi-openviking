@@ -274,7 +274,7 @@ describe("memcommit tool", () => {
     const result = await tool.execute("tc-1", {}, undefined, onUpdate);
 
     expect(sync.flush).toHaveBeenCalledTimes(1);
-    expect(onUpdate).toHaveBeenCalledWith("Committing session to OpenViking...");
+    expect(onUpdate).toHaveBeenCalledWith({ content: [{ type: "text", text: "Committing session to OpenViking..." }], details: {} });
     expect(client.commit).toHaveBeenCalledWith("ov-sess-123", undefined);
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain("task-abc");

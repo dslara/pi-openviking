@@ -3,6 +3,7 @@ import { loadConfig } from "./config";
 import { createClient } from "./client";
 import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool } from "./tools";
 import { SessionSync } from "./session";
+import { createAutoRecall } from "./auto-recall";
 
 export default function openVikingExtension(pi: ExtensionAPI) {
   let registered = false;
@@ -25,6 +26,11 @@ export default function openVikingExtension(pi: ExtensionAPI) {
       registerMemreadTool(pi, client);
       registerMembrowseTool(pi, client);
       registerMemcommitTool(pi, client, sessionSync);
+
+      const autoRecall = createAutoRecall(client, sessionSync);
+      pi.on("before_agent_start", async (event) => {
+        return autoRecall(event);
+      });
     }
 
     sessionSync?.onSessionStart();

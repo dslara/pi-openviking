@@ -1,6 +1,7 @@
-import { describe, test, expect, beforeAll } from "vitest";
+import { describe, test, expect, beforeAll, vi } from "vitest";
 import { loadConfig } from "../src/config";
 import { createClient } from "../src/client";
+import { createAutoRecall } from "../src/auto-recall";
 
 /*
  * Integration test — requires a running OpenViking server.
@@ -118,5 +119,42 @@ describe("full round-trip: search → memread", () => {
     }
 
     expect(true).toBe(true);
+  });
+});
+
+describe("auto-recall integration", () => {
+  test("appends relevant-memories block with real search results", async () => {
+    if (!serverUp) return;
+
+    const sync = {
+      getOvSessionId: vi.fn(() => sessionId),
+      flush: vi.fn(async () => {}),
+    };
+
+    const autoRecall = createAutoRecall(client, sync);
+    const result = await autoRecall({ prompt: "openviking", systemPrompt: "You are a helpful assistant." });
+
+    expect(result.systemPrompt).toBeDefined();
+    expect(result.systemPrompt).toContain("<relevant-memories>");
+    expect(result.systemPrompt).toContain("</relevant-memories>");
+    expect(result.systemPrompt).toContain("Use the memread tool");
+    expect(result.systemPrompt).toMatch(/^You are a helpful assistant\.\n\n/);
+
+    console.log("auto-recall appended block length:", result.systemPrompt!.length - "You are a helpful assistant.\n\n".length);
+  });
+
+  test("works without session_id (context-agnostic search)", async () => {
+    if (!serverUp) return;
+
+    const sync = {
+      getOvSessionId: vi.fn(() => undefined),
+      flush: vi.fn(async () => {}),
+    };
+
+    const autoRecall = createAutoRecall(client, sync);
+    const result = await autoRecall({ prompt: "openviking", systemPrompt: "base" });
+
+    expect(result.systemPrompt).toBeDefined();
+    expect(result.systemPrompt).toContain("<relevant-memories>");
   });
 });

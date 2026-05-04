@@ -167,7 +167,7 @@ export function registerMemcommitTool(
 
       try {
         await sync.flush();
-        onUpdate?.("Committing session to OpenViking...");
+        onUpdate?.({ content: [{ type: "text", text: "Committing session to OpenViking..." }], details: {} });
         const result = await client.commit(ovSessionId, signal);
         return {
           content: [{ type: "text", text: `Committed to OpenViking. Task: ${result.task_id}, Archived: ${result.archived}` }],
