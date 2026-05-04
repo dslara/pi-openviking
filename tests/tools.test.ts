@@ -270,9 +270,11 @@ describe("memcommit tool", () => {
     registerMemcommitTool(pi as any, client, sync);
 
     const tool = pi.tools.find((t) => t.name === "memcommit")!;
-    const result = await tool.execute("tc-1", {});
+    const onUpdate = vi.fn();
+    const result = await tool.execute("tc-1", {}, undefined, onUpdate);
 
     expect(sync.flush).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledWith("Committing session to OpenViking...");
     expect(client.commit).toHaveBeenCalledWith("ov-sess-123", undefined);
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain("task-abc");
