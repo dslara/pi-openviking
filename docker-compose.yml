@@ -5,6 +5,8 @@ services:
     environment:
       - LLAMA_ARG_BATCH=8192
       - LLAMA_ARG_UBATCH=8192
+      - LLAMA_ARG_N_GPU_LAYERS=0
+      - GGML_VULKAN_DISABLE=1
     volumes:
       - model-runner-models:/models
     ports:
@@ -28,6 +30,9 @@ services:
 models:
   embedding:
     model: huggingface.co/ggml-org/bge-m3-q8_0-gguf:latest
+    context_size: 8192
+  vlm:
+    model: huggingface.co/ggml-org/gemma-4-E2B-it-GGUF:latest
     context_size: 8192
 
 

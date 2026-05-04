@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import type { OpenVikingClient, SearchResult } from "../src/client";
-import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool } from "../src/tools";
+import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool } from "../src/tools";
 
 function mockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient {
   return {
@@ -15,7 +15,7 @@ function mockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient
     fsList: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
     fsTree: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
     fsStat: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
-    commit: vi.fn(async () => "task-1"),
+    commit: vi.fn(async () => ({ task_id: "task-1", archived: true })),
     ...overrides,
   };
 }
@@ -30,7 +30,16 @@ interface ToolDef {
   name: string;
   promptSnippet?: string;
   promptGuidelines?: string[];
+  parameters?: unknown;
   execute: (id: string, params: Record<string, unknown>, signal?: AbortSignal, onUpdate?: unknown, ctx?: unknown) => Promise<ToolResult>;
+}
+
+function mockSessionSync(overrides: Partial<{ getOvSessionId(): string | undefined; flush(): Promise<void> }> = {}) {
+  return {
+    getOvSessionId: vi.fn(() => "ov-sess-1"),
+    flush: vi.fn(async () => {}),
+    ...overrides,
+  };
 }
 
 function createMockPi() {
@@ -217,6 +226,57 @@ describe("memread tool", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("viking://");
     expect(client.read).not.toHaveBeenCalled();
+  });
+});
+
+describe("memcommit tool", () => {
+  let pi: ReturnType<typeof createMockPi>;
+
+  beforeEach(() => {
+    pi = createMockPi();
+  });
+
+  test("registers with promptSnippet and promptGuidelines", () => {
+    const client = mockClient();
+    const sync = mockSessionSync();
+    registerMemcommitTool(pi as any, client, sync);
+
+    const tool = pi.tools.find((t) => t.name === "memcommit");
+    expect(tool).toBeDefined();
+    expect(tool!.promptSnippet).toBeDefined();
+    expect(tool!.promptGuidelines).toBeDefined();
+    expect(tool!.promptGuidelines!.length).toBeGreaterThan(0);
+    expect(tool!.parameters).toBeDefined();
+  });
+
+  test("returns error when no session mapped", async () => {
+    const client = mockClient();
+    const sync = mockSessionSync({ getOvSessionId: () => undefined });
+    registerMemcommitTool(pi as any, client, sync);
+
+    const tool = pi.tools.find((t) => t.name === "memcommit")!;
+    const result = await tool.execute("tc-1", {});
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("No OpenViking session mapped");
+    expect(client.commit).not.toHaveBeenCalled();
+  });
+
+  test("flushes pending messages and calls commit with ovSessionId", async () => {
+    const client = mockClient({
+      commit: vi.fn(async () => ({ task_id: "task-abc", archived: true })),
+    });
+    const sync = mockSessionSync({ getOvSessionId: () => "ov-sess-123" });
+    registerMemcommitTool(pi as any, client, sync);
+
+    const tool = pi.tools.find((t) => t.name === "memcommit")!;
+    const result = await tool.execute("tc-1", {});
+
+    expect(sync.flush).toHaveBeenCalledTimes(1);
+    expect(client.commit).toHaveBeenCalledWith("ov-sess-123", undefined);
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain("task-abc");
+    expect(result.content[0].text).toContain("Archived");
   });
 });
 

@@ -11,7 +11,7 @@ function mockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient
     fsList: vi.fn(async () => ({ uri: "", children: [] })),
     fsTree: vi.fn(async () => ({ uri: "", children: [] })),
     fsStat: vi.fn(async () => ({ uri: "", children: [] })),
-    commit: vi.fn(async () => "task-1"),
+    commit: vi.fn(async () => ({ task_id: "task-1", archived: true })),
     ...overrides,
   };
 }

@@ -26,7 +26,7 @@ export interface OpenVikingClient {
   fsList(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   fsTree(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   fsStat(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
-  commit(sessionId: string, signal?: AbortSignal): Promise<string>;
+  commit(sessionId: string, signal?: AbortSignal): Promise<{ task_id: string; archived: boolean }>;
 }
 
 class OpenVikingError extends Error {
@@ -74,9 +74,10 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
     "X-OpenViking-User": config.user,
   };
 
-  async function request(method: string, path: string, opts?: { body?: unknown; httpMethod?: string }, signal?: AbortSignal): Promise<unknown> {
+  async function request(method: string, path: string, opts?: { body?: unknown; httpMethod?: string; timeout?: number }, signal?: AbortSignal): Promise<unknown> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), config.timeout);
+    const timeoutMs = opts?.timeout ?? config.timeout;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     const onAbort = () => controller.abort();
     signal?.addEventListener("abort", onAbort);
@@ -187,10 +188,10 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
       const result = (await request(
         "commit",
         `/api/v1/sessions/${sessionId}/commit`,
-        { body: {} },
+        { body: {}, timeout: config.commitTimeout },
         signal,
-      )) as { task_id: string };
-      return result.task_id;
+      )) as { task_id: string; archived: boolean };
+      return result;
     },
   };
 }

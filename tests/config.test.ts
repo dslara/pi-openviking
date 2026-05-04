@@ -28,6 +28,7 @@ describe("loadConfig", () => {
   test("returns defaults when no settings file or env", () => {
     delete process.env.OPENVIKING_ENDPOINT;
     delete process.env.OPENVIKING_TIMEOUT;
+    delete process.env.OPENVIKING_COMMIT_TIMEOUT;
     delete process.env.OPENVIKING_API_KEY;
     delete process.env.OPENVIKING_ACCOUNT;
     delete process.env.OPENVIKING_USER;
@@ -37,6 +38,7 @@ describe("loadConfig", () => {
     expect(config).toEqual({
       endpoint: "http://localhost:1933",
       timeout: 30000,
+      commitTimeout: 60000,
       apiKey: "dev",
       account: "default",
       user: "default",
@@ -47,6 +49,7 @@ describe("loadConfig", () => {
     writeSettings({
       openVikingEndpoint: "http://custom:1933",
       openVikingTimeout: 10000,
+      openVikingCommitTimeout: 120000,
       openVikingApiKey: "my-key",
       openVikingAccount: "acme",
       openVikingUser: "alice",
@@ -57,6 +60,7 @@ describe("loadConfig", () => {
     expect(config).toEqual({
       endpoint: "http://custom:1933",
       timeout: 10000,
+      commitTimeout: 120000,
       apiKey: "my-key",
       account: "acme",
       user: "alice",
@@ -67,12 +71,14 @@ describe("loadConfig", () => {
     writeSettings({
       openVikingEndpoint: "http://custom:1933",
       openVikingTimeout: 10000,
+      openVikingCommitTimeout: 120000,
       openVikingApiKey: "my-key",
       openVikingAccount: "acme",
       openVikingUser: "alice",
     });
     process.env.OPENVIKING_ENDPOINT = "http://env:1933";
     process.env.OPENVIKING_TIMEOUT = "5000";
+    process.env.OPENVIKING_COMMIT_TIMEOUT = "30000";
     process.env.OPENVIKING_API_KEY = "env-key";
     process.env.OPENVIKING_ACCOUNT = "env-acct";
     process.env.OPENVIKING_USER = "env-user";
@@ -82,6 +88,7 @@ describe("loadConfig", () => {
     expect(config).toEqual({
       endpoint: "http://custom:1933",
       timeout: 10000,
+      commitTimeout: 120000,
       apiKey: "my-key",
       account: "acme",
       user: "alice",

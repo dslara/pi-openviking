@@ -5,6 +5,7 @@ import type { OpenVikingConfig } from "../src/config";
 const defaultConfig: OpenVikingConfig = {
   endpoint: "http://localhost:1933",
   timeout: 5000,
+  commitTimeout: 60000,
   apiKey: "dev",
   account: "default",
   user: "default",
@@ -350,7 +351,7 @@ describe("OpenVikingClient", () => {
   });
 
   describe("commit", () => {
-    test("returns task_id on success", async () => {
+    test("returns task_id and archived on success", async () => {
       restoreFetch = mockFetch(async (url) => {
         expect(url).toBe("http://localhost:1933/api/v1/sessions/sess-1/commit");
         return {
@@ -361,14 +362,16 @@ describe("OpenVikingClient", () => {
               session_id: "sess-1",
               status: "accepted",
               task_id: "task-999",
+              archived: true,
             },
           },
         };
       });
 
       const client = createClient(defaultConfig);
-      const taskId = await client.commit("sess-1");
-      expect(taskId).toBe("task-999");
+      const result = await client.commit("sess-1");
+      expect(result.task_id).toBe("task-999");
+      expect(result.archived).toBe(true);
     });
 
     test("throws user-facing error on server error", async () => {

@@ -8,7 +8,12 @@ export interface SessionSyncOpts {
   appendEntry: (type: string, data: unknown) => void;
 }
 
-export class SessionSync {
+export interface SessionSyncLike {
+  getOvSessionId(): string | undefined;
+  flush(): Promise<void>;
+}
+
+export class SessionSync implements SessionSyncLike {
   private client: OpenVikingClient;
   private opts: SessionSyncOpts;
   private ovSessionId: string | undefined;
@@ -48,6 +53,14 @@ export class SessionSync {
       }
       await this.client.sendMessage(this.ovSessionId!, role, text);
     });
+  }
+
+  getOvSessionId(): string | undefined {
+    return this.ovSessionId;
+  }
+
+  flush(): Promise<void> {
+    return this.pendingChain;
   }
 
   onShutdown(): void {

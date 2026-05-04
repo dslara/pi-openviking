@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "./client";
+import type { SessionSyncLike } from "./session";
 
 const SEARCH_PARAMS = Type.Object({
   query: Type.String({ description: "Search query to find relevant memories and resources" }),
@@ -123,6 +124,57 @@ export function registerMembrowseTool(pi: ExtensionAPI, client: OpenVikingClient
         return {
           content: [{ type: "text", text: parts.join("\n") }],
           details: {},
+        };
+      } catch (err) {
+        const msg = (err as Error).message;
+        return {
+          content: [{ type: "text", text: msg }],
+          details: {},
+          isError: true,
+        };
+      }
+    },
+  });
+}
+
+export function registerMemcommitTool(
+  pi: ExtensionAPI,
+  client: OpenVikingClient,
+  sync: SessionSyncLike,
+) {
+  pi.registerTool({
+    name: "memcommit",
+    label: "Memory Commit",
+    description:
+      "Commit the current conversation to OpenViking long-term memory. " +
+      "Flushes pending messages and triggers background memory extraction.",
+    promptSnippet: "Commit conversation to OpenViking memory",
+    promptGuidelines: [
+      "Use memcommit when the user explicitly asks to save the conversation to memory.",
+      "memcommit requires an active OpenViking session. If no session exists, inform the user to start a conversation first.",
+    ],
+    parameters: Type.Object({}),
+
+    async execute(_toolCallId, _params, signal) {
+      const ovSessionId = sync.getOvSessionId();
+      if (!ovSessionId) {
+        return {
+          content: [{ type: "text", text: "No OpenViking session mapped. Start a conversation first." }],
+          details: {},
+          isError: true,
+        };
+      }
+
+      try {
+        await sync.flush();
+        const result = await client.commit(ovSessionId, signal);
+        return {
+          content: [{ type: "text", text: `Committed to OpenViking. Task: ${result.task_id}, Archived: ${result.archived}` }],
+          details: {
+            task_id: result.task_id,
+            archived: result.archived,
+            memories_extracted: 0,
+          },
         };
       } catch (err) {
         const msg = (err as Error).message;

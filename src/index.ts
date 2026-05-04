@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { loadConfig } from "./config";
 import { createClient } from "./client";
-import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool } from "./tools";
+import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool } from "./tools";
 import { SessionSync } from "./session";
 
 export default function openVikingExtension(pi: ExtensionAPI) {
@@ -14,15 +14,17 @@ export default function openVikingExtension(pi: ExtensionAPI) {
 
       const config = loadConfig(ctx.cwd);
       const client = createClient(config);
-      registerMemsearchTool(pi, client);
-      registerMemreadTool(pi, client);
-      registerMembrowseTool(pi, client);
 
       sessionSync = new SessionSync(client, {
         getSessionFile: () => ctx.sessionManager.getSessionFile(),
         getBranch: () => ctx.sessionManager.getBranch(),
         appendEntry: (type, data) => pi.appendEntry(type, data),
       });
+
+      registerMemsearchTool(pi, client);
+      registerMemreadTool(pi, client);
+      registerMembrowseTool(pi, client);
+      registerMemcommitTool(pi, client, sessionSync);
     }
 
     sessionSync?.onSessionStart();

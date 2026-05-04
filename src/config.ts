@@ -4,6 +4,7 @@ import { join } from "node:path";
 export interface OpenVikingConfig {
   endpoint: string;
   timeout: number;
+  commitTimeout: number;
   apiKey: string;
   account: string;
   user: string;
@@ -12,6 +13,7 @@ export interface OpenVikingConfig {
 interface PiSettings {
   openVikingEndpoint?: string;
   openVikingTimeout?: number;
+  openVikingCommitTimeout?: number;
   openVikingApiKey?: string;
   openVikingAccount?: string;
   openVikingUser?: string;
@@ -41,6 +43,12 @@ export function loadConfig(cwd: string): OpenVikingConfig {
         ? parseInt(process.env.OPENVIKING_TIMEOUT, 10)
         : undefined) ??
       30000,
+    commitTimeout:
+      settings.openVikingCommitTimeout ??
+      (process.env.OPENVIKING_COMMIT_TIMEOUT
+        ? parseInt(process.env.OPENVIKING_COMMIT_TIMEOUT, 10)
+        : undefined) ??
+      60000,
     apiKey:
       settings.openVikingApiKey ??
       process.env.OPENVIKING_API_KEY ??
