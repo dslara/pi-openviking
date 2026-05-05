@@ -139,6 +139,47 @@ describe("OpenVikingClient", () => {
         "OpenViking search failed: overloaded (HTTP 503)",
       );
     });
+
+    test("uses /search/search endpoint for deep mode with session", async () => {
+      restoreFetch = mockFetch(async (url, init) => {
+        expect(url).toBe("http://localhost:1933/api/v1/search/search");
+        const body = JSON.parse(init.body as string);
+        expect(body.session_id).toBe("sess-1");
+        expect(body.query).toBe("deep query");
+        expect(body.mode).toBe("deep");
+        return {
+          status: 200,
+          body: {
+            status: "ok",
+            result: {
+              memories: [{ text: "deep-mem", score: 0.95 }],
+              resources: [],
+              total: 1,
+            },
+          },
+        };
+      });
+
+      const client = createClient(defaultConfig);
+      const results = await client.search("sess-1", "deep query", 10, "deep");
+      expect(results.memories[0].text).toBe("deep-mem");
+    });
+
+    test("deep mode without session falls back to /search/find", async () => {
+      restoreFetch = mockFetch(async (url) => {
+        expect(url).toBe("http://localhost:1933/api/v1/search/find");
+        return {
+          status: 200,
+          body: {
+            status: "ok",
+            result: { memories: [], resources: [], total: 0 },
+          },
+        };
+      });
+
+      const client = createClient(defaultConfig);
+      await client.search(undefined, "query", 10, "deep");
+    });
   });
 
   describe("sendMessage", () => {

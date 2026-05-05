@@ -63,7 +63,8 @@ describe("memsearch tool", () => {
 
   test("registers with promptSnippet and promptGuidelines", () => {
     const client = mockClient();
-    registerMemsearchTool(pi as any, client);
+    const sync = mockSessionSync();
+    registerMemsearchTool(pi as any, client, sync);
 
     expect(pi.registerTool).toHaveBeenCalledOnce();
     const tool = pi.tools[0];
@@ -76,7 +77,7 @@ describe("memsearch tool", () => {
     }
   });
 
-  test("creates session on first call, reuses on subsequent", async () => {
+  test("uses sync session and calls search", async () => {
     const client = mockClient({
       search: vi.fn(async () => ({
         memories: [{ text: "hello world", score: 0.95 }],
@@ -84,21 +85,21 @@ describe("memsearch tool", () => {
         total: 1,
       } as SearchResult)),
     });
-    registerMemsearchTool(pi as any, client);
+    const sync = mockSessionSync({ getOvSessionId: () => "ov-sess-1" });
+    registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
 
-    const result1 = await tool.execute("tc-1", { query: "hello" });
-    expect(client.createSession).toHaveBeenCalledTimes(1);
-    expect(result1.content[0].text).toContain("hello world");
-
-    await tool.execute("tc-2", { query: "world" });
-    expect(client.createSession).toHaveBeenCalledTimes(1);
+    const result = await tool.execute("tc-1", { query: "hello" });
+    expect(client.createSession).not.toHaveBeenCalled();
+    expect(client.search).toHaveBeenCalledWith("ov-sess-1", "hello", 10, "deep", undefined);
+    expect(result.content[0].text).toContain("hello world");
   });
 
   test("returns 'No results found' when empty", async () => {
     const client = mockClient();
-    registerMemsearchTool(pi as any, client);
+    const sync = mockSessionSync();
+    registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
     const result = await tool.execute("tc-1", { query: "nothing" });
@@ -107,11 +108,12 @@ describe("memsearch tool", () => {
 
   test("returns isError on client failure", async () => {
     const client = mockClient({
-      createSession: vi.fn(async () => {
-        throw new Error("OpenViking createSession failed: server error (HTTP 500)");
+      search: vi.fn(async () => {
+        throw new Error("OpenViking search failed: server error (HTTP 500)");
       }),
     });
-    registerMemsearchTool(pi as any, client);
+    const sync = mockSessionSync();
+    registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
     const result = await tool.execute("tc-1", { query: "test" });
@@ -121,11 +123,12 @@ describe("memsearch tool", () => {
 
   test("notifies on first failure when ctx.hasUI is true", async () => {
     const client = mockClient({
-      createSession: vi.fn(async () => {
-        throw new Error("OpenViking createSession failed: server error (HTTP 500)");
+      search: vi.fn(async () => {
+        throw new Error("OpenViking search failed: server error (HTTP 500)");
       }),
     });
-    registerMemsearchTool(pi as any, client);
+    const sync = mockSessionSync();
+    registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
     const notify = vi.fn();
@@ -142,17 +145,51 @@ describe("memsearch tool", () => {
 
   test("skips notification when ctx.hasUI is false", async () => {
     const client = mockClient({
-      createSession: vi.fn(async () => {
-        throw new Error("OpenViking createSession failed: server error (HTTP 500)");
+      search: vi.fn(async () => {
+        throw new Error("OpenViking search failed: server error (HTTP 500)");
       }),
     });
-    registerMemsearchTool(pi as any, client);
+    const sync = mockSessionSync();
+    registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
     const ctx = { hasUI: false, ui: { notify: vi.fn() } } as any;
 
     await tool.execute("tc-1", { query: "test" }, undefined, undefined, ctx);
     expect(ctx.ui.notify).not.toHaveBeenCalled();
+  });
+
+  test("auto mode resolves to deep when session available", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], total: 0 } as SearchResult));
+    const client = mockClient({ search });
+    const sync = mockSessionSync({ getOvSessionId: () => "ov-sess-1" });
+    registerMemsearchTool(pi as any, client, sync);
+
+    const tool = pi.tools[0];
+    await tool.execute("tc-1", { query: "test", mode: "auto" });
+    expect(search).toHaveBeenCalledWith("ov-sess-1", "test", 10, "deep", undefined);
+  });
+
+  test("auto mode resolves to fast when no session", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], total: 0 } as SearchResult));
+    const client = mockClient({ search });
+    const sync = mockSessionSync({ getOvSessionId: () => undefined });
+    registerMemsearchTool(pi as any, client, sync);
+
+    const tool = pi.tools[0];
+    await tool.execute("tc-1", { query: "test", mode: "auto" });
+    expect(search).toHaveBeenCalledWith(undefined, "test", 10, "fast", undefined);
+  });
+
+  test("deep mode without session falls back to fast", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], total: 0 } as SearchResult));
+    const client = mockClient({ search });
+    const sync = mockSessionSync({ getOvSessionId: () => undefined });
+    registerMemsearchTool(pi as any, client, sync);
+
+    const tool = pi.tools[0];
+    await tool.execute("tc-1", { query: "test", mode: "deep" });
+    expect(search).toHaveBeenCalledWith(undefined, "test", 10, "fast", undefined);
   });
 });
 

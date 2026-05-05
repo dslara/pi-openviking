@@ -16,7 +16,7 @@ export function createAutoRecall(
     const timeout = setTimeout(() => controller.abort(), 5000);
 
     try {
-      const results = await client.search(sessionId, event.prompt, 10, controller.signal);
+      const results = await client.search(sessionId, event.prompt, 10, "fast", controller.signal);
       const block = formatResults(results);
       if (!block) return {};
       return { systemPrompt: `${event.systemPrompt}\n\n${block}` };

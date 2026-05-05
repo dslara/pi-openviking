@@ -21,7 +21,7 @@ export interface BrowseResult {
 export interface OpenVikingClient {
   createSession(signal?: AbortSignal): Promise<string>;
   sendMessage(sessionId: string, role: string, content: string, signal?: AbortSignal): Promise<void>;
-  search(sessionId: string | undefined, query: string, limit?: number, signal?: AbortSignal): Promise<SearchResult>;
+  search(sessionId: string | undefined, query: string, limit?: number, mode?: "fast" | "deep", signal?: AbortSignal): Promise<SearchResult>;
   read(uri: string, level?: "abstract" | "overview" | "read", signal?: AbortSignal): Promise<ReadResult>;
   fsList(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   fsTree(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
@@ -130,11 +130,16 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
       );
     },
 
-    async search(sessionId, query, limit = 10, signal?) {
+    async search(sessionId, query, limit = 10, mode = "fast", signal?) {
+      const useDeep = mode === "deep" && !!sessionId;
+      const path = useDeep ? "/api/v1/search/search" : "/api/v1/search/find";
+      const body: Record<string, unknown> = { query, limit };
+      if (sessionId) body.session_id = sessionId;
+      if (useDeep) body.mode = "deep";
       return (await request(
         "search",
-        "/api/v1/search/find",
-        { body: { session_id: sessionId, query, mode: "fast", limit } },
+        path,
+        { body },
         signal,
       )) as SearchResult;
     },

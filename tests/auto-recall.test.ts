@@ -74,7 +74,7 @@ describe("createAutoRecall", () => {
     const autoRecall = createAutoRecall(client, sync);
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
-    expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, expect.any(AbortSignal));
+    expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "fast", expect.any(AbortSignal));
   });
 
   test("passes undefined session_id when not mapped", async () => {
@@ -84,7 +84,7 @@ describe("createAutoRecall", () => {
     const autoRecall = createAutoRecall(client, sync);
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
-    expect(search).toHaveBeenCalledWith(undefined, "hello", 10, expect.any(AbortSignal));
+    expect(search).toHaveBeenCalledWith(undefined, "hello", 10, "fast", expect.any(AbortSignal));
   });
 
   test("deduplicates by abstract + uri and limits to 5", async () => {

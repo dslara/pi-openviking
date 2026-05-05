@@ -6,6 +6,11 @@ import type { SessionSyncLike } from "./session";
 const SEARCH_PARAMS = Type.Object({
   query: Type.String({ description: "Search query to find relevant memories and resources" }),
   limit: Type.Optional(Type.Number({ description: "Maximum results to return (default 10)" })),
+  mode: Type.Optional(Type.Union([
+    Type.Literal("auto"),
+    Type.Literal("fast"),
+    Type.Literal("deep"),
+  ], { description: "Search mode: auto (default), fast (semantic), deep (context-aware with session)", default: "auto" })),
 });
 
 const MEMREAD_PARAMS = Type.Object({
@@ -189,8 +194,7 @@ export function registerMemcommitTool(
   });
 }
 
-export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient) {
-  let sessionId: string | undefined;
+export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient, sync: SessionSyncLike) {
   const notifiedPerCtx = new WeakMap<object, boolean>();
 
   pi.registerTool({
@@ -208,11 +212,20 @@ export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       try {
-        if (!sessionId) {
-          sessionId = await client.createSession(signal);
+        const rawMode = (params.mode as "auto" | "fast" | "deep" | undefined) ?? "auto";
+        const sessionId = sync.getOvSessionId();
+        let resolvedMode: "fast" | "deep";
+        if (rawMode === "auto") {
+          resolvedMode = sessionId ? "deep" : "fast";
+        } else {
+          resolvedMode = rawMode;
+        }
+        // Deep mode without session falls back to fast
+        if (resolvedMode === "deep" && !sessionId) {
+          resolvedMode = "fast";
         }
 
-        const results = await client.search(sessionId, params.query, params.limit ?? 10, signal);
+        const results = await client.search(sessionId, params.query, params.limit ?? 10, resolvedMode, signal);
 
         if (results.total === 0) {
           return {

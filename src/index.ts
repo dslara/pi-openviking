@@ -22,7 +22,7 @@ export default function openVikingExtension(pi: ExtensionAPI) {
         appendEntry: (type, data) => pi.appendEntry(type, data),
       });
 
-      registerMemsearchTool(pi, client);
+      registerMemsearchTool(pi, client, sessionSync);
       registerMemreadTool(pi, client);
       registerMembrowseTool(pi, client);
       registerMemcommitTool(pi, client, sessionSync);
