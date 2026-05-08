@@ -8,6 +8,9 @@ export interface OpenVikingConfig {
   apiKey: string;
   account: string;
   user: string;
+  autoRecallLimit: number;
+  autoRecallTimeout: number;
+  autoRecallTopN: number;
 }
 
 interface PiSettings {
@@ -17,6 +20,9 @@ interface PiSettings {
   openVikingApiKey?: string;
   openVikingAccount?: string;
   openVikingUser?: string;
+  openVikingAutoRecallLimit?: number;
+  openVikingAutoRecallTimeout?: number;
+  openVikingAutoRecallTopN?: number;
   [key: string]: unknown;
 }
 
@@ -61,5 +67,23 @@ export function loadConfig(cwd: string): OpenVikingConfig {
       settings.openVikingUser ??
       process.env.OPENVIKING_USER ??
       "default",
+    autoRecallLimit:
+      settings.openVikingAutoRecallLimit ??
+      (process.env.OPENVIKING_AUTO_RECALL_LIMIT
+        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_LIMIT, 10)
+        : undefined) ??
+      10,
+    autoRecallTimeout:
+      settings.openVikingAutoRecallTimeout ??
+      (process.env.OPENVIKING_AUTO_RECALL_TIMEOUT
+        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_TIMEOUT, 10)
+        : undefined) ??
+      5000,
+    autoRecallTopN:
+      settings.openVikingAutoRecallTopN ??
+      (process.env.OPENVIKING_AUTO_RECALL_TOPN
+        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_TOPN, 10)
+        : undefined) ??
+      5,
   };
 }

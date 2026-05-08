@@ -14,12 +14,18 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 | **OV** | OpenViking server — context database with filesystem paradigm |
 | **auto-recall** | Before each agent turn, inject relevant memories into systemPrompt via `<relevant-memories>` block. Deep mode when OV session exists, fast mode otherwise. Token budget ~500 tokens. Configurable per project (`openVikingAutoRecall`). |
 | **Session Sync** | One-to-one mapping between a pi session and an OV session. Lazily creates OV session, streams user/assistant text-only messages incrementally. |
-| **memsearch** | Tool: semantic search across OV memories and resources. Supports `mode` (auto/fast/deep) and optional `target_uri` to scope search. |
+| **memsearch** | Tool: semantic search across OV memories, resources, and skills. Returns raw JSON (`total`, `memories`, `resources`, `skills`, `query_plan`). Supports `mode` (auto/fast/deep). Auto mode uses `Search Mode Resolver`. |
 | **memread** | Tool: read content at a viking:// URI (L0 abstract, L1 overview, L2 full). Auto-detects level from stat (dir → overview, file → read). |
 | **membrowse** | Tool: list/tree/stat the viking:// filesystem. |
 | **memcommit** | Tool: commit current session to OV, triggering memory extraction. Fire-and-forget (returns task_id). |
 | **memimport** | Tool: import resource or skill into OV. Sources: URLs, local files, local directories (via temp_upload + zip). Optional `kind: "resource" \| "skill"`. Fire-and-forget. |
 | **memdelete** | Tool: remove by viking:// URI. No search-then-delete. |
+| **Tool Definition** | Reusable factory (`defineTool`) for registering OpenViking tools with pi. Handles metadata wiring, optional URI validation, error wrapping, and `ToolResult` assembly. Tool executors provide only the unique logic. |
+| **Transport** | Low-level HTTP module for OpenViking. Handles fetch, timeout/abort merge, JSON envelope parsing, and `OpenVikingError` classification. Interface: `request(methodLabel, path, opts?, signal?)`. |
+| **Client Adapter** | `createClient` — maps domain operations (`search`, `read`, `fsList`, etc.) to transport calls. Knows endpoint paths, query/body assembly, and response normalization. |
+| **Search Mode Resolver** | `resolveSearchMode` — decides between `fast` and `deep` for auto mode. Deep if session exists, else deep if query is complex (`?`, length ≥ 80, wordCount ≥ 8), else fast. |
+| **Bootstrap** | `bootstrapExtension` — one-time setup per extension lifetime. Loads config, creates client and sessionSync, registers tools, wires auto-recall. Returns `{ sessionSync }` for lifecycle delegation. |
+| **Auto Recall Options** | Configurable parameters for `createAutoRecall`: `limit` (search results, default 10), `timeout` (ms, default 5000), `topN` (max memories injected, default 5). Set via `openVikingAutoRecallLimit/Timeout/TopN` in `.pi/settings.json` or env vars. |
 | **Resource** | External knowledge (docs, code, URLs) stored under `viking://resources/` |
 | **Skill** | Structured agent capability stored under `viking://agent/skills/` |
 | **Memory** | Long-term knowledge extracted from sessions (profile, preferences, entities, events, cases, patterns) |

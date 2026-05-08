@@ -1,39 +1,20 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { loadConfig } from "./config";
-import { createClient } from "./client";
-import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool } from "./tools";
-import { SessionSync } from "./session";
-import { createAutoRecall } from "./auto-recall";
+import { bootstrapExtension } from "./bootstrap";
+import type { SessionSync } from "./session";
 
 export default function openVikingExtension(pi: ExtensionAPI) {
-  let registered = false;
   let sessionSync: SessionSync | undefined;
 
   pi.on("session_start", (_event, ctx) => {
-    if (!registered) {
-      registered = true;
-
-      const config = loadConfig(ctx.cwd);
-      const client = createClient(config);
-
-      sessionSync = new SessionSync(client, {
-        getSessionFile: () => ctx.sessionManager.getSessionFile(),
-        getBranch: () => ctx.sessionManager.getBranch(),
-        appendEntry: (type, data) => pi.appendEntry(type, data),
+    if (!sessionSync) {
+      const result = bootstrapExtension(pi, {
+        cwd: ctx.cwd,
+        sessionManager: ctx.sessionManager,
       });
-
-      registerMemsearchTool(pi, client, sessionSync);
-      registerMemreadTool(pi, client);
-      registerMembrowseTool(pi, client);
-      registerMemcommitTool(pi, client, sessionSync);
-
-      const autoRecall = createAutoRecall(client, sessionSync);
-      pi.on("before_agent_start", async (event) => {
-        return autoRecall(event);
-      });
+      sessionSync = result.sessionSync;
     }
 
-    sessionSync?.onSessionStart();
+    sessionSync.onSessionStart();
   });
 
   pi.on("message_end", (event) => {
@@ -42,5 +23,6 @@ export default function openVikingExtension(pi: ExtensionAPI) {
 
   pi.on("session_shutdown", () => {
     sessionSync?.onShutdown();
+    sessionSync = undefined;
   });
 }

@@ -1,24 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import type { OpenVikingClient, SearchResult } from "../src/client";
+import type { SearchResult } from "../src/client";
 import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool } from "../src/tools";
-
-function mockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient {
-  return {
-    createSession: vi.fn(async () => "sess-1"),
-    sendMessage: vi.fn(async () => {}),
-    search: vi.fn(async () => ({
-      memories: [],
-      resources: [],
-      total: 0,
-    } as SearchResult)),
-    read: vi.fn(async () => ({ content: "mock content" })),
-    fsList: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
-    fsTree: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
-    fsStat: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
-    commit: vi.fn(async () => ({ task_id: "task-1", archived: true })),
-    ...overrides,
-  };
-}
+import { createMockClient, createMockSessionSync } from "./mocks";
 
 interface ToolResult {
   content: Array<{ type: string; text: string }>;
@@ -32,14 +15,6 @@ interface ToolDef {
   promptGuidelines?: string[];
   parameters?: unknown;
   execute: (id: string, params: Record<string, unknown>, signal?: AbortSignal, onUpdate?: unknown, ctx?: unknown) => Promise<ToolResult>;
-}
-
-function mockSessionSync(overrides: Partial<{ getOvSessionId(): string | undefined; flush(): Promise<void> }> = {}) {
-  return {
-    getOvSessionId: vi.fn(() => "ov-sess-1"),
-    flush: vi.fn(async () => {}),
-    ...overrides,
-  };
 }
 
 function createMockPi() {
@@ -62,8 +37,8 @@ describe("memsearch tool", () => {
   });
 
   test("registers with promptSnippet and promptGuidelines", () => {
-    const client = mockClient();
-    const sync = mockSessionSync();
+    const client = createMockClient();
+    const sync = createMockSessionSync();
     registerMemsearchTool(pi as any, client, sync);
 
     expect(pi.registerTool).toHaveBeenCalledOnce();
@@ -78,14 +53,15 @@ describe("memsearch tool", () => {
   });
 
   test("uses sync session and calls search", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       search: vi.fn(async () => ({
         memories: [{ text: "hello world", score: 0.95 }],
         resources: [],
+        skills: [],
         total: 1,
       } as SearchResult)),
     });
-    const sync = mockSessionSync({ getOvSessionId: () => "ov-sess-1" });
+    const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-1" });
     registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
@@ -93,12 +69,13 @@ describe("memsearch tool", () => {
     const result = await tool.execute("tc-1", { query: "hello" });
     expect(client.createSession).not.toHaveBeenCalled();
     expect(client.search).toHaveBeenCalledWith("ov-sess-1", "hello", 10, "deep", undefined);
-    expect(result.content[0].text).toContain("hello world");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.memories[0].text).toBe("hello world");
   });
 
   test("returns 'No results found' when empty", async () => {
-    const client = mockClient();
-    const sync = mockSessionSync();
+    const client = createMockClient();
+    const sync = createMockSessionSync();
     registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
@@ -107,12 +84,12 @@ describe("memsearch tool", () => {
   });
 
   test("returns isError on client failure", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       search: vi.fn(async () => {
         throw new Error("OpenViking search failed: server error (HTTP 500)");
       }),
     });
-    const sync = mockSessionSync();
+    const sync = createMockSessionSync();
     registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
@@ -122,12 +99,12 @@ describe("memsearch tool", () => {
   });
 
   test("notifies on first failure when ctx.hasUI is true", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       search: vi.fn(async () => {
         throw new Error("OpenViking search failed: server error (HTTP 500)");
       }),
     });
-    const sync = mockSessionSync();
+    const sync = createMockSessionSync();
     registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
@@ -144,12 +121,12 @@ describe("memsearch tool", () => {
   });
 
   test("skips notification when ctx.hasUI is false", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       search: vi.fn(async () => {
         throw new Error("OpenViking search failed: server error (HTTP 500)");
       }),
     });
-    const sync = mockSessionSync();
+    const sync = createMockSessionSync();
     registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
@@ -160,9 +137,9 @@ describe("memsearch tool", () => {
   });
 
   test("auto mode resolves to deep when session available", async () => {
-    const search = vi.fn(async () => ({ memories: [], resources: [], total: 0 } as SearchResult));
-    const client = mockClient({ search });
-    const sync = mockSessionSync({ getOvSessionId: () => "ov-sess-1" });
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-1" });
     registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
@@ -170,10 +147,10 @@ describe("memsearch tool", () => {
     expect(search).toHaveBeenCalledWith("ov-sess-1", "test", 10, "deep", undefined);
   });
 
-  test("auto mode resolves to fast when no session", async () => {
-    const search = vi.fn(async () => ({ memories: [], resources: [], total: 0 } as SearchResult));
-    const client = mockClient({ search });
-    const sync = mockSessionSync({ getOvSessionId: () => undefined });
+  test("auto mode resolves to fast when no session and simple query", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync({ getOvSessionId: () => undefined });
     registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
@@ -181,15 +158,28 @@ describe("memsearch tool", () => {
     expect(search).toHaveBeenCalledWith(undefined, "test", 10, "fast", undefined);
   });
 
-  test("deep mode without session falls back to fast", async () => {
-    const search = vi.fn(async () => ({ memories: [], resources: [], total: 0 } as SearchResult));
-    const client = mockClient({ search });
-    const sync = mockSessionSync({ getOvSessionId: () => undefined });
+  test("deep mode without session still passes deep to client fallback", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync({ getOvSessionId: () => undefined });
     registerMemsearchTool(pi as any, client, sync);
 
     const tool = pi.tools[0];
     await tool.execute("tc-1", { query: "test", mode: "deep" });
-    expect(search).toHaveBeenCalledWith(undefined, "test", 10, "fast", undefined);
+    // resolveSearchMode returns "deep"; client.search internally falls back to /find when no session
+    expect(search).toHaveBeenCalledWith(undefined, "test", 10, "deep", undefined);
+  });
+
+  test("auto mode resolves to deep for complex query without session", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync({ getOvSessionId: () => undefined });
+    registerMemsearchTool(pi as any, client, sync);
+
+    const tool = pi.tools[0];
+    const complexQuery = "What are the detailed coding preferences and patterns used across all previous sessions?";
+    await tool.execute("tc-1", { query: complexQuery, mode: "auto" });
+    expect(search).toHaveBeenCalledWith(undefined, complexQuery, 10, "deep", undefined);
   });
 });
 
@@ -201,7 +191,7 @@ describe("memread tool", () => {
   });
 
   test("registers with promptSnippet and no promptGuidelines", () => {
-    const client = mockClient();
+    const client = createMockClient();
     registerMemreadTool(pi as any, client);
 
     const tool = pi.tools.find((t) => t.name === "memread");
@@ -211,7 +201,7 @@ describe("memread tool", () => {
   });
 
   test("reads content at explicit read level", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       read: vi.fn(async () => ({ content: "# Hello\n\nWorld" })),
     });
     registerMemreadTool(pi as any, client);
@@ -224,7 +214,7 @@ describe("memread tool", () => {
   });
 
   test("auto-level resolves to read for files", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       fsStat: vi.fn(async () => ({ uri: "viking://docs/readme.md", children: [{ uri: "viking://docs/readme.md", type: "file" }] })),
       read: vi.fn(async () => ({ content: "file content" })),
     });
@@ -239,7 +229,7 @@ describe("memread tool", () => {
   });
 
   test("auto-level resolves to overview for directories", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       fsStat: vi.fn(async () => ({ uri: "viking://docs/", children: [{ uri: "viking://docs/", type: "directory" }] })),
       read: vi.fn(async () => ({ content: "dir overview" })),
     });
@@ -254,7 +244,7 @@ describe("memread tool", () => {
   });
 
   test("returns error for invalid URI prefix", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     registerMemreadTool(pi as any, client);
 
     const tool = pi.tools.find((t) => t.name === "memread")!;
@@ -274,8 +264,8 @@ describe("memcommit tool", () => {
   });
 
   test("registers with promptSnippet and promptGuidelines", () => {
-    const client = mockClient();
-    const sync = mockSessionSync();
+    const client = createMockClient();
+    const sync = createMockSessionSync();
     registerMemcommitTool(pi as any, client, sync);
 
     const tool = pi.tools.find((t) => t.name === "memcommit");
@@ -287,8 +277,8 @@ describe("memcommit tool", () => {
   });
 
   test("returns error when no session mapped", async () => {
-    const client = mockClient();
-    const sync = mockSessionSync({ getOvSessionId: () => undefined });
+    const client = createMockClient();
+    const sync = createMockSessionSync({ getOvSessionId: () => undefined });
     registerMemcommitTool(pi as any, client, sync);
 
     const tool = pi.tools.find((t) => t.name === "memcommit")!;
@@ -300,10 +290,10 @@ describe("memcommit tool", () => {
   });
 
   test("flushes pending messages and calls commit with ovSessionId", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       commit: vi.fn(async () => ({ task_id: "task-abc", archived: true })),
     });
-    const sync = mockSessionSync({ getOvSessionId: () => "ov-sess-123" });
+    const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-123" });
     registerMemcommitTool(pi as any, client, sync);
 
     const tool = pi.tools.find((t) => t.name === "memcommit")!;
@@ -327,7 +317,7 @@ describe("membrowse tool", () => {
   });
 
   test("registers with promptSnippet and no promptGuidelines", () => {
-    const client = mockClient();
+    const client = createMockClient();
     registerMembrowseTool(pi as any, client);
 
     const tool = pi.tools.find((t) => t.name === "membrowse");
@@ -337,7 +327,7 @@ describe("membrowse tool", () => {
   });
 
   test("lists directory contents", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       fsList: vi.fn(async () => ({
         uri: "viking://resources/docs/",
         children: [
@@ -357,7 +347,7 @@ describe("membrowse tool", () => {
   });
 
   test("returns tree view", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       fsTree: vi.fn(async () => ({
         uri: "viking://resources/",
         children: [
@@ -376,7 +366,7 @@ describe("membrowse tool", () => {
   });
 
   test("returns stat view", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       fsStat: vi.fn(async () => ({
         uri: "viking://resources/file.md",
         children: [{ uri: "viking://resources/file.md", type: "file" }],
@@ -392,7 +382,7 @@ describe("membrowse tool", () => {
   });
 
   test("returns error for invalid URI prefix", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     registerMembrowseTool(pi as any, client);
 
     const tool = pi.tools.find((t) => t.name === "membrowse")!;

@@ -1,9 +1,15 @@
 import type { OpenVikingConfig } from "./config";
+import { createTransport, OpenVikingError } from "./transport";
+import type { Transport } from "./transport";
+
+export { OpenVikingError };
 
 export interface SearchResult {
   memories: Array<{ text: string; score: number;[k: string]: unknown }>;
   resources: Array<{ uri: string; score: number;[k: string]: unknown }>;
+  skills: Array<{ uri: string; score: number;[k: string]: unknown }>;
   total: number;
+  query_plan?: string;
   [k: string]: unknown;
 }
 
@@ -27,12 +33,6 @@ export interface OpenVikingClient {
   fsTree(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   fsStat(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   commit(sessionId: string, signal?: AbortSignal): Promise<{ task_id: string; archived: boolean }>;
-}
-
-class OpenVikingError extends Error {
-  constructor(method: string, message: string) {
-    super(`OpenViking ${method} failed: ${message}`);
-  }
 }
 
 /** Raw OV fs/ls and fs/tree entry shape */
@@ -66,63 +66,17 @@ function normalizeFsEntry(e: OVFsEntry): { uri: string; type: string; abstract?:
   };
 }
 
-export function createClient(config: OpenVikingConfig): OpenVikingClient {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "X-API-Key": config.apiKey,
-    "X-OpenViking-Account": config.account,
-    "X-OpenViking-User": config.user,
-  };
-
-  async function request(method: string, path: string, opts?: { body?: unknown; httpMethod?: string; timeout?: number }, signal?: AbortSignal): Promise<unknown> {
-    const controller = new AbortController();
-    const timeoutMs = opts?.timeout ?? config.timeout;
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-    const onAbort = () => controller.abort();
-    signal?.addEventListener("abort", onAbort);
-
-    const httpMethod = opts?.httpMethod ?? (opts?.body ? "POST" : "GET");
-
-    try {
-      const res = await fetch(`${config.endpoint}${path}`, {
-        method: httpMethod,
-        headers,
-        body: opts?.body ? JSON.stringify(opts.body) : undefined,
-        signal: controller.signal,
-      });
-
-      const json = (await res.json()) as { status: string; result?: unknown; error?: { code: string; message: string } };
-
-      if (!res.ok) {
-        const errMsg = json.error?.message ?? `HTTP ${res.status}`;
-        throw new OpenVikingError(method, `${errMsg} (HTTP ${res.status})`);
-      }
-
-      return json.result;
-    } catch (err) {
-      if (err instanceof OpenVikingError) throw err;
-      if (controller.signal.aborted) {
-        if (signal?.aborted) {
-          throw new OpenVikingError(method, "request aborted");
-        }
-        throw new OpenVikingError(method, "request timed out");
-      }
-      throw new OpenVikingError(method, (err as Error).message);
-    } finally {
-      clearTimeout(timeout);
-      signal?.removeEventListener("abort", onAbort);
-    }
-  }
+export function createClient(config: OpenVikingConfig, transport?: Transport): OpenVikingClient {
+  const t = transport ?? createTransport(config);
 
   return {
     async createSession(signal?) {
-      const result = (await request("createSession", "/api/v1/sessions", { httpMethod: "POST" }, signal)) as { session_id: string };
+      const result = (await t.request("createSession", "/api/v1/sessions", { httpMethod: "POST" }, signal)) as { session_id: string };
       return result.session_id;
     },
 
     async sendMessage(sessionId, role, content, signal?) {
-      await request(
+      await t.request(
         "sendMessage",
         `/api/v1/sessions/${sessionId}/messages`,
         { body: { role, content } },
@@ -136,17 +90,12 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
       const body: Record<string, unknown> = { query, limit };
       if (sessionId) body.session_id = sessionId;
       if (useDeep) body.mode = "deep";
-      return (await request(
-        "search",
-        path,
-        { body },
-        signal,
-      )) as SearchResult;
+      return (await t.request("search", path, { body }, signal)) as SearchResult;
     },
 
     async read(uri, level = "read", signal?) {
       const params = new URLSearchParams({ uri });
-      const result = (await request(
+      const result = (await t.request(
         "read",
         `/api/v1/content/${level}?${params.toString()}`,
         undefined,
@@ -156,7 +105,7 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
     },
 
     async fsList(uri, signal?) {
-      const raw = (await request(
+      const raw = (await t.request(
         "fsList",
         `/api/v1/fs/ls?uri=${encodeURIComponent(uri)}`,
         undefined,
@@ -166,7 +115,7 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
     },
 
     async fsTree(uri, signal?) {
-      const raw = (await request(
+      const raw = (await t.request(
         "fsTree",
         `/api/v1/fs/tree?uri=${encodeURIComponent(uri)}`,
         undefined,
@@ -176,7 +125,7 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
     },
 
     async fsStat(uri, signal?) {
-      const raw = (await request(
+      const raw = (await t.request(
         "fsStat",
         `/api/v1/fs/stat?uri=${encodeURIComponent(uri)}`,
         undefined,
@@ -190,7 +139,7 @@ export function createClient(config: OpenVikingConfig): OpenVikingClient {
     },
 
     async commit(sessionId, signal?) {
-      const result = (await request(
+      const result = (await t.request(
         "commit",
         `/api/v1/sessions/${sessionId}/commit`,
         { body: {}, timeout: config.commitTimeout },

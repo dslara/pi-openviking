@@ -2,6 +2,8 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "./client";
 import type { SessionSyncLike } from "./session";
+import { defineTool } from "./tool-def";
+import { resolveSearchMode } from "./search-mode";
 
 const SEARCH_PARAMS = Type.Object({
   query: Type.String({ description: "Search query to find relevant memories and resources" }),
@@ -32,172 +34,10 @@ const MEMBROWSE_PARAMS = Type.Object({
   ], { description: "Browse view", default: "list" })),
 });
 
-export function registerMemreadTool(pi: ExtensionAPI, client: OpenVikingClient) {
-  pi.registerTool({
-    name: "memread",
-    label: "Memory Read",
-    description:
-      "Read content from a viking:// URI at a specific detail level. " +
-      "Use after memsearch to retrieve full content of a discovered resource.",
-    promptSnippet: "Read content from a viking:// URI",
-    parameters: MEMREAD_PARAMS,
-
-    async execute(_toolCallId, params, signal) {
-      const uri = params.uri as string;
-      if (!uri.startsWith("viking://")) {
-        return {
-          content: [{ type: "text", text: "Invalid URI: must start with viking://" }],
-          details: {},
-          isError: true,
-        };
-      }
-
-      const level = (params.level as "auto" | "abstract" | "overview" | "read" | undefined) ?? "auto";
-
-      try {
-        let resolvedLevel = level;
-        if (resolvedLevel === "auto") {
-          const stat = await client.fsStat(uri, signal);
-          const entry = stat.children?.[0];
-          resolvedLevel = entry?.type === "directory" ? "overview" : "read";
-        }
-        const result = await client.read(uri, resolvedLevel, signal);
-        return {
-          content: [{ type: "text", text: result.content }],
-          details: {},
-        };
-      } catch (err) {
-        const msg = (err as Error).message;
-        return {
-          content: [{ type: "text", text: msg }],
-          details: {},
-          isError: true,
-        };
-      }
-    },
-  });
-}
-
-export function registerMembrowseTool(pi: ExtensionAPI, client: OpenVikingClient) {
-  pi.registerTool({
-    name: "membrowse",
-    label: "Memory Browse",
-    description:
-      "Browse the OpenViking filesystem at a viking:// URI. " +
-      "Use after memsearch to explore directories or inspect file metadata.",
-    promptSnippet: "Browse the OpenViking filesystem at a viking:// URI",
-    parameters: MEMBROWSE_PARAMS,
-
-    async execute(_toolCallId, params, signal) {
-      const uri = params.uri as string;
-      if (!uri.startsWith("viking://")) {
-        return {
-          content: [{ type: "text", text: "Invalid URI: must start with viking://" }],
-          details: {},
-          isError: true,
-        };
-      }
-
-      const view = (params.view as "list" | "tree" | "stat" | undefined) ?? "list";
-
-      try {
-        let result;
-        switch (view) {
-          case "tree":
-            result = await client.fsTree(uri, signal);
-            break;
-          case "stat":
-            result = await client.fsStat(uri, signal);
-            break;
-          default:
-            result = await client.fsList(uri, signal);
-            break;
-        }
-
-        const parts: string[] = [];
-        parts.push(`URI: ${result.uri}`);
-        if (result.children && result.children.length > 0) {
-          parts.push("Children:");
-          for (const child of result.children) {
-            parts.push(`- ${child.uri} (${child.type})`);
-            if (child.abstract) parts.push(`  ${child.abstract}`);
-          }
-        } else {
-          parts.push("No children.");
-        }
-
-        return {
-          content: [{ type: "text", text: parts.join("\n") }],
-          details: {},
-        };
-      } catch (err) {
-        const msg = (err as Error).message;
-        return {
-          content: [{ type: "text", text: msg }],
-          details: {},
-          isError: true,
-        };
-      }
-    },
-  });
-}
-
-export function registerMemcommitTool(
-  pi: ExtensionAPI,
-  client: OpenVikingClient,
-  sync: SessionSyncLike,
-) {
-  pi.registerTool({
-    name: "memcommit",
-    label: "Memory Commit",
-    description:
-      "Commit the current conversation to OpenViking long-term memory. " +
-      "Flushes pending messages and triggers background memory extraction.",
-    promptSnippet: "Commit conversation to OpenViking memory",
-    promptGuidelines: [
-      "Use memcommit when the user explicitly asks to save the conversation to memory.",
-      "memcommit requires an active OpenViking session. If no session exists, inform the user to start a conversation first.",
-    ],
-    parameters: Type.Object({}),
-
-    async execute(_toolCallId, _params, signal, onUpdate) {
-      const ovSessionId = sync.getOvSessionId();
-      if (!ovSessionId) {
-        return {
-          content: [{ type: "text", text: "No OpenViking session mapped. Start a conversation first." }],
-          details: {},
-          isError: true,
-        };
-      }
-
-      try {
-        await sync.flush();
-        onUpdate?.({ content: [{ type: "text", text: "Committing session to OpenViking..." }], details: {} });
-        const result = await client.commit(ovSessionId, signal);
-        return {
-          content: [{ type: "text", text: `Committed to OpenViking. Task: ${result.task_id}, Archived: ${result.archived}` }],
-          details: {
-            task_id: result.task_id,
-            archived: result.archived,
-            memories_extracted: 0,
-          },
-        };
-      } catch (err) {
-        const msg = (err as Error).message;
-        return {
-          content: [{ type: "text", text: msg }],
-          details: {},
-          isError: true,
-        };
-      }
-    },
-  });
-}
-
 export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient, sync: SessionSyncLike) {
   const notifiedPerCtx = new WeakMap<object, boolean>();
 
-  pi.registerTool({
+  defineTool(pi, { client, sync }, {
     name: "memsearch",
     label: "Memory Search",
     description:
@@ -210,64 +50,146 @@ export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient
     ],
     parameters: SEARCH_PARAMS,
 
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+    async execute({ params, deps, signal, ctx }) {
       try {
-        const rawMode = (params.mode as "auto" | "fast" | "deep" | undefined) ?? "auto";
-        const sessionId = sync.getOvSessionId();
-        let resolvedMode: "fast" | "deep";
-        if (rawMode === "auto") {
-          resolvedMode = sessionId ? "deep" : "fast";
-        } else {
-          resolvedMode = rawMode;
-        }
-        // Deep mode without session falls back to fast
-        if (resolvedMode === "deep" && !sessionId) {
-          resolvedMode = "fast";
-        }
+        const sessionId = deps.sync.getOvSessionId();
+        const resolvedMode = resolveSearchMode(params.mode ?? "auto", params.query, sessionId ?? undefined);
 
-        const results = await client.search(sessionId, params.query, params.limit ?? 10, resolvedMode, signal);
+        const results = await deps.client.search(sessionId, params.query, params.limit ?? 10, resolvedMode, signal);
 
         if (results.total === 0) {
-          return {
-            content: [{ type: "text", text: "No results found." }],
-            details: {},
-          };
+          return { text: "No results found." };
         }
 
-        const parts: string[] = [];
-        if (results.memories.length > 0) {
-          parts.push("## Memories");
-          for (const m of results.memories) {
-            parts.push(`- [${m.score.toFixed(2)}] ${m.text}`);
-          }
-        }
-        if (results.resources.length > 0) {
-          parts.push("## Resources");
-          for (const r of results.resources) {
-            parts.push(`- [${r.score.toFixed(2)}] ${r.uri}`);
-            if (r.abstract) parts.push(`  ${r.abstract}`);
-          }
-        }
-        parts.push(`\nTotal: ${results.total}`);
-
-        return {
-          content: [{ type: "text", text: parts.join("\n") }],
-          details: {},
+        const payload: Record<string, unknown> = {
+          total: results.total,
+          memories: results.memories,
+          resources: results.resources,
+          skills: results.skills ?? [],
         };
+        if (results.query_plan) {
+          payload.query_plan = results.query_plan;
+        }
+
+        return { text: JSON.stringify(payload, null, 2) };
       } catch (err) {
         const msg = (err as Error).message;
-        // First-failure notification (debounced per session)
         const ctxObj = typeof ctx === "object" && ctx !== null ? ctx : null;
         if (ctxObj && !notifiedPerCtx.get(ctxObj) && (ctxObj as any).hasUI) {
           notifiedPerCtx.set(ctxObj, true);
           (ctxObj as any).ui.notify(`OpenViking error: ${msg}`, "error");
         }
-        return {
-          content: [{ type: "text", text: msg }],
-          details: {},
-          isError: true,
-        };
+        return { text: msg, isError: true };
       }
+    },
+  });
+}
+
+export function registerMemreadTool(pi: ExtensionAPI, client: OpenVikingClient) {
+  defineTool(pi, { client }, {
+    name: "memread",
+    label: "Memory Read",
+    description:
+      "Read content from a viking:// URI at a specific detail level. " +
+      "Use after memsearch to retrieve full content of a discovered resource.",
+    promptSnippet: "Read content from a viking:// URI",
+    parameters: MEMREAD_PARAMS,
+    validateUri: true,
+
+    async execute({ params, deps, signal }) {
+      const level = params.level ?? "auto";
+
+      let resolvedLevel = level;
+      if (resolvedLevel === "auto") {
+        const stat = await deps.client.fsStat(params.uri, signal);
+        const entry = stat.children?.[0];
+        resolvedLevel = entry?.type === "directory" ? "overview" : "read";
+      }
+      const result = await deps.client.read(params.uri, resolvedLevel, signal);
+      return { text: result.content };
+    },
+  });
+}
+
+export function registerMembrowseTool(pi: ExtensionAPI, client: OpenVikingClient) {
+  defineTool(pi, { client }, {
+    name: "membrowse",
+    label: "Memory Browse",
+    description:
+      "Browse the OpenViking filesystem at a viking:// URI. " +
+      "Use after memsearch to explore directories or inspect file metadata.",
+    promptSnippet: "Browse the OpenViking filesystem at a viking:// URI",
+    parameters: MEMBROWSE_PARAMS,
+    validateUri: true,
+
+    async execute({ params, deps, signal }) {
+      const view = params.view ?? "list";
+
+      let result;
+      switch (view) {
+        case "tree":
+          result = await deps.client.fsTree(params.uri, signal);
+          break;
+        case "stat":
+          result = await deps.client.fsStat(params.uri, signal);
+          break;
+        default:
+          result = await deps.client.fsList(params.uri, signal);
+          break;
+      }
+
+      const parts: string[] = [];
+      parts.push(`URI: ${result.uri}`);
+      if (result.children && result.children.length > 0) {
+        parts.push("Children:");
+        for (const child of result.children) {
+          parts.push(`- ${child.uri} (${child.type})`);
+          if (child.abstract) parts.push(`  ${child.abstract}`);
+        }
+      } else {
+        parts.push("No children.");
+      }
+
+      return { text: parts.join("\n") };
+    },
+  });
+}
+
+export function registerMemcommitTool(
+  pi: ExtensionAPI,
+  client: OpenVikingClient,
+  sync: SessionSyncLike,
+) {
+  defineTool(pi, { client, sync }, {
+    name: "memcommit",
+    label: "Memory Commit",
+    description:
+      "Commit the current conversation to OpenViking long-term memory. " +
+      "Flushes pending messages and triggers background memory extraction.",
+    promptSnippet: "Commit conversation to OpenViking memory",
+    promptGuidelines: [
+      "Use memcommit when the user explicitly asks to save the conversation to memory.",
+      "memcommit requires an active OpenViking session. If no session exists, inform the user to start a conversation first.",
+    ],
+    parameters: Type.Object({}),
+
+    async execute({ deps, onUpdate, signal }) {
+      const ovSessionId = deps.sync.getOvSessionId();
+      if (!ovSessionId) {
+        return { text: "No OpenViking session mapped. Start a conversation first.", isError: true };
+      }
+
+      await deps.sync.flush();
+      onUpdate?.({ content: [{ type: "text", text: "Committing session to OpenViking..." }], details: {} });
+      const result = await deps.client.commit(ovSessionId, signal);
+      return {
+        text: `Committed to OpenViking. Task: ${result.task_id}, Archived: ${result.archived}`,
+        details: {
+          task_id: result.task_id,
+          archived: result.archived,
+          memories_extracted: 0,
+        },
+      };
     },
   });
 }

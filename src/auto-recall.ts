@@ -1,6 +1,12 @@
 import type { OpenVikingClient, SearchResult } from "./client";
 import type { SessionSyncLike } from "./session";
 
+export interface AutoRecallOptions {
+  limit?: number;
+  timeout?: number;
+  topN?: number;
+}
+
 export interface AutoRecallEvent {
   prompt: string;
   systemPrompt: string;
@@ -9,15 +15,20 @@ export interface AutoRecallEvent {
 export function createAutoRecall(
   client: OpenVikingClient,
   sessionSync: SessionSyncLike,
+  options?: AutoRecallOptions,
 ): (event: AutoRecallEvent) => Promise<{ systemPrompt?: string }> {
+  const limit = options?.limit ?? 10;
+  const timeoutMs = options?.timeout ?? 5000;
+  const topN = options?.topN ?? 5;
+
   return async function autoRecall(event: AutoRecallEvent): Promise<{ systemPrompt?: string }> {
     const sessionId = sessionSync.getOvSessionId();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const results = await client.search(sessionId, event.prompt, 10, "fast", controller.signal);
-      const block = formatResults(results);
+      const results = await client.search(sessionId, event.prompt, limit, "fast", controller.signal);
+      const block = formatResults(results, topN);
       if (!block) return {};
       return { systemPrompt: `${event.systemPrompt}\n\n${block}` };
     } catch {
@@ -28,7 +39,7 @@ export function createAutoRecall(
   };
 }
 
-function formatResults(results: SearchResult): string | undefined {
+function formatResults(results: SearchResult, topN: number): string | undefined {
   const combined: Array<
     | { type: "memory"; score: number; key: string; text: string }
     | { type: "resource"; score: number; key: string; uri: string; abstract?: string }
@@ -52,7 +63,7 @@ function formatResults(results: SearchResult): string | undefined {
     if (seen.has(item.key)) continue;
     seen.add(item.key);
     top.push(item);
-    if (top.length >= 5) break;
+    if (top.length >= topN) break;
   }
 
   if (top.length === 0) return undefined;

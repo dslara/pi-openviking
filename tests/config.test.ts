@@ -42,6 +42,9 @@ describe("loadConfig", () => {
       apiKey: "dev",
       account: "default",
       user: "default",
+      autoRecallLimit: 10,
+      autoRecallTimeout: 5000,
+      autoRecallTopN: 5,
     });
   });
 
@@ -53,6 +56,9 @@ describe("loadConfig", () => {
       openVikingApiKey: "my-key",
       openVikingAccount: "acme",
       openVikingUser: "alice",
+      openVikingAutoRecallLimit: 20,
+      openVikingAutoRecallTimeout: 10000,
+      openVikingAutoRecallTopN: 3,
     });
 
     const config = loadConfig(testDir);
@@ -64,6 +70,9 @@ describe("loadConfig", () => {
       apiKey: "my-key",
       account: "acme",
       user: "alice",
+      autoRecallLimit: 20,
+      autoRecallTimeout: 10000,
+      autoRecallTopN: 3,
     });
   });
 
@@ -92,6 +101,9 @@ describe("loadConfig", () => {
       apiKey: "my-key",
       account: "acme",
       user: "alice",
+      autoRecallLimit: 10,
+      autoRecallTimeout: 5000,
+      autoRecallTopN: 5,
     });
   });
 
@@ -103,5 +115,20 @@ describe("loadConfig", () => {
 
     expect(config.endpoint).toBe("http://env-only:1933");
     expect(config.timeout).toBe(30000);
+    expect(config.autoRecallLimit).toBe(10);
+    expect(config.autoRecallTimeout).toBe(5000);
+    expect(config.autoRecallTopN).toBe(5);
+  });
+
+  test("env vars override auto-recall defaults", () => {
+    process.env.OPENVIKING_AUTO_RECALL_LIMIT = "20";
+    process.env.OPENVIKING_AUTO_RECALL_TIMEOUT = "10000";
+    process.env.OPENVIKING_AUTO_RECALL_TOPN = "3";
+
+    const config = loadConfig(testDir);
+
+    expect(config.autoRecallLimit).toBe(20);
+    expect(config.autoRecallTimeout).toBe(10000);
+    expect(config.autoRecallTopN).toBe(3);
   });
 });

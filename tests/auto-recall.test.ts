@@ -1,38 +1,16 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-import type { OpenVikingClient, SearchResult } from "../src/client";
+import { describe, test, expect, vi } from "vitest";
+import type { SearchResult } from "../src/client";
 import { createAutoRecall } from "../src/auto-recall";
-import type { SessionSyncLike } from "../src/session";
-
-function mockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient {
-  return {
-    createSession: vi.fn(async () => "sess-1"),
-    sendMessage: vi.fn(async () => {}),
-    search: vi.fn(async () => ({ memories: [], resources: [], total: 0 } as SearchResult)),
-    read: vi.fn(async () => ({ content: "" })),
-    fsList: vi.fn(async () => ({ uri: "", children: [] })),
-    fsTree: vi.fn(async () => ({ uri: "", children: [] })),
-    fsStat: vi.fn(async () => ({ uri: "", children: [] })),
-    commit: vi.fn(async () => ({ task_id: "task-1", archived: true })),
-    ...overrides,
-  };
-}
-
-function mockSessionSync(overrides: Partial<SessionSyncLike> = {}): SessionSyncLike {
-  return {
-    getOvSessionId: vi.fn(() => "ov-sess-1"),
-    flush: vi.fn(async () => {}),
-    ...overrides,
-  };
-}
+import { createMockClient, createMockSessionSync } from "./mocks";
 
 describe("createAutoRecall", () => {
   test("silently skips on search failure", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       search: vi.fn(async () => {
         throw new Error("OpenViking search failed: boom");
       }),
     });
-    const sync = mockSessionSync();
+    const sync = createMockSessionSync();
     const autoRecall = createAutoRecall(client, sync);
 
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base prompt" });
@@ -40,8 +18,8 @@ describe("createAutoRecall", () => {
   });
 
   test("returns empty object when no results", async () => {
-    const client = mockClient();
-    const sync = mockSessionSync();
+    const client = createMockClient();
+    const sync = createMockSessionSync();
     const autoRecall = createAutoRecall(client, sync);
 
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base prompt" });
@@ -49,14 +27,15 @@ describe("createAutoRecall", () => {
   });
 
   test("appends relevant-memories block to system prompt", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       search: vi.fn(async () => ({
         memories: [{ text: "memory one", score: 0.95 }],
         resources: [{ uri: "viking://docs/one", score: 0.85, abstract: "doc one" }],
+        skills: [],
         total: 2,
       } as SearchResult)),
     });
-    const sync = mockSessionSync();
+    const sync = createMockSessionSync();
     const autoRecall = createAutoRecall(client, sync);
 
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base prompt" });
@@ -68,9 +47,9 @@ describe("createAutoRecall", () => {
   });
 
   test("passes session_id to search when available", async () => {
-    const search = vi.fn(async () => ({ memories: [], resources: [], total: 0 } as SearchResult));
-    const client = mockClient({ search });
-    const sync = mockSessionSync({ getOvSessionId: () => "ov-sess-99" });
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-99" });
     const autoRecall = createAutoRecall(client, sync);
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
@@ -78,9 +57,9 @@ describe("createAutoRecall", () => {
   });
 
   test("passes undefined session_id when not mapped", async () => {
-    const search = vi.fn(async () => ({ memories: [], resources: [], total: 0 } as SearchResult));
-    const client = mockClient({ search });
-    const sync = mockSessionSync({ getOvSessionId: () => undefined });
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync({ getOvSessionId: () => undefined });
     const autoRecall = createAutoRecall(client, sync);
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
@@ -88,7 +67,7 @@ describe("createAutoRecall", () => {
   });
 
   test("deduplicates by abstract + uri and limits to 5", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       search: vi.fn(async () => ({
         memories: [
           { text: "dup", score: 0.99 },
@@ -103,10 +82,11 @@ describe("createAutoRecall", () => {
           { uri: "viking://res5", score: 0.92, abstract: "res5" },
           { uri: "viking://res6", score: 0.91, abstract: "res6" },
         ],
+        skills: [],
         total: 9,
       } as SearchResult)),
     });
-    const sync = mockSessionSync();
+    const sync = createMockSessionSync();
     const autoRecall = createAutoRecall(client, sync);
 
     const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
@@ -119,7 +99,7 @@ describe("createAutoRecall", () => {
   });
 
   test("sorts results by score descending", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       search: vi.fn(async () => ({
         memories: [
           { text: "low mem", score: 0.5 },
@@ -128,10 +108,11 @@ describe("createAutoRecall", () => {
         resources: [
           { uri: "viking://mid", score: 0.7, abstract: "mid" },
         ],
+        skills: [],
         total: 3,
       } as SearchResult)),
     });
-    const sync = mockSessionSync();
+    const sync = createMockSessionSync();
     const autoRecall = createAutoRecall(client, sync);
 
     const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
@@ -144,8 +125,8 @@ describe("createAutoRecall", () => {
   });
 
   test("silently skips on timeout", async () => {
-    const client = mockClient({
-      search: vi.fn(async (_sid: string, _query: string, _limit: number | undefined, signal: AbortSignal | undefined) => {
+    const client = createMockClient({
+      search: vi.fn(async (_sid: string, _query: string, _limit: number | undefined, _mode: "fast" | "deep" | undefined, signal: AbortSignal | undefined) => {
         return new Promise<SearchResult>((_resolve, reject) => {
           const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
           if (signal?.aborted) return onAbort();
@@ -154,7 +135,7 @@ describe("createAutoRecall", () => {
         });
       }),
     });
-    const sync = mockSessionSync();
+    const sync = createMockSessionSync();
     const autoRecall = createAutoRecall(client, sync);
 
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base" });
@@ -162,14 +143,15 @@ describe("createAutoRecall", () => {
   }, 10000);
 
   test("escapes XML special characters", async () => {
-    const client = mockClient({
+    const client = createMockClient({
       search: vi.fn(async () => ({
         memories: [{ text: '5 < 10 & "hello"', score: 0.9 }],
         resources: [{ uri: 'viking://a"b', score: 0.8, abstract: "<tag>" }],
+        skills: [],
         total: 2,
       } as SearchResult)),
     });
-    const sync = mockSessionSync();
+    const sync = createMockSessionSync();
     const autoRecall = createAutoRecall(client, sync);
 
     const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
@@ -178,4 +160,62 @@ describe("createAutoRecall", () => {
     expect(block).toContain('uri="viking://a&quot;b"');
     expect(block).toContain("&lt;tag&gt;");
   });
+
+  test("custom limit passed to search", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync();
+    const autoRecall = createAutoRecall(client, sync, { limit: 20 });
+
+    await autoRecall({ prompt: "hello", systemPrompt: "base" });
+    expect(search).toHaveBeenCalledWith(expect.anything(), "hello", 20, "fast", expect.any(AbortSignal));
+  });
+
+  test("custom topN limits results", async () => {
+    const client = createMockClient({
+      search: vi.fn(async () => ({
+        memories: [
+          { text: "m1", score: 0.99 },
+          { text: "m2", score: 0.98 },
+          { text: "m3", score: 0.97 },
+        ],
+        resources: [
+          { uri: "viking://r1", score: 0.96, abstract: "r1" },
+          { uri: "viking://r2", score: 0.95, abstract: "r2" },
+        ],
+        skills: [],
+        total: 5,
+      } as SearchResult)),
+    });
+    const sync = createMockSessionSync();
+    const autoRecall = createAutoRecall(client, sync, { topN: 2 });
+
+    const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
+    const block = result.systemPrompt!;
+    const memories = block.match(/<memory/g) ?? [];
+    const resources = block.match(/<resource/g) ?? [];
+    expect(memories.length + resources.length).toBe(2);
+  });
+
+  test("custom timeout aborts faster", async () => {
+    const client = createMockClient({
+      search: vi.fn(async (_sid, _query, _limit, _mode, signal) => {
+        return new Promise<SearchResult>((_resolve, reject) => {
+          const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+          if (signal?.aborted) return onAbort();
+          signal?.addEventListener("abort", onAbort);
+          setTimeout(() => signal?.removeEventListener("abort", onAbort), 30000);
+        });
+      }),
+    });
+    const sync = createMockSessionSync();
+    const autoRecall = createAutoRecall(client, sync, { timeout: 50 });
+
+    const start = Date.now();
+    const result = await autoRecall({ prompt: "hello", systemPrompt: "base" });
+    const elapsed = Date.now() - start;
+
+    expect(result.systemPrompt).toBeUndefined();
+    expect(elapsed).toBeLessThan(500);
+  }, 10000);
 });

@@ -1,20 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import type { OpenVikingClient } from "../src/client";
 import { SessionSync } from "../src/session";
-
-function mockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient {
-  return {
-    createSession: vi.fn(async () => "ov-sess-1"),
-    sendMessage: vi.fn(async () => {}),
-    search: vi.fn(async () => ({ memories: [], resources: [], total: 0 })),
-    read: vi.fn(async () => ({ content: "" })),
-    fsList: vi.fn(async () => ({ uri: "", children: [] })),
-    fsTree: vi.fn(async () => ({ uri: "", children: [] })),
-    fsStat: vi.fn(async () => ({ uri: "", children: [] })),
-    commit: vi.fn(async () => ({ task_id: "task-1", archived: true })),
-    ...overrides,
-  };
-}
+import { createMockClient } from "./mocks";
 
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 
@@ -36,7 +23,7 @@ function createSync(client: OpenVikingClient, opts?: {
 
 describe("SessionSync", () => {
   test("onMessageEnd with user text creates session lazily and sends", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     const sync = createSync(client);
 
     sync.onMessageEnd(msg({
@@ -53,7 +40,7 @@ describe("SessionSync", () => {
   });
 
   test("onMessageEnd with assistant text sends to existing session", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     const sync = createSync(client);
 
     // First call creates the session
@@ -77,7 +64,7 @@ describe("SessionSync", () => {
   });
 
   test("onMessageEnd skips toolResult role", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     const sync = createSync(client);
 
     sync.onMessageEnd(msg({
@@ -93,7 +80,7 @@ describe("SessionSync", () => {
   });
 
   test("onMessageEnd skips non-text content (thinking, toolCall, image)", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     const sync = createSync(client);
 
     sync.onMessageEnd(msg({
@@ -112,7 +99,7 @@ describe("SessionSync", () => {
   });
 
   test("onMessageEnd skips empty text extraction", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     const sync = createSync(client);
 
     sync.onMessageEnd(msg({
@@ -126,7 +113,7 @@ describe("SessionSync", () => {
   });
 
   test("onMessageEnd with string content sends directly", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     const sync = createSync(client);
 
     sync.onMessageEnd(msg({
@@ -146,7 +133,7 @@ describe("SessionSync", () => {
     let resolveCreate: () => void;
     const createPromise = new Promise<void>((r) => { resolveCreate = r; });
 
-    const client = mockClient({
+    const client = createMockClient({
       createSession: vi.fn(async () => {
         await createPromise;
         return "ov-sess-1";
@@ -171,7 +158,7 @@ describe("SessionSync", () => {
   });
 
   test("appendEntry called to persist ov-session mapping", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     const appendEntry = vi.fn();
     const sync = createSync(client, { appendEntry });
 
@@ -187,7 +174,7 @@ describe("SessionSync", () => {
   });
 
   test("no appendEntry for ephemeral session (getSessionFile returns undefined)", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     const appendEntry = vi.fn();
     const sync = createSync(client, {
       getSessionFile: () => undefined,
@@ -205,7 +192,7 @@ describe("SessionSync", () => {
   });
 
   test("onSessionStart restores ovSessionId from getBranch custom entries", () => {
-    const client = mockClient();
+    const client = createMockClient();
     const sync = createSync(client, {
       getBranch: () => [
         { type: "message", id: "1", parentId: null, timestamp: "", message: {} },
@@ -231,7 +218,7 @@ describe("SessionSync", () => {
   });
 
   test("onShutdown discards queue and resets session", async () => {
-    const client = mockClient();
+    const client = createMockClient();
     const sync = createSync(client);
 
     sync.onMessageEnd(msg({ role: "user", content: "before", timestamp: Date.now() }));
