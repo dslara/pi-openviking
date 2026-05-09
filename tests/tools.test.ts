@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import type { SearchResult } from "../src/client";
-import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool, registerMemdeleteTool } from "../src/tools";
+import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool, registerMemdeleteTool, registerMemimportTool } from "../src/tools";
 import { createMockClient, createMockSessionSync } from "./mocks";
 
 interface ToolResult {
@@ -450,5 +450,65 @@ describe("memdelete tool", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HTTP 404");
+  });
+});
+
+describe("memimport tool", () => {
+  let pi: ReturnType<typeof createMockPi>;
+
+  beforeEach(() => {
+    pi = createMockPi();
+  });
+
+  test("registers with promptSnippet and no promptGuidelines", () => {
+    const client = createMockClient();
+    registerMemimportTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memimport");
+    expect(tool).toBeDefined();
+    expect(tool!.promptSnippet).toBeDefined();
+    expect(tool!.promptGuidelines).toBeUndefined();
+  });
+
+  test("imports URL source via path", async () => {
+    const client = createMockClient({
+      addResource: vi.fn(async () => ({ root_uri: "viking://resources/github.md", status: "success", errors: [] })),
+    });
+    registerMemimportTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memimport")!;
+    const result = await tool.execute("tc-1", { source: "https://example.com/doc.md" });
+
+    expect(client.addResource).toHaveBeenCalledWith({ path: "https://example.com/doc.md" }, undefined);
+    expect(client.tempUpload).not.toHaveBeenCalled();
+    expect(result.content[0].text).toBe("Imported: viking://resources/github.md (status: success)");
+  });
+
+  test("imports git:// URL source via path", async () => {
+    const client = createMockClient({
+      addResource: vi.fn(async () => ({ root_uri: "viking://resources/repo", status: "success", errors: [] })),
+    });
+    registerMemimportTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memimport")!;
+    const result = await tool.execute("tc-1", { source: "git://github.com/user/repo.git" });
+
+    expect(client.addResource).toHaveBeenCalledWith({ path: "git://github.com/user/repo.git" }, undefined);
+    expect(result.content[0].text).toBe("Imported: viking://resources/repo (status: success)");
+  });
+
+  test("returns isError on client failure", async () => {
+    const client = createMockClient({
+      addResource: vi.fn(async () => {
+        throw new Error("OpenViking addResource failed: bad request (HTTP 400)");
+      }),
+    });
+    registerMemimportTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memimport")!;
+    const result = await tool.execute("tc-1", { source: "https://bad.url" });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("HTTP 400");
   });
 });

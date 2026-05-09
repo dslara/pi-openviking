@@ -34,6 +34,8 @@ export interface OpenVikingClient {
   fsStat(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   commit(sessionId: string, signal?: AbortSignal): Promise<{ task_id: string; archived: boolean }>;
   delete(uri: string, signal?: AbortSignal): Promise<{ uri: string }>;
+  addResource(params: { path?: string; temp_file_id?: string; parent?: string; reason?: string }, signal?: AbortSignal): Promise<{ root_uri: string; status: string; errors: string[] }>;
+  tempUpload(fileBody: string | Uint8Array, filename: string, signal?: AbortSignal): Promise<{ temp_file_id: string }>;
 }
 
 /** Raw OV fs/ls and fs/tree entry shape */
@@ -156,6 +158,28 @@ export function createClient(config: OpenVikingConfig, transport?: Transport): O
         { httpMethod: "DELETE" },
         signal,
       )) as { uri: string };
+      return result;
+    },
+
+    async addResource(params, signal?) {
+      const result = (await t.request(
+        "addResource",
+        "/api/v1/resources",
+        { body: params },
+        signal,
+      )) as { root_uri: string; status: string; errors: string[] };
+      return result;
+    },
+
+    async tempUpload(fileBody, filename, signal?) {
+      const form = new FormData();
+      form.append("file", new Blob([fileBody]), filename);
+      const result = (await t.request(
+        "tempUpload",
+        "/api/v1/resources/temp_upload",
+        { body: form },
+        signal,
+      )) as { temp_file_id: string };
       return result;
     },
   };

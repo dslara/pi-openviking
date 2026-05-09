@@ -18,6 +18,8 @@ export function createMockClient(overrides: Partial<OpenVikingClient> = {}): Ope
     fsStat: vi.fn(async () => ({ uri: "", children: [] })),
     commit: vi.fn(async () => ({ task_id: "task-1", archived: true })),
     delete: vi.fn(async () => ({ uri: "" })),
+    addResource: vi.fn(async () => ({ root_uri: "viking://resources/imported.md", status: "success", errors: [] })),
+    tempUpload: vi.fn(async () => ({ temp_file_id: "tmp-1" })),
     ...overrides,
   };
 }

@@ -362,4 +362,78 @@ describe("OpenVikingClient", () => {
       );
     });
   });
+
+  describe("addResource", () => {
+    test("posts params and returns root_uri + status", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue({ root_uri: "viking://resources/foo.md", status: "success", errors: [] });
+
+      const client = createClient(defaultConfig, transport);
+      const result = await client.addResource({ path: "https://example.com/doc.md", reason: "import" });
+      expect(transport.request).toHaveBeenCalledWith(
+        "addResource",
+        "/api/v1/resources",
+        { body: { path: "https://example.com/doc.md", reason: "import" } },
+        undefined,
+      );
+      expect(result.root_uri).toBe("viking://resources/foo.md");
+      expect(result.status).toBe("success");
+    });
+
+    test("throws user-facing error on server error", async () => {
+      const transport = mockTransport();
+      transport.request.mockRejectedValue(
+        new Error("OpenViking addResource failed: bad request (HTTP 400)"),
+      );
+
+      const client = createClient(defaultConfig, transport);
+      await expect(client.addResource({ path: "bad" })).rejects.toThrow(
+        "OpenViking addResource failed: bad request (HTTP 400)",
+      );
+    });
+  });
+
+  describe("tempUpload", () => {
+    test("sends multipart form with file", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue({ temp_file_id: "tmp-abc" });
+
+      const client = createClient(defaultConfig, transport);
+      const result = await client.tempUpload("file contents", "notes.md");
+      expect(transport.request).toHaveBeenCalledWith(
+        "tempUpload",
+        "/api/v1/resources/temp_upload",
+        expect.objectContaining({ body: expect.any(FormData) }),
+        undefined,
+      );
+      expect(result.temp_file_id).toBe("tmp-abc");
+    });
+
+    test("accepts Uint8Array body", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue({ temp_file_id: "tmp-bin" });
+
+      const client = createClient(defaultConfig, transport);
+      const result = await client.tempUpload(new Uint8Array([1, 2, 3]), "data.bin");
+      expect(transport.request).toHaveBeenCalledWith(
+        "tempUpload",
+        "/api/v1/resources/temp_upload",
+        expect.objectContaining({ body: expect.any(FormData) }),
+        undefined,
+      );
+      expect(result.temp_file_id).toBe("tmp-bin");
+    });
+
+    test("throws user-facing error on server error", async () => {
+      const transport = mockTransport();
+      transport.request.mockRejectedValue(
+        new Error("OpenViking tempUpload failed: too large (HTTP 413)"),
+      );
+
+      const client = createClient(defaultConfig, transport);
+      await expect(client.tempUpload("x", "big.bin")).rejects.toThrow(
+        "OpenViking tempUpload failed: too large (HTTP 413)",
+      );
+    });
+  });
 });

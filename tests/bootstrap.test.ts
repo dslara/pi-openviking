@@ -34,13 +34,13 @@ function createMockCtx(overrides?: {
 }
 
 describe("bootstrapExtension", () => {
-  test("registers 5 tools", () => {
+  test("registers 6 tools", () => {
     const pi = createMockPi();
     const ctx = createMockCtx();
 
     const result = bootstrapExtension(pi as any, ctx);
 
-    expect(pi.registerTool).toHaveBeenCalledTimes(5);
+    expect(pi.registerTool).toHaveBeenCalledTimes(6);
     expect(result.sessionSync).toBeDefined();
   });
 

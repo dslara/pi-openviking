@@ -1,5 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
 import type { OpenVikingClient } from "./client";
 import type { SessionSyncLike } from "./session";
 import { defineTool } from "./tool-def";
@@ -36,6 +38,10 @@ const MEMBROWSE_PARAMS = Type.Object({
 
 const MEMDELETE_PARAMS = Type.Object({
   uri: Type.String({ description: "viking:// URI to delete" }),
+});
+
+const MEMIMPORT_PARAMS = Type.Object({
+  source: Type.String({ description: "URL (http://, https://, git://) or local file path to import" }),
 });
 
 export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient, sync: SessionSyncLike) {
@@ -173,6 +179,35 @@ export function registerMemdeleteTool(pi: ExtensionAPI, client: OpenVikingClient
     async execute({ params, deps, signal }) {
       const result = await deps.client.delete(params.uri, signal);
       return { text: `Deleted: ${result.uri}` };
+    },
+  });
+}
+
+export function registerMemimportTool(pi: ExtensionAPI, client: OpenVikingClient) {
+  defineTool(pi, { client }, {
+    name: "memimport",
+    label: "Memory Import",
+    description:
+      "Import a remote URL or local file into the OpenViking knowledge base. " +
+      "Supports http://, https://, and git:// URLs, as well as local filesystem paths.",
+    promptSnippet: "Import a URL or local file into OpenViking",
+    parameters: MEMIMPORT_PARAMS,
+
+    async execute({ params, deps, signal }) {
+      const isUrl = /^https?:\/\/|^git:\/\//.test(params.source);
+
+      let addParams: { path?: string; temp_file_id?: string };
+      if (isUrl) {
+        addParams = { path: params.source };
+      } else {
+        const body = await readFile(params.source);
+        const filename = basename(params.source);
+        const upload = await deps.client.tempUpload(body, filename, signal);
+        addParams = { temp_file_id: upload.temp_file_id };
+      }
+
+      const result = await deps.client.addResource(addParams, signal);
+      return { text: `Imported: ${result.root_uri} (status: ${result.status})` };
     },
   });
 }

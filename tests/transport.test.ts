@@ -144,6 +144,27 @@ describe("createTransport", () => {
     );
   }, 15000);
 
+  test("sends FormData without overriding Content-Type", async () => {
+    let capturedBody: unknown;
+    let capturedHeaders: Record<string, string> = {};
+    restoreFetch = mockFetch(async (url, init) => {
+      capturedBody = init.body;
+      capturedHeaders = Object.fromEntries(
+        Object.entries(init.headers as Record<string, string> ?? {})
+      );
+      return { status: 200, body: { status: "ok", result: { temp_file_id: "tmp-1" } } };
+    });
+
+    const transport = createTransport(defaultConfig);
+    const form = new FormData();
+    form.append("file", new Blob(["hello"]), "test.txt");
+    await transport.request("tempUpload", "/api/v1/resources/temp_upload", { body: form });
+
+    expect(capturedBody).toBeInstanceOf(FormData);
+    expect(capturedHeaders["Content-Type"]).toBeUndefined();
+    expect(capturedHeaders["X-API-Key"]).toBe("dev");
+  });
+
   test("throws OpenVikingError on fetch failure", async () => {
     const original = globalThis.fetch;
     (globalThis as any).fetch = async () => {

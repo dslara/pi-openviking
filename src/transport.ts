@@ -26,13 +26,6 @@ export interface Transport {
 }
 
 export function createTransport(config: TransportConfig): Transport {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "X-API-Key": config.apiKey,
-    "X-OpenViking-Account": config.account,
-    "X-OpenViking-User": config.user,
-  };
-
   return {
     async request(methodLabel, path, opts, signal) {
       const controller = new AbortController();
@@ -44,11 +37,25 @@ export function createTransport(config: TransportConfig): Transport {
 
       const httpMethod = opts?.httpMethod ?? (opts?.body ? "POST" : "GET");
 
+      const isFormData = opts?.body instanceof FormData;
+      const isBinary = opts?.body instanceof Blob || opts?.body instanceof ArrayBuffer || (opts?.body && ArrayBuffer.isView(opts?.body));
+
+      const headers: Record<string, string> = {
+        ...(isFormData || isBinary ? {} : { "Content-Type": "application/json" }),
+        "X-API-Key": config.apiKey,
+        "X-OpenViking-Account": config.account,
+        "X-OpenViking-User": config.user,
+      };
+
+      const body = isFormData || isBinary || typeof opts?.body === "string"
+        ? opts.body
+        : opts?.body ? JSON.stringify(opts.body) : undefined;
+
       try {
         const res = await fetch(`${config.endpoint}${path}`, {
           method: httpMethod,
           headers,
-          body: opts?.body ? JSON.stringify(opts.body) : undefined,
+          body: body as RequestInit["body"],
           signal: controller.signal,
         });
 
