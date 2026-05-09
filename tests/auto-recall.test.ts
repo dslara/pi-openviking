@@ -53,7 +53,7 @@ describe("createAutoRecall", () => {
     const autoRecall = createAutoRecall(client, sync);
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
-    expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "fast", expect.any(AbortSignal));
+    expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "deep", expect.any(AbortSignal));
   });
 
   test("passes undefined session_id when not mapped", async () => {
@@ -168,7 +168,7 @@ describe("createAutoRecall", () => {
     const autoRecall = createAutoRecall(client, sync, { limit: 20 });
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
-    expect(search).toHaveBeenCalledWith(expect.anything(), "hello", 20, "fast", expect.any(AbortSignal));
+    expect(search).toHaveBeenCalledWith(expect.anything(), "hello", 20, "deep", expect.any(AbortSignal));
   });
 
   test("custom topN limits results", async () => {
@@ -218,4 +218,61 @@ describe("createAutoRecall", () => {
     expect(result.systemPrompt).toBeUndefined();
     expect(elapsed).toBeLessThan(500);
   }, 10000);
+
+  test("uses deep search mode when session exists", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-99" });
+    const autoRecall = createAutoRecall(client, sync);
+
+    await autoRecall({ prompt: "hello", systemPrompt: "base" });
+    expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "deep", expect.any(AbortSignal));
+  });
+
+  test("uses fast search mode when no session", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync({ getOvSessionId: () => undefined });
+    const autoRecall = createAutoRecall(client, sync);
+
+    await autoRecall({ prompt: "hello", systemPrompt: "base" });
+    expect(search).toHaveBeenCalledWith(undefined, "hello", 10, "fast", expect.any(AbortSignal));
+  });
+
+  test("trims results bottom-up to respect token budget", async () => {
+    const client = createMockClient({
+      search: vi.fn(async () => ({
+        memories: Array.from({ length: 5 }, (_, i) => ({
+          text: `item-${i}-` + "a".repeat(390),
+          score: 0.99 - i * 0.01,
+        })),
+        resources: [],
+        skills: [],
+        total: 5,
+      } as SearchResult)),
+    });
+    const sync = createMockSessionSync();
+    const autoRecall = createAutoRecall(client, sync, { topN: 5 });
+
+    const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
+    const block = result.systemPrompt!.replace("base\n\n", "");
+
+    expect(Math.ceil(block.length / 4)).toBeLessThanOrEqual(500);
+    expect(block).toContain('score="0.99"');
+    expect(block).toContain('score="0.98"');
+    expect(block).toContain('score="0.97"');
+    expect(block).toContain('score="0.96"');
+    expect(block).not.toContain('score="0.95"');
+  });
+
+  test("returns empty when auto recall is disabled", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync();
+    const autoRecall = createAutoRecall(client, sync, { enabled: false });
+
+    const result = await autoRecall({ prompt: "hello", systemPrompt: "base" });
+    expect(result.systemPrompt).toBeUndefined();
+    expect(search).not.toHaveBeenCalled();
+  });
 });

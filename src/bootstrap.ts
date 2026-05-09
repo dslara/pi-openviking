@@ -48,6 +48,7 @@ export function bootstrapExtension(
     limit: config.autoRecallLimit,
     timeout: config.autoRecallTimeout,
     topN: config.autoRecallTopN,
+    enabled: config.openVikingAutoRecall,
   });
   pi.on("before_agent_start", async (event) => {
     return autoRecall(event);

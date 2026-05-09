@@ -152,13 +152,24 @@ export function createClient(config: OpenVikingConfig, transport?: Transport): O
     },
 
     async delete(uri, signal?) {
-      const result = (await t.request(
-        "delete",
-        `/api/v1/fs?uri=${encodeURIComponent(uri)}`,
-        { httpMethod: "DELETE" },
-        signal,
-      )) as { uri: string };
-      return result;
+      try {
+        return (await t.request(
+          "delete",
+          `/api/v1/fs?uri=${encodeURIComponent(uri)}`,
+          { httpMethod: "DELETE" },
+          signal,
+        )) as { uri: string };
+      } catch (err) {
+        const msg = (err as Error).message ?? "";
+        const isDirectory = msg.includes("recursive") || msg.includes("directory");
+        if (!isDirectory) throw err;
+        return (await t.request(
+          "delete",
+          `/api/v1/fs?uri=${encodeURIComponent(uri)}&recursive=true`,
+          { httpMethod: "DELETE" },
+          signal,
+        )) as { uri: string };
+      }
     },
 
     async addResource(params, signal?) {

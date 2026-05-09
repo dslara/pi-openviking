@@ -11,6 +11,7 @@ export interface OpenVikingConfig {
   autoRecallLimit: number;
   autoRecallTimeout: number;
   autoRecallTopN: number;
+  openVikingAutoRecall: boolean;
 }
 
 interface PiSettings {
@@ -23,6 +24,7 @@ interface PiSettings {
   openVikingAutoRecallLimit?: number;
   openVikingAutoRecallTimeout?: number;
   openVikingAutoRecallTopN?: number;
+  openVikingAutoRecall?: boolean;
   [key: string]: unknown;
 }
 
@@ -85,5 +87,11 @@ export function loadConfig(cwd: string): OpenVikingConfig {
         ? parseInt(process.env.OPENVIKING_AUTO_RECALL_TOPN, 10)
         : undefined) ??
       5,
+    openVikingAutoRecall:
+      settings.openVikingAutoRecall ??
+      (process.env.OPENVIKING_AUTO_RECALL
+        ? process.env.OPENVIKING_AUTO_RECALL === "true"
+        : undefined) ??
+      true,
   };
 }

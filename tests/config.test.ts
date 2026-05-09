@@ -45,6 +45,7 @@ describe("loadConfig", () => {
       autoRecallLimit: 10,
       autoRecallTimeout: 5000,
       autoRecallTopN: 5,
+      openVikingAutoRecall: true,
     });
   });
 
@@ -73,6 +74,7 @@ describe("loadConfig", () => {
       autoRecallLimit: 20,
       autoRecallTimeout: 10000,
       autoRecallTopN: 3,
+      openVikingAutoRecall: true,
     });
   });
 
@@ -104,6 +106,7 @@ describe("loadConfig", () => {
       autoRecallLimit: 10,
       autoRecallTimeout: 5000,
       autoRecallTopN: 5,
+      openVikingAutoRecall: true,
     });
   });
 
@@ -130,5 +133,19 @@ describe("loadConfig", () => {
     expect(config.autoRecallLimit).toBe(20);
     expect(config.autoRecallTimeout).toBe(10000);
     expect(config.autoRecallTopN).toBe(3);
+  });
+
+  test("openVikingAutoRecall setting can be disabled", () => {
+    writeSettings({ openVikingAutoRecall: false });
+
+    const config = loadConfig(testDir);
+    expect(config.openVikingAutoRecall).toBe(false);
+  });
+
+  test("env var OPENVIKING_AUTO_RECALL overrides default", () => {
+    process.env.OPENVIKING_AUTO_RECALL = "false";
+
+    const config = loadConfig(testDir);
+    expect(config.openVikingAutoRecall).toBe(false);
   });
 });
