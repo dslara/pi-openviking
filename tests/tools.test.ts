@@ -471,6 +471,41 @@ describe("memdelete tool", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HTTP 404");
   });
+
+  test("verifies resource is gone via post-delete search", async () => {
+    const client = createMockClient({
+      delete: vi.fn(async () => ({ uri: "viking://resources/doc.md" })),
+      search: vi.fn(async () => ({
+        memories: [], resources: [], skills: [], total: 0,
+      })),
+    });
+    registerMemdeleteTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memdelete")!;
+    const result = await tool.execute("tc-1", { uri: "viking://resources/doc.md" });
+
+    expect(client.search).toHaveBeenCalledWith(undefined, "doc.md", 5, "fast", undefined, undefined);
+    expect(result.details).toEqual({ uri: "viking://resources/doc.md", verified: true });
+  });
+
+  test("warns when resource still found in search after delete", async () => {
+    const client = createMockClient({
+      delete: vi.fn(async () => ({ uri: "viking://resources/stale.md" })),
+      search: vi.fn(async () => ({
+        memories: [],
+        resources: [{ uri: "viking://resources/stale.md", score: 0.9 }],
+        skills: [], total: 1,
+      })),
+    });
+    registerMemdeleteTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memdelete")!;
+    const result = await tool.execute("tc-1", { uri: "viking://resources/stale.md" });
+
+    expect(result.content[0].text).toContain("warning");
+    expect(result.content[0].text).toContain("async index sync");
+    expect(result.details).toEqual({ uri: "viking://resources/stale.md", verified: false });
+  });
 });
 
 describe("memimport tool", () => {

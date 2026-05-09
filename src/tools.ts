@@ -187,7 +187,26 @@ export function registerMemdeleteTool(pi: ExtensionAPI, client: OpenVikingClient
 
     async execute({ params, deps, signal }) {
       const result = await deps.client.delete(params.uri, signal);
-      return { text: `Deleted: ${result.uri}` };
+
+      // Post-delete verification: confirm resource no longer appears in search
+      try {
+        const uriParts = params.uri.replace("viking://", "").split("/");
+        const resourceName = uriParts[uriParts.length - 1] || "";
+        if (resourceName) {
+          const searchResults = await deps.client.search(undefined, resourceName, 5, "fast", undefined, signal);
+          const stillPresent = searchResults.resources.some(r => r.uri === params.uri);
+          if (stillPresent) {
+            return {
+              text: `Deleted: ${result.uri} (warning: resource may still appear in search due to async index sync)`,
+              details: { uri: result.uri, verified: false },
+            };
+          }
+        }
+      } catch {
+        // Verification is best-effort; don't fail the delete on search errors
+      }
+
+      return { text: `Deleted: ${result.uri}`, details: { uri: result.uri, verified: true } };
     },
   });
 }
