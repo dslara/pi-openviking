@@ -134,6 +134,34 @@ describe("OpenVikingClient", () => {
         "OpenViking search failed: overloaded (HTTP 503)",
       );
     });
+
+    test("passes target_uri in body when provided", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue({
+        memories: [],
+        resources: [{ uri: "viking://resources/x", score: 0.8 }],
+        total: 1,
+      });
+
+      const client = createClient(defaultConfig, transport);
+      await client.search("sess-1", "scoped", 5, "fast", "viking://resources/");
+      expect(transport.request).toHaveBeenCalledWith(
+        "search",
+        "/api/v1/search/find",
+        { body: { query: "scoped", limit: 5, session_id: "sess-1", target_uri: "viking://resources/" } },
+        undefined,
+      );
+    });
+
+    test("omits target_uri when not provided", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue({ memories: [], resources: [], total: 0 });
+
+      const client = createClient(defaultConfig, transport);
+      await client.search("sess-1", "unscoped");
+      const body = transport.request.mock.calls[0][2]?.body;
+      expect(body).not.toHaveProperty("target_uri");
+    });
   });
 
   describe("sendMessage", () => {

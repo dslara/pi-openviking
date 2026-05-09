@@ -71,9 +71,26 @@ describe("memsearch tool", () => {
 
     const result = await tool.execute("tc-1", { query: "hello" });
     expect(client.createSession).not.toHaveBeenCalled();
-    expect(client.search).toHaveBeenCalledWith("ov-sess-1", "hello", 10, "fast", undefined);
+    expect(client.search).toHaveBeenCalledWith("ov-sess-1", "hello", 10, "fast", undefined, undefined);
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.memories[0].text).toBe("hello world");
+  });
+
+  test("passes uri as target_uri when provided", async () => {
+    const client = createMockClient({
+      search: vi.fn(async () => ({
+        memories: [],
+        resources: [{ uri: "viking://resources/doc.md", score: 0.9 }],
+        skills: [],
+        total: 1,
+      } as SearchResult)),
+    });
+    const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-1" });
+    registerMemsearchTool(pi as any, client, sync);
+
+    const tool = pi.tools[0];
+    await tool.execute("tc-1", { query: "hello", uri: "viking://resources/" });
+    expect(client.search).toHaveBeenCalledWith("ov-sess-1", "hello", 10, "fast", "viking://resources/", undefined);
   });
 
   test("returns 'No results found' when empty", async () => {
@@ -147,7 +164,7 @@ describe("memsearch tool", () => {
 
     const tool = pi.tools[0];
     await tool.execute("tc-1", { query: "test", mode: "auto" });
-    expect(search).toHaveBeenCalledWith("ov-sess-1", "test", 10, "fast", undefined);
+    expect(search).toHaveBeenCalledWith("ov-sess-1", "test", 10, "fast", undefined, undefined);
   });
 
   test("auto mode resolves to fast when no session and simple query", async () => {
@@ -158,7 +175,7 @@ describe("memsearch tool", () => {
 
     const tool = pi.tools[0];
     await tool.execute("tc-1", { query: "test", mode: "auto" });
-    expect(search).toHaveBeenCalledWith(undefined, "test", 10, "fast", undefined);
+    expect(search).toHaveBeenCalledWith(undefined, "test", 10, "fast", undefined, undefined);
   });
 
   test("deep mode without session still passes deep to client fallback", async () => {
@@ -170,7 +187,7 @@ describe("memsearch tool", () => {
     const tool = pi.tools[0];
     await tool.execute("tc-1", { query: "test", mode: "deep" });
     // resolveSearchMode returns "deep"; client.search internally falls back to /find when no session
-    expect(search).toHaveBeenCalledWith(undefined, "test", 10, "deep", undefined);
+    expect(search).toHaveBeenCalledWith(undefined, "test", 10, "deep", undefined, undefined);
   });
 
   test("auto mode resolves to deep for complex query without session", async () => {
@@ -182,7 +199,7 @@ describe("memsearch tool", () => {
     const tool = pi.tools[0];
     const complexQuery = "What are the detailed coding preferences and patterns used across all previous sessions?";
     await tool.execute("tc-1", { query: complexQuery, mode: "auto" });
-    expect(search).toHaveBeenCalledWith(undefined, complexQuery, 10, "deep", undefined);
+    expect(search).toHaveBeenCalledWith(undefined, complexQuery, 10, "deep", undefined, undefined);
   });
 });
 

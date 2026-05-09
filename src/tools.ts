@@ -17,6 +17,7 @@ const SEARCH_PARAMS = Type.Object({
     Type.Literal("fast"),
     Type.Literal("deep"),
   ], { description: "Search mode: auto (default), fast (semantic), deep (context-aware with session)", default: "auto" })),
+  uri: Type.Optional(Type.String({ description: "Optional viking:// URI to scope search to a specific namespace" })),
 });
 
 const MEMREAD_PARAMS = Type.Object({
@@ -73,7 +74,7 @@ export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient
         const sessionId = deps.sync.getOvSessionId();
         const resolvedMode = resolveSearchMode(params.mode ?? "auto", params.query, sessionId ?? undefined);
 
-        const results = await deps.client.search(sessionId, params.query, params.limit ?? 10, resolvedMode, signal);
+        const results = await deps.client.search(sessionId, params.query, params.limit ?? 10, resolvedMode, params.uri, signal);
 
         if (results.total === 0) {
           return { text: "No results found." };
