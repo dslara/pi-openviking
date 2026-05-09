@@ -1,7 +1,9 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import { readFile } from "node:fs/promises";
+import { statSync } from "node:fs";
 import { basename } from "node:path";
+import { uploadDirectory } from "./uploader";
 import type { OpenVikingClient } from "./client";
 import type { SessionSyncLike } from "./session";
 import { defineTool } from "./tool-def";
@@ -209,6 +211,15 @@ export function registerMemimportTool(pi: ExtensionAPI, client: OpenVikingClient
       if (isUrl) {
         addParams.path = params.source;
       } else {
+        const stats = statSync(params.source);
+        if (stats.isDirectory()) {
+          const result = await uploadDirectory(deps.client, params.source, {
+            kind: params.kind,
+            reason: params.reason,
+            parent: params.to,
+          }, signal);
+          return { text: `Imported: ${result.root_uri} (status: ${result.status})` };
+        }
         const body = await readFile(params.source);
         const filename = basename(params.source);
         const upload = await deps.client.tempUpload(body, filename, signal);

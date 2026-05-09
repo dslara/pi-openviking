@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { SearchResult } from "../src/client";
@@ -563,5 +563,65 @@ describe("memimport tool", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HTTP 400");
+  });
+
+  test("imports local directory via uploadDirectory", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "ov-import-dir-"));
+    mkdirSync(join(tmpDir, "sub"));
+    writeFileSync(join(tmpDir, "a.txt"), "hello");
+    writeFileSync(join(tmpDir, "sub", "b.txt"), "world");
+
+    try {
+      const client = createMockClient({
+        addResource: vi.fn(async () => ({ root_uri: "viking://resources/mydir", status: "success", errors: [] })),
+      });
+      registerMemimportTool(pi as any, client);
+
+      const tool = pi.tools.find((t) => t.name === "memimport")!;
+      const result = await tool.execute("tc-1", { source: tmpDir });
+
+      expect(client.tempUpload).toHaveBeenCalledOnce();
+      const uploadedBody = (client.tempUpload as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const uploadedName = (client.tempUpload as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      expect(uploadedBody).toBeInstanceOf(Uint8Array);
+      expect(uploadedBody.length).toBeGreaterThan(0);
+      expect(uploadedName).toMatch(/\.zip$/);
+
+      expect(client.addResource).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "resource" }),
+        undefined,
+      );
+      expect(result.content[0].text).toBe("Imported: viking://resources/mydir (status: success)");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("forwards kind, reason, and to for local directory", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "ov-import-dir-"));
+    writeFileSync(join(tmpDir, "file.txt"), "content");
+
+    try {
+      const client = createMockClient({
+        addResource: vi.fn(async () => ({ root_uri: "viking://agent/skills/mydir", status: "success", errors: [] })),
+      });
+      registerMemimportTool(pi as any, client);
+
+      const tool = pi.tools.find((t) => t.name === "memimport")!;
+      const result = await tool.execute("tc-1", {
+        source: tmpDir,
+        kind: "skill",
+        reason: "test dir",
+        to: "viking://agent/skills/",
+      });
+
+      expect(client.addResource).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "skill", reason: "test dir", parent: "viking://agent/skills/" }),
+        undefined,
+      );
+      expect(result.content[0].text).toBe("Imported: viking://agent/skills/mydir (status: success)");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

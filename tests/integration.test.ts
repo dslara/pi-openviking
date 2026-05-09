@@ -6,6 +6,7 @@ import { loadConfig } from "../src/config";
 import { createClient } from "../src/client";
 import { createAutoRecall } from "../src/auto-recall";
 import { registerMemdeleteTool, registerMemimportTool } from "../src/tools";
+import { uploadDirectory } from "../src/uploader";
 
 /*
  * Integration test — requires a running OpenViking server.
@@ -329,6 +330,42 @@ describe.skip("memimport integration", () => {
       rmSync(tmpDir, { recursive: true, force: true });
     }
   }, 30000);
+
+  test("imports local directory via uploadDirectory and confirms tree via membrowse", async () => {
+    if (!serverUp) return;
+
+    const tmpDir = mkdtempSync(join(tmpdir(), "ov-import-dir-"));
+    writeFileSync(join(tmpDir, "file1.txt"), "hello world");
+    writeFileSync(join(tmpDir, "file2.txt"), "second file");
+
+    let importedUri: string | undefined;
+
+    try {
+      const result = await uploadDirectory(client, tmpDir);
+      expect(result).toHaveProperty("root_uri");
+      expect(result.status).toBe("success");
+      importedUri = result.root_uri;
+      console.log("memimport directory →", importedUri);
+
+      await new Promise((r) => setTimeout(r, 3000));
+
+      const tree = await client.fsTree(importedUri);
+      const names = tree.children?.map((c) => c.uri.split("/").pop()) ?? [];
+      console.log("membrowse tree →", names);
+      expect(names).toContain("file1.txt");
+      expect(names).toContain("file2.txt");
+    } finally {
+      if (importedUri) {
+        try {
+          await deleteWithRetry(client, importedUri);
+          console.log("Cleaned up dir:", importedUri);
+        } catch (e: any) {
+          console.log("Cleanup skipped:", e.message);
+        }
+      }
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe.skip("auto-recall integration", () => {
