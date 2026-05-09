@@ -1,13 +1,11 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import { readFile } from "node:fs/promises";
-import { statSync } from "node:fs";
-import { basename } from "node:path";
-import { uploadDirectory } from "./uploader";
 import type { OpenVikingClient } from "./client";
 import type { SessionSyncLike } from "./session";
 import { defineTool } from "./tool-def";
 import { resolveSearchMode } from "./search-mode";
+import { resolveSource } from "./source-resolver";
+import { notifyOnce } from "./notify";
 
 const SEARCH_PARAMS = Type.Object({
   query: Type.String({ description: "Search query to find relevant memories and resources" }),
@@ -54,8 +52,6 @@ const MEMIMPORT_PARAMS = Type.Object({
 });
 
 export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient, sync: SessionSyncLike) {
-  const notifiedPerCtx = new WeakMap<object, boolean>();
-
   defineTool(pi, { client, sync }, {
     name: "memsearch",
     label: "Memory Search",
@@ -93,11 +89,7 @@ export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient
         return { text: JSON.stringify(payload, null, 2) };
       } catch (err) {
         const msg = (err as Error).message;
-        const ctxObj = typeof ctx === "object" && ctx !== null ? ctx : null;
-        if (ctxObj && !notifiedPerCtx.get(ctxObj) && (ctxObj as any).hasUI) {
-          notifiedPerCtx.set(ctxObj, true);
-          (ctxObj as any).ui.notify(`OpenViking error: ${msg}`, "error");
-        }
+        notifyOnce(ctx, `OpenViking error: ${msg}`, "error");
         return { text: msg, isError: true };
       }
     },
@@ -223,32 +215,19 @@ export function registerMemimportTool(pi: ExtensionAPI, client: OpenVikingClient
     parameters: MEMIMPORT_PARAMS,
 
     async execute({ params, deps, signal }) {
-      const isUrl = /^https?:\/\/|^git:\/\//.test(params.source);
+      const resolved = await resolveSource(params.source, params.kind ?? "resource", params.reason, params.to);
 
-      const addParams: { path?: string; temp_file_id?: string; kind: "resource" | "skill"; parent?: string; reason?: string } = {
-        kind: params.kind ?? "resource",
-      };
-      if (isUrl) {
-        addParams.path = params.source;
-      } else {
-        const stats = statSync(params.source);
-        if (stats.isDirectory()) {
-          const result = await uploadDirectory(deps.client, params.source, {
-            kind: params.kind,
-            reason: params.reason,
-            parent: params.to,
-          }, signal);
-          return { text: `Imported: ${result.root_uri} (status: ${result.status})` };
-        }
-        const body = await readFile(params.source);
-        const filename = basename(params.source);
-        const upload = await deps.client.tempUpload(body, filename, signal);
-        addParams.temp_file_id = upload.temp_file_id;
+      if (resolved.type === "directory") {
+        const result = await resolved.upload(deps.client, signal);
+        return { text: `Imported: ${result.root_uri} (status: ${result.status})` };
       }
-      if (params.reason) addParams.reason = params.reason;
-      if (params.to) addParams.parent = params.to;
 
-      const result = await deps.client.addResource(addParams, signal);
+      if (resolved.type === "file") {
+        const upload = await deps.client.tempUpload(resolved.body, resolved.filename, signal);
+        resolved.params.temp_file_id = upload.temp_file_id;
+      }
+
+      const result = await deps.client.addResource(resolved.params, signal);
       return { text: `Imported: ${result.root_uri} (status: ${result.status})` };
     },
   });

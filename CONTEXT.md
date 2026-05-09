@@ -43,6 +43,8 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 
 ## Design Decisions
 
+- Auto-recall and memsearch tool format search results differently **by design**: auto-recall produces compressed XML (`<relevant-memories>`) with dedup and token budget for system prompt injection; memsearch returns full JSON for agent reasoning. No shared formatter.
+
 - Pi keeps its own session history. OV does **not** reassemble it (no `assemble()` / `compact()` pattern).
 - Auto-recall runs on `before_agent_start` — searches OV with the user prompt, injects top results into systemPrompt with ~500 token budget.
 - Auto-recall uses **deep** mode when OV session exists, **fast** when not.
