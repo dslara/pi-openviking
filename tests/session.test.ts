@@ -231,4 +231,42 @@ describe("SessionSync", () => {
     sync.onMessageEnd(msg({ role: "user", content: "after", timestamp: Date.now() }));
     await vi.waitFor(() => expect(createSpy).toHaveBeenCalledTimes(2));
   });
+
+  test("onMessageEnd does not crash when OV server is down", async () => {
+    const client = createMockClient({
+      createSession: vi.fn(async () => {
+        throw new Error("ECONNREFUSED");
+      }),
+    });
+    const sync = createSync(client);
+
+    // Should not throw — silently drops the error
+    sync.onMessageEnd(msg({
+      role: "user",
+      content: "hello",
+      timestamp: Date.now(),
+    }));
+
+    await vi.waitFor(() => expect(client.createSession).toHaveBeenCalledOnce());
+  });
+
+  test("onMessageEnd does not crash when sendMessage fails", async () => {
+    const client = createMockClient({
+      sendMessage: vi.fn(async () => {
+        throw new Error("timeout");
+      }),
+    });
+    const sync = createSync(client);
+
+    sync.onMessageEnd(msg({
+      role: "user",
+      content: "hello",
+      timestamp: Date.now(),
+    }));
+
+    await vi.waitFor(() => {
+      expect(client.createSession).toHaveBeenCalledOnce();
+      expect(client.sendMessage).toHaveBeenCalledOnce();
+    });
+  });
 });

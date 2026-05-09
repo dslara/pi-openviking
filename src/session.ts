@@ -45,13 +45,17 @@ export class SessionSync implements SessionSyncLike {
 
     const role = message.role;
     void this.enqueue(async () => {
-      if (!this.ovSessionId) {
-        this.ovSessionId = await this.client.createSession();
-        if (this.opts.getSessionFile() != null) {
-          this.opts.appendEntry("ov-session", { ovSessionId: this.ovSessionId });
+      try {
+        if (!this.ovSessionId) {
+          this.ovSessionId = await this.client.createSession();
+          if (this.opts.getSessionFile() != null) {
+            this.opts.appendEntry("ov-session", { ovSessionId: this.ovSessionId });
+          }
         }
+        await this.client.sendMessage(this.ovSessionId!, role, text);
+      } catch {
+        // OV server down — silently drop to avoid crashing Pi
       }
-      await this.client.sendMessage(this.ovSessionId!, role, text);
     });
   }
 
