@@ -37,6 +37,8 @@ export function bootstrapExtension(
     appendEntry: (type, data) => pi.appendEntry(type, data),
   });
 
+  console.debug("[ov] session sync created");
+
   registerMemsearchTool(pi, client, sessionSync);
   registerMemreadTool(pi, client);
   registerMembrowseTool(pi, client);

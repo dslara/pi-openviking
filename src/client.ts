@@ -176,6 +176,7 @@ export function createClient(config: OpenVikingConfig, transport?: Transport): O
         { body: {}, timeout: config.commitTimeout },
         signal,
       )) as { task_id: string; archived: boolean };
+      console.debug("[ov] commit:", sessionId, result);
       return result;
     },
 

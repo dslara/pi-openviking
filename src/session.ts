@@ -48,13 +48,16 @@ export class SessionSync implements SessionSyncLike {
       try {
         if (!this.ovSessionId) {
           this.ovSessionId = await this.client.createSession();
+          console.debug("[ov] session created:", this.ovSessionId);
           if (this.opts.getSessionFile() != null) {
             this.opts.appendEntry("ov-session", { ovSessionId: this.ovSessionId });
           }
         }
         await this.client.sendMessage(this.ovSessionId!, role, text);
-      } catch {
+        console.debug("[ov] message sent:", role, text.length);
+      } catch (err) {
         // OV server down — silently drop to avoid crashing Pi
+        console.error("[ov] message send failed:", (err as Error).message);
       }
     });
   }
@@ -68,6 +71,7 @@ export class SessionSync implements SessionSyncLike {
   }
 
   onShutdown(): void {
+    console.debug("[ov] shutdown");
     this.pendingChain = Promise.resolve();
     this.ovSessionId = undefined;
   }

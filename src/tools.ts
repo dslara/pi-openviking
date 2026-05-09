@@ -89,6 +89,7 @@ export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient
         return { text: JSON.stringify(payload, null, 2) };
       } catch (err) {
         const msg = (err as Error).message;
+        console.error("[ov] search failed:", msg);
         notifyOnce(ctx, `OpenViking error: ${msg}`, "error");
         return { text: msg, isError: true };
       }
@@ -194,8 +195,9 @@ export function registerMemdeleteTool(pi: ExtensionAPI, client: OpenVikingClient
             };
           }
         }
-      } catch {
+      } catch (err) {
         // Verification is best-effort; don't fail the delete on search errors
+        console.error("[ov] delete verification failed:", (err as Error).message);
       }
 
       return { text: `Deleted: ${result.uri}`, details: { uri: result.uri, verified: true } };

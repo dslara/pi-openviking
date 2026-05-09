@@ -43,7 +43,8 @@ export function createAutoRecall(
       if (items.length === 0) return {};
       const block = renderBlock(items);
       return { systemPrompt: `${event.systemPrompt}\n\n${block}` };
-    } catch {
+    } catch (err) {
+      console.error("[ov] auto-recall failed:", (err as Error).message);
       return {};
     } finally {
       clearTimeout(timeout);
