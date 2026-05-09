@@ -71,7 +71,7 @@ describe("memsearch tool", () => {
 
     const result = await tool.execute("tc-1", { query: "hello" });
     expect(client.createSession).not.toHaveBeenCalled();
-    expect(client.search).toHaveBeenCalledWith("ov-sess-1", "hello", 10, "deep", undefined);
+    expect(client.search).toHaveBeenCalledWith("ov-sess-1", "hello", 10, "fast", undefined);
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.memories[0].text).toBe("hello world");
   });
@@ -139,7 +139,7 @@ describe("memsearch tool", () => {
     expect(ctx.ui.notify).not.toHaveBeenCalled();
   });
 
-  test("auto mode resolves to deep when session available", async () => {
+  test("auto mode resolves to fast when session available and simple query", async () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-1" });
@@ -147,7 +147,7 @@ describe("memsearch tool", () => {
 
     const tool = pi.tools[0];
     await tool.execute("tc-1", { query: "test", mode: "auto" });
-    expect(search).toHaveBeenCalledWith("ov-sess-1", "test", 10, "deep", undefined);
+    expect(search).toHaveBeenCalledWith("ov-sess-1", "test", 10, "fast", undefined);
   });
 
   test("auto mode resolves to fast when no session and simple query", async () => {

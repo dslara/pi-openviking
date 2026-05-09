@@ -1,13 +1,10 @@
 export function resolveSearchMode(
   requestedMode: "auto" | "fast" | "deep" | undefined,
   query: string,
-  sessionId?: string,
+  _sessionId?: string,
 ): "fast" | "deep" {
   if (requestedMode === "fast" || requestedMode === "deep") {
     return requestedMode;
-  }
-  if (sessionId) {
-    return "deep";
   }
   const normalized = query.trim();
   const wordCount = normalized ? normalized.split(/\s+/).length : 0;
