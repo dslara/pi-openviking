@@ -13,6 +13,10 @@ const defaultConfig: OpenVikingConfig = {
   autoRecallTimeout: 5000,
   autoRecallTopN: 5,
   openVikingAutoRecall: true,
+  autoRecallScoreThreshold: 0.15,
+  autoRecallMaxContentChars: 500,
+  autoRecallPreferAbstract: true,
+  autoRecallTokenBudget: 500,
 };
 
 function mockTransport() {

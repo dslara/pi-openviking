@@ -29,7 +29,7 @@ describe("createAutoRecall", () => {
   test("appends relevant-memories block to system prompt", async () => {
     const client = createMockClient({
       search: vi.fn(async () => ({
-        memories: [{ text: "memory one", score: 0.95 }],
+        memories: [{ text: "memory one", score: 0.95, uri: "viking://user/memories/m1" }],
         resources: [{ uri: "viking://docs/one", score: 0.85, abstract: "doc one" }],
         skills: [],
         total: 2,
@@ -53,7 +53,7 @@ describe("createAutoRecall", () => {
     const autoRecall = createAutoRecall(client, sync);
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
-    expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "deep", expect.any(AbortSignal));
+    expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "deep", undefined, expect.any(AbortSignal));
   });
 
   test("passes undefined session_id when not mapped", async () => {
@@ -63,16 +63,16 @@ describe("createAutoRecall", () => {
     const autoRecall = createAutoRecall(client, sync);
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
-    expect(search).toHaveBeenCalledWith(undefined, "hello", 10, "fast", expect.any(AbortSignal));
+    expect(search).toHaveBeenCalledWith(undefined, "hello", 10, "fast", undefined, expect.any(AbortSignal));
   });
 
   test("deduplicates by abstract + uri and limits to 5", async () => {
     const client = createMockClient({
       search: vi.fn(async () => ({
         memories: [
-          { text: "dup", score: 0.99 },
-          { text: "dup", score: 0.98 },
-          { text: "unique memory", score: 0.97 },
+          { text: "dup", score: 0.99, uri: "viking://user/memories/m1" },
+          { text: "dup", score: 0.98, uri: "viking://user/memories/m2" },
+          { text: "unique memory", score: 0.97, uri: "viking://user/memories/m3" },
         ],
         resources: [
           { uri: "viking://dup", score: 0.96, abstract: "dup" },
@@ -93,8 +93,10 @@ describe("createAutoRecall", () => {
     const block = result.systemPrompt!;
     const memories = block.match(/<memory/g) ?? [];
     const resources = block.match(/<resource/g) ?? [];
-    expect(memories.length).toBe(2); // dup once + unique memory
-    expect(resources.length).toBe(3); // dup once + res4 + res5 (to hit 5 total)
+    // 3 distinct memory URIs (not deduped — different URIs) + 1 deduped resource URI
+    // = 5 total (topN limit)
+    expect(memories.length).toBe(3);
+    expect(resources.length).toBe(2); // dup URI deduped to 1 + res4 (to hit 5 total)
     expect(block).not.toContain('uri="viking://res6"');
   });
 
@@ -102,8 +104,8 @@ describe("createAutoRecall", () => {
     const client = createMockClient({
       search: vi.fn(async () => ({
         memories: [
-          { text: "low mem", score: 0.5 },
-          { text: "high mem", score: 0.9 },
+          { text: "low mem", score: 0.5, uri: "viking://user/memories/low" },
+          { text: "high mem", score: 0.9, uri: "viking://user/memories/high" },
         ],
         resources: [
           { uri: "viking://mid", score: 0.7, abstract: "mid" },
@@ -126,7 +128,7 @@ describe("createAutoRecall", () => {
 
   test("silently skips on timeout", async () => {
     const client = createMockClient({
-      search: vi.fn(async (_sid: string, _query: string, _limit: number | undefined, _mode: "fast" | "deep" | undefined, signal: AbortSignal | undefined) => {
+      search: vi.fn(async (_sid, _query, _limit, _mode, _targetUri, signal) => {
         return new Promise<SearchResult>((_resolve, reject) => {
           const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
           if (signal?.aborted) return onAbort();
@@ -145,7 +147,7 @@ describe("createAutoRecall", () => {
   test("escapes XML special characters", async () => {
     const client = createMockClient({
       search: vi.fn(async () => ({
-        memories: [{ text: '5 < 10 & "hello"', score: 0.9 }],
+        memories: [{ text: '5 < 10 & "hello"', score: 0.9, uri: "viking://user/memories/m1" }],
         resources: [{ uri: 'viking://a"b', score: 0.8, abstract: "<tag>" }],
         skills: [],
         total: 2,
@@ -168,16 +170,16 @@ describe("createAutoRecall", () => {
     const autoRecall = createAutoRecall(client, sync, { limit: 20 });
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
-    expect(search).toHaveBeenCalledWith(expect.anything(), "hello", 20, "deep", expect.any(AbortSignal));
+    expect(search).toHaveBeenCalledWith(expect.anything(), "hello", 20, "deep", undefined, expect.any(AbortSignal));
   });
 
   test("custom topN limits results", async () => {
     const client = createMockClient({
       search: vi.fn(async () => ({
         memories: [
-          { text: "m1", score: 0.99 },
-          { text: "m2", score: 0.98 },
-          { text: "m3", score: 0.97 },
+          { text: "m1", score: 0.99, uri: "viking://user/memories/m1" },
+          { text: "m2", score: 0.98, uri: "viking://user/memories/m2" },
+          { text: "m3", score: 0.97, uri: "viking://user/memories/m3" },
         ],
         resources: [
           { uri: "viking://r1", score: 0.96, abstract: "r1" },
@@ -199,7 +201,7 @@ describe("createAutoRecall", () => {
 
   test("custom timeout aborts faster", async () => {
     const client = createMockClient({
-      search: vi.fn(async (_sid, _query, _limit, _mode, signal) => {
+      search: vi.fn(async (_sid, _query, _limit, _mode, _targetUri, signal) => {
         return new Promise<SearchResult>((_resolve, reject) => {
           const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
           if (signal?.aborted) return onAbort();
@@ -226,7 +228,7 @@ describe("createAutoRecall", () => {
     const autoRecall = createAutoRecall(client, sync);
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
-    expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "deep", expect.any(AbortSignal));
+    expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "deep", undefined, expect.any(AbortSignal));
   });
 
   test("uses fast search mode when no session", async () => {
@@ -236,7 +238,7 @@ describe("createAutoRecall", () => {
     const autoRecall = createAutoRecall(client, sync);
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
-    expect(search).toHaveBeenCalledWith(undefined, "hello", 10, "fast", expect.any(AbortSignal));
+    expect(search).toHaveBeenCalledWith(undefined, "hello", 10, "fast", undefined, expect.any(AbortSignal));
   });
 
   test("trims results bottom-up to respect token budget", async () => {
@@ -245,6 +247,7 @@ describe("createAutoRecall", () => {
         memories: Array.from({ length: 5 }, (_, i) => ({
           text: `item-${i}-` + "a".repeat(390),
           score: 0.99 - i * 0.01,
+          uri: `viking://user/memories/item-${i}`,
         })),
         resources: [],
         skills: [],

@@ -12,6 +12,10 @@ export interface OpenVikingConfig {
   autoRecallTimeout: number;
   autoRecallTopN: number;
   openVikingAutoRecall: boolean;
+  autoRecallScoreThreshold: number;
+  autoRecallMaxContentChars: number;
+  autoRecallPreferAbstract: boolean;
+  autoRecallTokenBudget: number;
 }
 
 interface PiSettings {
@@ -25,6 +29,10 @@ interface PiSettings {
   openVikingAutoRecallTimeout?: number;
   openVikingAutoRecallTopN?: number;
   openVikingAutoRecall?: boolean;
+  openVikingAutoRecallScoreThreshold?: number;
+  openVikingAutoRecallMaxContentChars?: number;
+  openVikingAutoRecallPreferAbstract?: boolean;
+  openVikingAutoRecallTokenBudget?: number;
   [key: string]: unknown;
 }
 
@@ -93,5 +101,29 @@ export function loadConfig(cwd: string): OpenVikingConfig {
         ? process.env.OPENVIKING_AUTO_RECALL === "true"
         : undefined) ??
       true,
+    autoRecallScoreThreshold:
+      settings.openVikingAutoRecallScoreThreshold ??
+      (process.env.OPENVIKING_AUTO_RECALL_SCORE_THRESHOLD
+        ? parseFloat(process.env.OPENVIKING_AUTO_RECALL_SCORE_THRESHOLD)
+        : undefined) ??
+      0.15,
+    autoRecallMaxContentChars:
+      settings.openVikingAutoRecallMaxContentChars ??
+      (process.env.OPENVIKING_AUTO_RECALL_MAX_CONTENT_CHARS
+        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_MAX_CONTENT_CHARS, 10)
+        : undefined) ??
+      500,
+    autoRecallPreferAbstract:
+      settings.openVikingAutoRecallPreferAbstract ??
+      (process.env.OPENVIKING_AUTO_RECALL_PREFER_ABSTRACT
+        ? process.env.OPENVIKING_AUTO_RECALL_PREFER_ABSTRACT === "true"
+        : undefined) ??
+      true,
+    autoRecallTokenBudget:
+      settings.openVikingAutoRecallTokenBudget ??
+      (process.env.OPENVIKING_AUTO_RECALL_TOKEN_BUDGET
+        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_TOKEN_BUDGET, 10)
+        : undefined) ??
+      500,
   };
 }

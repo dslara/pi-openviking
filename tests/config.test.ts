@@ -46,6 +46,10 @@ describe("loadConfig", () => {
       autoRecallTimeout: 5000,
       autoRecallTopN: 5,
       openVikingAutoRecall: true,
+      autoRecallScoreThreshold: 0.15,
+      autoRecallMaxContentChars: 500,
+      autoRecallPreferAbstract: true,
+      autoRecallTokenBudget: 500,
     });
   });
 
@@ -75,6 +79,10 @@ describe("loadConfig", () => {
       autoRecallTimeout: 10000,
       autoRecallTopN: 3,
       openVikingAutoRecall: true,
+      autoRecallScoreThreshold: 0.15,
+      autoRecallMaxContentChars: 500,
+      autoRecallPreferAbstract: true,
+      autoRecallTokenBudget: 500,
     });
   });
 
@@ -107,6 +115,10 @@ describe("loadConfig", () => {
       autoRecallTimeout: 5000,
       autoRecallTopN: 5,
       openVikingAutoRecall: true,
+      autoRecallScoreThreshold: 0.15,
+      autoRecallMaxContentChars: 500,
+      autoRecallPreferAbstract: true,
+      autoRecallTokenBudget: 500,
     });
   });
 

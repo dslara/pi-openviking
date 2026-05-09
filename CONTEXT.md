@@ -12,7 +12,7 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 |------|---------|
 | **pi** | The coding agent harness (session manager, tools, prompt builder) |
 | **OV** | OpenViking server — context database with filesystem paradigm |
-| **auto-recall** | Before each agent turn, inject relevant memories into systemPrompt via `<relevant-memories>` block. Deep mode when OV session exists, fast mode otherwise. Token budget ~500 tokens. Configurable per project (`openVikingAutoRecall`). |
+| **auto-recall** | Before each agent turn, inject relevant memories into systemPrompt via `<relevant-memories>` block. Deep mode when OV session exists, fast mode otherwise. Token budget ~500 tokens. Configurable per project (`openVikingAutoRecall`). Uses **Recall Curator** for multi-factor ranking, dedup, and budget trimming. |
 | **Session Sync** | One-to-one mapping between a pi session and an OV session. Lazily creates OV session, streams user/assistant text-only messages incrementally. |
 | **memsearch** | Tool: semantic search across OV memories, resources, and skills. Returns raw JSON (`total`, `memories`, `resources`, `skills`, `query_plan`). Supports `mode` (auto/fast/deep). Auto mode uses `Search Mode Resolver`. |
 | **memread** | Tool: read content at a viking:// URI (L0 abstract, L1 overview, L2 full). Auto-detects level from stat (dir → overview, file → read). |
@@ -25,6 +25,7 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 | **Client Adapter** | `createClient` — maps domain operations (`search`, `read`, `fsList`, etc.) to transport calls. Knows endpoint paths, query/body assembly, and response normalization. |
 | **Search Mode Resolver** | `resolveSearchMode` — decides between `fast` and `deep` for auto mode. Deep if session exists, else deep if query is complex (`?`, length ≥ 80, wordCount ≥ 8), else fast. |
 | **Bootstrap** | `bootstrapExtension` — one-time setup per extension lifetime. Loads config, creates client and sessionSync, registers tools, wires auto-recall. Returns `{ sessionSync }` for lifecycle delegation. |
+| **Recall Curator** | `curate` — multi-factor ranking and dedup pipeline for search results. Takes raw `SearchResult` + query + options, produces `CuratedItem[]`. Scoring: base + leaf boost (0.12) + temporal boost (0.10) + preference boost (0.08) + lexical overlap (max 0.20). Deduplicates by abstract for non-event categories, by URI for events/cases/resources. Prefers leaf items, truncates content, trims to token budget. Pure function — zero network calls, fully testable. |
 | **Auto Recall Options** | Configurable parameters for `createAutoRecall`: `limit` (search results, default 10), `timeout` (ms, default 5000), `topN` (max memories injected, default 5). Set via `openVikingAutoRecallLimit/Timeout/TopN` in `.pi/settings.json` or env vars. |
 | **Resource** | External knowledge (docs, code, URLs) stored under `viking://resources/` |
 | **Skill** | Structured agent capability stored under `viking://agent/skills/` |
@@ -49,6 +50,7 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 - Auto-recall runs on `before_agent_start` — searches OV with the user prompt, injects top results into systemPrompt with ~500 token budget.
 - Auto-recall uses **deep** mode when OV session exists, **fast** when not.
 - Auto-recall is **configurable per project** via `openVikingAutoRecall` setting (default true).
+- Recall Curator options: `scoreThreshold` (0.15), `maxContentChars` (500), `preferAbstract` (true), `tokenBudget` (500) — configurable via settings/env vars.
 - Session sync is incremental: each `message_end` appends text-only content to OV session.
 - Async operations (commit, import) are fire-and-forget — return task_id but don't poll.
 - No reranking in plugin — trust OV's internal pipeline.

@@ -4,10 +4,37 @@ import type { Transport } from "./transport";
 
 export { OpenVikingError };
 
+export interface MemorySearchItem {
+  text: string;
+  score: number;
+  uri: string;
+  category?: string;
+  abstract?: string;
+  content?: string;
+  overview?: string;
+  level?: number;
+  modTime?: string;
+  [k: string]: unknown;
+}
+
+export interface ResourceSearchItem {
+  uri: string;
+  score: number;
+  abstract?: string;
+  [k: string]: unknown;
+}
+
+export interface SkillSearchItem {
+  uri: string;
+  score: number;
+  abstract?: string;
+  [k: string]: unknown;
+}
+
 export interface SearchResult {
-  memories: Array<{ text: string; score: number;[k: string]: unknown }>;
-  resources: Array<{ uri: string; score: number;[k: string]: unknown }>;
-  skills: Array<{ uri: string; score: number;[k: string]: unknown }>;
+  memories: MemorySearchItem[];
+  resources: ResourceSearchItem[];
+  skills: SkillSearchItem[];
   total: number;
   query_plan?: string;
   [k: string]: unknown;
