@@ -33,6 +33,7 @@ export interface OpenVikingClient {
   fsTree(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   fsStat(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   commit(sessionId: string, signal?: AbortSignal): Promise<{ task_id: string; archived: boolean }>;
+  delete(uri: string, signal?: AbortSignal): Promise<{ uri: string }>;
 }
 
 /** Raw OV fs/ls and fs/tree entry shape */
@@ -145,6 +146,16 @@ export function createClient(config: OpenVikingConfig, transport?: Transport): O
         { body: {}, timeout: config.commitTimeout },
         signal,
       )) as { task_id: string; archived: boolean };
+      return result;
+    },
+
+    async delete(uri, signal?) {
+      const result = (await t.request(
+        "delete",
+        `/api/v1/fs?uri=${encodeURIComponent(uri)}`,
+        { httpMethod: "DELETE" },
+        signal,
+      )) as { uri: string };
       return result;
     },
   };

@@ -17,6 +17,7 @@ export function createMockClient(overrides: Partial<OpenVikingClient> = {}): Ope
     fsTree: vi.fn(async () => ({ uri: "", children: [] })),
     fsStat: vi.fn(async () => ({ uri: "", children: [] })),
     commit: vi.fn(async () => ({ task_id: "task-1", archived: true })),
+    delete: vi.fn(async () => ({ uri: "" })),
     ...overrides,
   };
 }

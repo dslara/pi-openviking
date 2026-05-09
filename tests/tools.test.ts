@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import type { SearchResult } from "../src/client";
-import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool } from "../src/tools";
+import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool, registerMemdeleteTool } from "../src/tools";
 import { createMockClient, createMockSessionSync } from "./mocks";
 
 interface ToolResult {
@@ -391,5 +391,64 @@ describe("membrowse tool", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("viking://");
     expect(client.fsList).not.toHaveBeenCalled();
+  });
+});
+
+describe("memdelete tool", () => {
+  let pi: ReturnType<typeof createMockPi>;
+
+  beforeEach(() => {
+    pi = createMockPi();
+  });
+
+  test("registers with promptSnippet and no promptGuidelines", () => {
+    const client = createMockClient();
+    registerMemdeleteTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memdelete");
+    expect(tool).toBeDefined();
+    expect(tool!.promptSnippet).toBeDefined();
+    expect(tool!.promptGuidelines).toBeUndefined();
+  });
+
+  test("deletes a viking:// URI and returns confirmation", async () => {
+    const client = createMockClient({
+      delete: vi.fn(async () => ({ uri: "viking://resources/temp.txt" })),
+    });
+    registerMemdeleteTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memdelete")!;
+    const result = await tool.execute("tc-1", { uri: "viking://resources/temp.txt" });
+
+    expect(client.delete).toHaveBeenCalledWith("viking://resources/temp.txt", undefined);
+    expect(result.content[0].text).toBe("Deleted: viking://resources/temp.txt");
+    expect(result.isError).toBeUndefined();
+  });
+
+  test("returns error for invalid URI prefix", async () => {
+    const client = createMockClient();
+    registerMemdeleteTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memdelete")!;
+    const result = await tool.execute("tc-1", { uri: "file:///etc/passwd" });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe("Invalid URI: must start with viking://");
+    expect(client.delete).not.toHaveBeenCalled();
+  });
+
+  test("returns isError on client failure", async () => {
+    const client = createMockClient({
+      delete: vi.fn(async () => {
+        throw new Error("OpenViking delete failed: not found (HTTP 404)");
+      }),
+    });
+    registerMemdeleteTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memdelete")!;
+    const result = await tool.execute("tc-1", { uri: "viking://resources/missing.txt" });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("HTTP 404");
   });
 });

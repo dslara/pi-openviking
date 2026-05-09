@@ -6,6 +6,7 @@ import {
   registerMemreadTool,
   registerMembrowseTool,
   registerMemcommitTool,
+  registerMemdeleteTool,
 } from "./tools";
 import { SessionSync } from "./session";
 import { createAutoRecall } from "./auto-recall";
@@ -39,6 +40,7 @@ export function bootstrapExtension(
   registerMemreadTool(pi, client);
   registerMembrowseTool(pi, client);
   registerMemcommitTool(pi, client, sessionSync);
+  registerMemdeleteTool(pi, client);
 
   const autoRecall = createAutoRecall(client, sessionSync, {
     limit: config.autoRecallLimit,

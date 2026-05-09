@@ -34,6 +34,10 @@ const MEMBROWSE_PARAMS = Type.Object({
   ], { description: "Browse view", default: "list" })),
 });
 
+const MEMDELETE_PARAMS = Type.Object({
+  uri: Type.String({ description: "viking:// URI to delete" }),
+});
+
 export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient, sync: SessionSyncLike) {
   const notifiedPerCtx = new WeakMap<object, boolean>();
 
@@ -151,6 +155,24 @@ export function registerMembrowseTool(pi: ExtensionAPI, client: OpenVikingClient
       }
 
       return { text: parts.join("\n") };
+    },
+  });
+}
+
+export function registerMemdeleteTool(pi: ExtensionAPI, client: OpenVikingClient) {
+  defineTool(pi, { client }, {
+    name: "memdelete",
+    label: "Memory Delete",
+    description:
+      "Delete a resource or directory from the OpenViking knowledge base by viking:// URI. " +
+      "OV rm is idempotent — calling again on the same URI succeeds silently.",
+    promptSnippet: "Delete a resource from OpenViking by viking:// URI",
+    parameters: MEMDELETE_PARAMS,
+    validateUri: true,
+
+    async execute({ params, deps, signal }) {
+      const result = await deps.client.delete(params.uri, signal);
+      return { text: `Deleted: ${result.uri}` };
     },
   });
 }

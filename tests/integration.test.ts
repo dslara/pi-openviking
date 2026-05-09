@@ -2,6 +2,7 @@ import { describe, test, expect, beforeAll, vi } from "vitest";
 import { loadConfig } from "../src/config";
 import { createClient } from "../src/client";
 import { createAutoRecall } from "../src/auto-recall";
+import { registerMemdeleteTool } from "../src/tools";
 
 /*
  * Integration test — requires a running OpenViking server.
@@ -119,6 +120,53 @@ describe("full round-trip: search → memread", () => {
     }
 
     expect(true).toBe(true);
+  });
+});
+
+describe("memdelete integration", () => {
+  test("deletes a viking:// resource and confirms it is gone", async () => {
+    if (!serverUp) return;
+
+    // Find a deletable resource (skip temp/session scopes)
+    const searchResults = await client.search(sessionId, "test", 5);
+    const validScopes = ["agent", "resources", "user"];
+    const target = searchResults.resources.find((r) => {
+      const scope = r.uri.split("/")[2];
+      return validScopes.includes(scope);
+    });
+
+    if (!target) {
+      console.log("No deletable resource found — skipping full round-trip");
+      // Still verify delete is callable (idempotent)
+      const result = await client.delete("viking://resources/non-existent-test-file.txt");
+      expect(result).toHaveProperty("uri");
+      return;
+    }
+
+    // Delete it
+    const delResult = await client.delete(target.uri);
+    expect(delResult.uri).toBe(target.uri);
+    console.log("memdelete →", delResult.uri);
+
+    // Confirm gone via search
+    const afterSearch = await client.search(sessionId, target.uri, 5);
+    const stillThere = afterSearch.resources.some((r) => r.uri === target.uri);
+    expect(stillThere).toBe(false);
+  });
+
+  test("tool rejects non-viking:// URI", async () => {
+    const pi = {
+      registerTool: vi.fn((def: any) => {
+        (pi as any)._tool = def;
+      }),
+    };
+    registerMemdeleteTool(pi as any, client);
+
+    const tool = (pi as any)._tool;
+    const result = await tool.execute("tc-1", { uri: "file:///etc/passwd" });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe("Invalid URI: must start with viking://");
   });
 });
 
