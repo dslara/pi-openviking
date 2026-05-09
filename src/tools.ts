@@ -42,6 +42,12 @@ const MEMDELETE_PARAMS = Type.Object({
 
 const MEMIMPORT_PARAMS = Type.Object({
   source: Type.String({ description: "URL (http://, https://, git://) or local file path to import" }),
+  kind: Type.Optional(Type.Union([
+    Type.Literal("resource"),
+    Type.Literal("skill"),
+  ], { description: "Import kind: resource (default) or skill", default: "resource" })),
+  reason: Type.Optional(Type.String({ description: "Optional documentation of import intent" })),
+  to: Type.Optional(Type.String({ description: "Optional target URI controlling where resource lands in the viking:// tree" })),
 });
 
 export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient, sync: SessionSyncLike) {
@@ -189,22 +195,27 @@ export function registerMemimportTool(pi: ExtensionAPI, client: OpenVikingClient
     label: "Memory Import",
     description:
       "Import a remote URL or local file into the OpenViking knowledge base. " +
-      "Supports http://, https://, and git:// URLs, as well as local filesystem paths.",
+      "Supports http://, https://, and git:// URLs, as well as local filesystem paths. " +
+      "Use kind=skill to import as a skill. Optional reason and to params control metadata and placement.",
     promptSnippet: "Import a URL or local file into OpenViking",
     parameters: MEMIMPORT_PARAMS,
 
     async execute({ params, deps, signal }) {
       const isUrl = /^https?:\/\/|^git:\/\//.test(params.source);
 
-      let addParams: { path?: string; temp_file_id?: string };
+      const addParams: { path?: string; temp_file_id?: string; kind: "resource" | "skill"; parent?: string; reason?: string } = {
+        kind: params.kind ?? "resource",
+      };
       if (isUrl) {
-        addParams = { path: params.source };
+        addParams.path = params.source;
       } else {
         const body = await readFile(params.source);
         const filename = basename(params.source);
         const upload = await deps.client.tempUpload(body, filename, signal);
-        addParams = { temp_file_id: upload.temp_file_id };
+        addParams.temp_file_id = upload.temp_file_id;
       }
+      if (params.reason) addParams.reason = params.reason;
+      if (params.to) addParams.parent = params.to;
 
       const result = await deps.client.addResource(addParams, signal);
       return { text: `Imported: ${result.root_uri} (status: ${result.status})` };

@@ -1,4 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
+import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import type { SearchResult } from "../src/client";
 import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool, registerMemdeleteTool, registerMemimportTool } from "../src/tools";
 import { createMockClient, createMockSessionSync } from "./mocks";
@@ -470,7 +473,7 @@ describe("memimport tool", () => {
     expect(tool!.promptGuidelines).toBeUndefined();
   });
 
-  test("imports URL source via path", async () => {
+  test("imports URL source via path with defaults", async () => {
     const client = createMockClient({
       addResource: vi.fn(async () => ({ root_uri: "viking://resources/github.md", status: "success", errors: [] })),
     });
@@ -479,7 +482,7 @@ describe("memimport tool", () => {
     const tool = pi.tools.find((t) => t.name === "memimport")!;
     const result = await tool.execute("tc-1", { source: "https://example.com/doc.md" });
 
-    expect(client.addResource).toHaveBeenCalledWith({ path: "https://example.com/doc.md" }, undefined);
+    expect(client.addResource).toHaveBeenCalledWith({ path: "https://example.com/doc.md", kind: "resource" }, undefined);
     expect(client.tempUpload).not.toHaveBeenCalled();
     expect(result.content[0].text).toBe("Imported: viking://resources/github.md (status: success)");
   });
@@ -493,8 +496,58 @@ describe("memimport tool", () => {
     const tool = pi.tools.find((t) => t.name === "memimport")!;
     const result = await tool.execute("tc-1", { source: "git://github.com/user/repo.git" });
 
-    expect(client.addResource).toHaveBeenCalledWith({ path: "git://github.com/user/repo.git" }, undefined);
+    expect(client.addResource).toHaveBeenCalledWith({ path: "git://github.com/user/repo.git", kind: "resource" }, undefined);
     expect(result.content[0].text).toBe("Imported: viking://resources/repo (status: success)");
+  });
+
+  test("forwards kind=skill, reason, and to params", async () => {
+    const client = createMockClient({
+      addResource: vi.fn(async () => ({ root_uri: "viking://agent/skills/test.md", status: "success", errors: [] })),
+    });
+    registerMemimportTool(pi as any, client);
+
+    const tool = pi.tools.find((t) => t.name === "memimport")!;
+    const result = await tool.execute("tc-1", {
+      source: "https://example.com/skill.md",
+      kind: "skill",
+      reason: "test import",
+      to: "viking://agent/skills/",
+    });
+
+    expect(client.addResource).toHaveBeenCalledWith(
+      { path: "https://example.com/skill.md", kind: "skill", reason: "test import", parent: "viking://agent/skills/" },
+      undefined,
+    );
+    expect(result.content[0].text).toBe("Imported: viking://agent/skills/test.md (status: success)");
+  });
+
+  test("forwards reason and to for local file", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "ov-import-"));
+    const filePath = join(tmpDir, "local.md");
+    writeFileSync(filePath, "# local test");
+
+    try {
+      const client = createMockClient({
+        addResource: vi.fn(async () => ({ root_uri: "viking://resources/local.md", status: "success", errors: [] })),
+      });
+      registerMemimportTool(pi as any, client);
+
+      const tool = pi.tools.find((t) => t.name === "memimport")!;
+      const result = await tool.execute("tc-1", {
+        source: filePath,
+        kind: "resource",
+        reason: "local test",
+        to: "viking://resources/docs/",
+      });
+
+      expect(client.addResource).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "resource", reason: "local test", parent: "viking://resources/docs/" }),
+        undefined,
+      );
+      expect(result.content[0].text).toBe("Imported: viking://resources/local.md (status: success)");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test("returns isError on client failure", async () => {

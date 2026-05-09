@@ -34,7 +34,7 @@ export interface OpenVikingClient {
   fsStat(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   commit(sessionId: string, signal?: AbortSignal): Promise<{ task_id: string; archived: boolean }>;
   delete(uri: string, signal?: AbortSignal): Promise<{ uri: string }>;
-  addResource(params: { path?: string; temp_file_id?: string; parent?: string; reason?: string }, signal?: AbortSignal): Promise<{ root_uri: string; status: string; errors: string[] }>;
+  addResource(params: { path?: string; temp_file_id?: string; parent?: string; reason?: string; kind?: "resource" | "skill" }, signal?: AbortSignal): Promise<{ root_uri: string; status: string; errors: string[] }>;
   tempUpload(fileBody: string | Uint8Array, filename: string, signal?: AbortSignal): Promise<{ temp_file_id: string }>;
 }
 
@@ -162,10 +162,15 @@ export function createClient(config: OpenVikingConfig, transport?: Transport): O
     },
 
     async addResource(params, signal?) {
+      const endpoint = params.kind === "skill" ? "/api/v1/skills" : "/api/v1/resources";
+      const { kind: _kind, ...body } = params;
+      if (endpoint === "/api/v1/skills" && "reason" in body) {
+        delete (body as any).reason;
+      }
       const result = (await t.request(
         "addResource",
-        "/api/v1/resources",
-        { body: params },
+        endpoint,
+        { body },
         signal,
       )) as { root_uri: string; status: string; errors: string[] };
       return result;
