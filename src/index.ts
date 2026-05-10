@@ -21,8 +21,8 @@ export default function openVikingExtension(pi: ExtensionAPI) {
     sessionSync?.onMessageEnd(event.message);
   });
 
-  pi.on("session_shutdown", () => {
-    sessionSync?.onShutdown();
+  pi.on("session_shutdown", async () => {
+    await sessionSync?.onShutdown();
     sessionSync = undefined;
   });
 }

@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "./client";
 import type { SessionSyncLike } from "./session";
+import { logger } from "./logger";
 import { defineTool } from "./tool-def";
 import { resolveSearchMode } from "./search-mode";
 import { resolveSource } from "./source-resolver";
@@ -91,7 +92,7 @@ export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient
         return { text: JSON.stringify(payload, null, 2) };
       } catch (err) {
         const msg = (err as Error).message;
-        console.error("[ov] search failed:", msg);
+        logger.error("search failed:", msg);
         notifyOnce(ctx, `OpenViking error: ${msg}`, "error");
         return { text: msg, isError: true };
       }
@@ -199,7 +200,7 @@ export function registerMemdeleteTool(pi: ExtensionAPI, client: OpenVikingClient
         }
       } catch (err) {
         // Verification is best-effort; don't fail the delete on search errors
-        console.error("[ov] delete verification failed:", (err as Error).message);
+        logger.error("delete verification failed:", (err as Error).message);
       }
 
       return { text: `Deleted: ${result.uri}`, details: { uri: result.uri, verified: true } };

@@ -224,12 +224,43 @@ describe("SessionSync", () => {
     sync.onMessageEnd(msg({ role: "user", content: "before", timestamp: Date.now() }));
     await vi.waitFor(() => expect(client.sendMessage).toHaveBeenCalledOnce());
 
-    sync.onShutdown();
+    await sync.onShutdown();
 
     // After shutdown, new message gets a fresh session
     const createSpy = client.createSession as ReturnType<typeof vi.fn>;
     sync.onMessageEnd(msg({ role: "user", content: "after", timestamp: Date.now() }));
     await vi.waitFor(() => expect(createSpy).toHaveBeenCalledTimes(2));
+  });
+
+  test("onShutdown does not commit (manual only)", async () => {
+    const client = createMockClient();
+    const sync = createSync(client);
+
+    sync.onMessageEnd(msg({ role: "user", content: "hello", timestamp: Date.now() }));
+    await vi.waitFor(() => expect(client.sendMessage).toHaveBeenCalledOnce());
+
+    await sync.onShutdown();
+    expect(client.commit).not.toHaveBeenCalled();
+  });
+
+  test("commit calls client.commit with ovSessionId and returns result", async () => {
+    const client = createMockClient();
+    const sync = createSync(client);
+
+    sync.onMessageEnd(msg({ role: "user", content: "hello", timestamp: Date.now() }));
+    await vi.waitFor(() => expect(client.createSession).toHaveBeenCalledOnce());
+
+    const result = await sync.commit();
+    expect(client.commit).toHaveBeenCalledWith("ov-sess-1");
+    expect(result.task_id).toBe("task-1");
+    expect(result.archived).toBe(true);
+  });
+
+  test("commit throws when no ovSessionId", async () => {
+    const client = createMockClient();
+    const sync = createSync(client);
+
+    await expect(sync.commit()).rejects.toThrow("No OpenViking session mapped");
   });
 
   test("onMessageEnd does not crash when OV server is down", async () => {
@@ -268,5 +299,42 @@ describe("SessionSync", () => {
       expect(client.createSession).toHaveBeenCalledOnce();
       expect(client.sendMessage).toHaveBeenCalledOnce();
     });
+  });
+
+  test("onShutdown returns immediately even when pending chain is slow", async () => {
+    const client = createMockClient();
+    const sync = createSync(client);
+
+    sync.onMessageEnd(msg({ role: "user", content: "hello", timestamp: Date.now() }));
+    await vi.waitFor(() => expect(client.sendMessage).toHaveBeenCalledOnce());
+
+    // Override pending chain to be very slow
+    (sync as any).pendingChain = new Promise(() => {});
+
+    const start = Date.now();
+    await sync.onShutdown();
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeLessThan(500);
+  });
+
+  test("onShutdown does not call commit when chain has pending work", async () => {
+    const client = createMockClient({
+      commit: vi.fn(async () => {
+        await new Promise(() => {});
+        return {} as any;
+      }),
+    });
+    const sync = createSync(client);
+
+    sync.onMessageEnd(msg({ role: "user", content: "hello", timestamp: Date.now() }));
+    await vi.waitFor(() => expect(client.sendMessage).toHaveBeenCalledOnce());
+
+    const start = Date.now();
+    await sync.onShutdown();
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeLessThan(500);
+    expect(client.commit).not.toHaveBeenCalled();
   });
 });

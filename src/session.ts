@@ -1,6 +1,7 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { TextContent, ImageContent, ThinkingContent, ToolCall } from "@mariozechner/pi-ai";
-import type { OpenVikingClient } from "./client";
+import type { CommitResult, OpenVikingClient } from "./client";
+import { logger } from "./logger";
 
 export interface SessionSyncOpts {
   getSessionFile: () => string | undefined;
@@ -11,6 +12,7 @@ export interface SessionSyncOpts {
 export interface SessionSyncLike {
   getOvSessionId(): string | undefined;
   flush(): Promise<void>;
+  commit(): Promise<import("./client").CommitResult>;
 }
 
 export class SessionSync implements SessionSyncLike {
@@ -48,16 +50,16 @@ export class SessionSync implements SessionSyncLike {
       try {
         if (!this.ovSessionId) {
           this.ovSessionId = await this.client.createSession();
-          console.debug("[ov] session created:", this.ovSessionId);
+          logger.debug("session created:", this.ovSessionId);
           if (this.opts.getSessionFile() != null) {
             this.opts.appendEntry("ov-session", { ovSessionId: this.ovSessionId });
           }
         }
         await this.client.sendMessage(this.ovSessionId!, role, text);
-        console.debug("[ov] message sent:", role, text.length);
+        logger.debug("message sent:", role, text.length);
       } catch (err) {
         // OV server down — silently drop to avoid crashing Pi
-        console.error("[ov] message send failed:", (err as Error).message);
+        logger.error("message send failed:", (err as Error).message);
       }
     });
   }
@@ -66,12 +68,20 @@ export class SessionSync implements SessionSyncLike {
     return this.ovSessionId;
   }
 
+  async commit(): Promise<CommitResult> {
+    if (!this.ovSessionId) {
+      throw new Error("No OpenViking session mapped");
+    }
+    const result = await this.client.commit(this.ovSessionId);
+    logger.debug("commit:", this.ovSessionId, result.task_id);
+    return result;
+  }
+
   flush(): Promise<void> {
     return this.pendingChain;
   }
 
   onShutdown(): void {
-    console.debug("[ov] shutdown");
     this.pendingChain = Promise.resolve();
     this.ovSessionId = undefined;
   }

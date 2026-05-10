@@ -400,6 +400,7 @@ describe.skip("auto-recall integration", () => {
     const sync = {
       getOvSessionId: vi.fn(() => sessionId),
       flush: vi.fn(async () => {}),
+      commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-1", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
     };
 
     const autoRecall = createAutoRecall(client, sync);
@@ -424,6 +425,7 @@ describe.skip("auto-recall integration", () => {
     const sync = {
       getOvSessionId: vi.fn(() => undefined),
       flush: vi.fn(async () => {}),
+      commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-1", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
     };
 
     const autoRecall = createAutoRecall(client, sync);
@@ -463,6 +465,7 @@ describe.skip("auto-recall integration", () => {
       const sync = {
         getOvSessionId: vi.fn(() => sessionId),
         flush: vi.fn(async () => {}),
+        commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-1", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
       };
 
       const autoRecall = createAutoRecall(client, sync, { topN: 5 });
@@ -488,6 +491,7 @@ describe.skip("auto-recall integration", () => {
     const sync = {
       getOvSessionId: vi.fn(() => sessionId),
       flush: vi.fn(async () => {}),
+      commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-1", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
     };
 
     const autoRecall = createAutoRecall(client, sync, { enabled: false });

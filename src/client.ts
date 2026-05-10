@@ -188,7 +188,8 @@ export function createClient(config: OpenVikingConfig, transport?: Transport): O
         { body: {}, timeout: config.commitTimeout },
         signal,
       )) as CommitResult;
-      console.debug("[ov] commit:", sessionId, result);
+      const { logger } = await import("./logger");
+      logger.debug("commit:", sessionId, result);
       return result;
     },
 

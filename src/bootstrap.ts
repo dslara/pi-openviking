@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { loadConfig } from "./config";
 import { createClient } from "./client";
+import { logger } from "./logger";
 import {
   registerMemsearchTool,
   registerMemreadTool,
@@ -37,7 +38,7 @@ export function bootstrapExtension(
     appendEntry: (type, data) => pi.appendEntry(type, data),
   });
 
-  console.debug("[ov] session sync created");
+  logger.debug("session sync created");
 
   registerMemsearchTool(pi, client, sessionSync);
   registerMemreadTool(pi, client);
@@ -45,6 +46,21 @@ export function bootstrapExtension(
   registerMemcommitTool(pi, client, sessionSync);
   registerMemdeleteTool(pi, client);
   registerMemimportTool(pi, client);
+
+  pi.registerCommand("ov-commit", {
+    description: "Commit the current conversation to OpenViking",
+    handler: async (_args, cmdCtx) => {
+      try {
+        await sessionSync.flush();
+        const result = await sessionSync.commit();
+        cmdCtx.ui.notify(`✓ Session committed. Task: ${result.task_id}`, "info");
+      } catch (err) {
+        const message = (err as Error).message ?? "Unknown error";
+        logger.error("commit command failed:", message);
+        cmdCtx.ui.notify(`✗ Commit failed: ${message}`, "error");
+      }
+    },
+  });
 
   const autoRecall = createAutoRecall(client, sessionSync, {
     limit: config.autoRecallLimit,

@@ -4,10 +4,14 @@ import { bootstrapExtension } from "../src/bootstrap";
 function createMockPi() {
   const handlers: Record<string, Array<(...args: any[]) => any>> = {};
   const tools: unknown[] = [];
+  const commands: Record<string, { description?: string; handler: (...args: any[]) => any }> = {};
 
   return {
     registerTool: vi.fn((def: unknown) => {
       tools.push(def);
+    }),
+    registerCommand: vi.fn((name: string, options: { description?: string; handler: (...args: any[]) => any }) => {
+      commands[name] = options;
     }),
     on: vi.fn((event: string, handler: (...args: any[]) => any) => {
       if (!handlers[event]) handlers[event] = [];
@@ -16,6 +20,7 @@ function createMockPi() {
     appendEntry: vi.fn(),
     getTools: () => tools,
     getHandlers: (event: string) => handlers[event] ?? [],
+    getCommand: (name: string) => commands[name],
   };
 }
 
@@ -83,5 +88,52 @@ describe("bootstrapExtension", () => {
     await vi.waitFor(() => {
       expect(pi.appendEntry).toHaveBeenCalledWith("ov-session", expect.any(Object));
     });
+  });
+
+  test("registers /ov-commit command", () => {
+    const pi = createMockPi();
+    const ctx = createMockCtx();
+
+    bootstrapExtension(pi as any, ctx);
+
+    expect(pi.registerCommand).toHaveBeenCalledWith("ov-commit", expect.objectContaining({
+      description: expect.stringContaining("Commit"),
+    }));
+  });
+
+  test("/ov-commit command notifies success with task_id", async () => {
+    const pi = createMockPi();
+    const ctx = createMockCtx();
+
+    const result = bootstrapExtension(pi as any, ctx);
+    result.sessionSync.onMessageEnd({
+      role: "user",
+      content: "hello",
+      timestamp: Date.now(),
+    } as any);
+    await vi.waitFor(() => expect(result.sessionSync.getOvSessionId()).toBeDefined());
+
+    const command = (pi as any).getCommand("ov-commit");
+    expect(command).toBeDefined();
+
+    const notify = vi.fn();
+    const cmdCtx = { ui: { notify }, hasUI: true } as any;
+
+    await command.handler("", cmdCtx);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("✓ Session committed. Task:"), "info");
+  });
+
+  test("/ov-commit command notifies error when no session", async () => {
+    const pi = createMockPi();
+    const ctx = createMockCtx();
+
+    bootstrapExtension(pi as any, ctx);
+
+    const command = (pi as any).getCommand("ov-commit");
+    const notify = vi.fn();
+    const cmdCtx = { ui: { notify }, hasUI: true } as any;
+
+    await command.handler("", cmdCtx);
+    expect(notify).toHaveBeenCalledWith("✗ Commit failed: No OpenViking session mapped", "error");
   });
 });
