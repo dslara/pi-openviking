@@ -403,7 +403,7 @@ describe.skip("auto-recall integration", () => {
       commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-1", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
     };
 
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, { enabled: true });
     const result = await autoRecall({ prompt: "openviking", systemPrompt: "You are a helpful assistant." });
 
     if (!result.systemPrompt) {
@@ -428,7 +428,7 @@ describe.skip("auto-recall integration", () => {
       commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-1", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
     };
 
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, { enabled: true });
     const result = await autoRecall({ prompt: "openviking", systemPrompt: "base" });
 
     if (!result.systemPrompt) {
@@ -468,7 +468,7 @@ describe.skip("auto-recall integration", () => {
         commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-1", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
       };
 
-      const autoRecall = createAutoRecall(client, sync, { topN: 5 });
+      const autoRecall = createAutoRecall(client, sync, { enabled: true }, { topN: 5 });
       const result = await autoRecall({ prompt: "word", systemPrompt: "base" });
 
       if (result.systemPrompt) {

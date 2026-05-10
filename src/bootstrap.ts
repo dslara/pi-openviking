@@ -12,6 +12,7 @@ import {
 } from "./tools";
 import { SessionSync } from "./session";
 import { createAutoRecall } from "./auto-recall";
+import { registerCommands } from "./commands";
 
 export interface BootstrapContext {
   cwd: string;
@@ -47,26 +48,14 @@ export function bootstrapExtension(
   registerMemdeleteTool(pi, client);
   registerMemimportTool(pi, client);
 
-  pi.registerCommand("ov-commit", {
-    description: "Commit the current conversation to OpenViking",
-    handler: async (_args, cmdCtx) => {
-      try {
-        await sessionSync.flush();
-        const result = await sessionSync.commit();
-        cmdCtx.ui.notify(`✓ Session committed. Task: ${result.task_id}`, "info");
-      } catch (err) {
-        const message = (err as Error).message ?? "Unknown error";
-        logger.error("commit command failed:", message);
-        cmdCtx.ui.notify(`✗ Commit failed: ${message}`, "error");
-      }
-    },
-  });
+  const autoRecallState = { enabled: config.openVikingAutoRecall };
 
-  const autoRecall = createAutoRecall(client, sessionSync, {
+  registerCommands({ pi, client, sessionSync, autoRecallState });
+
+  const autoRecall = createAutoRecall(client, sessionSync, autoRecallState, {
     limit: config.autoRecallLimit,
     timeout: config.autoRecallTimeout,
     topN: config.autoRecallTopN,
-    enabled: config.openVikingAutoRecall,
     curateOptions: {
       scoreThreshold: config.autoRecallScoreThreshold,
       maxContentChars: config.autoRecallMaxContentChars,

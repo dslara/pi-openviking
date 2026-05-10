@@ -3,6 +3,10 @@ import type { SearchResult } from "../src/client";
 import { createAutoRecall } from "../src/auto-recall";
 import { createMockClient, createMockSessionSync } from "./mocks";
 
+function makeState(enabled = true) {
+  return { enabled };
+}
+
 describe("createAutoRecall", () => {
   test("silently skips on search failure", async () => {
     const client = createMockClient({
@@ -11,7 +15,7 @@ describe("createAutoRecall", () => {
       }),
     });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base prompt" });
     expect(result.systemPrompt).toBeUndefined();
@@ -20,7 +24,7 @@ describe("createAutoRecall", () => {
   test("returns empty object when no results", async () => {
     const client = createMockClient();
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base prompt" });
     expect(result.systemPrompt).toBeUndefined();
@@ -36,7 +40,7 @@ describe("createAutoRecall", () => {
       } as SearchResult)),
     });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base prompt" });
     expect(result.systemPrompt).toContain("<relevant-memories>");
@@ -50,7 +54,7 @@ describe("createAutoRecall", () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-99" });
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
     expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "deep", undefined, expect.any(AbortSignal));
@@ -60,7 +64,7 @@ describe("createAutoRecall", () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync({ getOvSessionId: () => undefined });
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
     expect(search).toHaveBeenCalledWith(undefined, "hello", 10, "fast", undefined, expect.any(AbortSignal));
@@ -87,7 +91,7 @@ describe("createAutoRecall", () => {
       } as SearchResult)),
     });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
     const block = result.systemPrompt!;
@@ -115,7 +119,7 @@ describe("createAutoRecall", () => {
       } as SearchResult)),
     });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
     const block = result.systemPrompt!;
@@ -138,7 +142,7 @@ describe("createAutoRecall", () => {
       }),
     });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base" });
     expect(result.systemPrompt).toBeUndefined();
@@ -154,7 +158,7 @@ describe("createAutoRecall", () => {
       } as SearchResult)),
     });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
     const block = result.systemPrompt!;
@@ -167,7 +171,7 @@ describe("createAutoRecall", () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync, { limit: 20 });
+    const autoRecall = createAutoRecall(client, sync, makeState(), { limit: 20 });
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
     expect(search).toHaveBeenCalledWith(expect.anything(), "hello", 20, "deep", undefined, expect.any(AbortSignal));
@@ -190,7 +194,7 @@ describe("createAutoRecall", () => {
       } as SearchResult)),
     });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync, { topN: 2 });
+    const autoRecall = createAutoRecall(client, sync, makeState(), { topN: 2 });
 
     const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
     const block = result.systemPrompt!;
@@ -211,7 +215,7 @@ describe("createAutoRecall", () => {
       }),
     });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync, { timeout: 50 });
+    const autoRecall = createAutoRecall(client, sync, makeState(), { timeout: 50 });
 
     const start = Date.now();
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base" });
@@ -225,7 +229,7 @@ describe("createAutoRecall", () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-99" });
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
     expect(search).toHaveBeenCalledWith("ov-sess-99", "hello", 10, "deep", undefined, expect.any(AbortSignal));
@@ -235,7 +239,7 @@ describe("createAutoRecall", () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync({ getOvSessionId: () => undefined });
-    const autoRecall = createAutoRecall(client, sync);
+    const autoRecall = createAutoRecall(client, sync, makeState());
 
     await autoRecall({ prompt: "hello", systemPrompt: "base" });
     expect(search).toHaveBeenCalledWith(undefined, "hello", 10, "fast", undefined, expect.any(AbortSignal));
@@ -255,7 +259,7 @@ describe("createAutoRecall", () => {
       } as SearchResult)),
     });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync, { topN: 5 });
+    const autoRecall = createAutoRecall(client, sync, makeState(), { topN: 5 });
 
     const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
     const block = result.systemPrompt!.replace("base\n\n", "");
@@ -268,12 +272,26 @@ describe("createAutoRecall", () => {
     expect(block).not.toContain('score="0.95"');
   });
 
-  test("returns empty when auto recall is disabled", async () => {
+  test("returns empty when auto recall is disabled via state", async () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync, { enabled: false });
+    const state = makeState(false);
+    const autoRecall = createAutoRecall(client, sync, state);
 
+    const result = await autoRecall({ prompt: "hello", systemPrompt: "base" });
+    expect(result.systemPrompt).toBeUndefined();
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  test("respects state toggle after creation", async () => {
+    const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
+    const client = createMockClient({ search });
+    const sync = createMockSessionSync();
+    const state = makeState(true);
+    const autoRecall = createAutoRecall(client, sync, state);
+
+    state.enabled = false;
     const result = await autoRecall({ prompt: "hello", systemPrompt: "base" });
     expect(result.systemPrompt).toBeUndefined();
     expect(search).not.toHaveBeenCalled();

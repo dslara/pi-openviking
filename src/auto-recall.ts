@@ -3,11 +3,14 @@ import type { SessionSyncLike } from "./session";
 import { logger } from "./logger";
 import { curate, DEFAULT_CURATE_OPTIONS, type CurateOptions, type CuratedItem } from "./recall-curator";
 
+export interface AutoRecallState {
+  enabled: boolean;
+}
+
 export interface AutoRecallOptions {
   limit?: number;
   timeout?: number;
   topN?: number;
-  enabled?: boolean;
   curateOptions?: Partial<CurateOptions>;
 }
 
@@ -19,11 +22,11 @@ export interface AutoRecallEvent {
 export function createAutoRecall(
   client: OpenVikingClient,
   sessionSync: SessionSyncLike,
+  state: AutoRecallState,
   options?: AutoRecallOptions,
 ): (event: AutoRecallEvent) => Promise<{ systemPrompt?: string }> {
   const limit = options?.limit ?? 10;
   const timeoutMs = options?.timeout ?? 5000;
-  const enabled = options?.enabled ?? true;
   const curateOptions: CurateOptions = {
     ...DEFAULT_CURATE_OPTIONS,
     topN: options?.topN ?? DEFAULT_CURATE_OPTIONS.topN,
@@ -31,7 +34,7 @@ export function createAutoRecall(
   };
 
   return async function autoRecall(event: AutoRecallEvent): Promise<{ systemPrompt?: string }> {
-    if (!enabled) return {};
+    if (!state.enabled) return {};
 
     const sessionId = sessionSync.getOvSessionId();
     const mode = sessionId ? "deep" : "fast";
