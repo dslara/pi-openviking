@@ -65,7 +65,7 @@ export interface OpenVikingClient {
   sendMessage(sessionId: string, role: string, content: string, signal?: AbortSignal): Promise<void>;
   search(sessionId: string | undefined, query: string, limit?: number, mode?: "fast" | "deep", target_uri?: string, signal?: AbortSignal): Promise<SearchResult>;
   read(uri: string, level?: "abstract" | "overview" | "read", signal?: AbortSignal): Promise<ReadResult>;
-  fsList(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
+  fsList(uri: string, signal?: AbortSignal, recursive?: boolean, simple?: boolean): Promise<BrowseResult>;
   fsTree(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   fsStat(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
   commit(sessionId: string, signal?: AbortSignal): Promise<CommitResult>;
@@ -144,10 +144,13 @@ export function createClient(config: OpenVikingConfig, transport?: Transport): O
       return { content: result };
     },
 
-    async fsList(uri, signal?) {
+    async fsList(uri, signal?, recursive?, simple?) {
+      const params = new URLSearchParams({ uri });
+      if (recursive !== undefined) params.set("recursive", String(recursive));
+      if (simple !== undefined) params.set("simple", String(simple));
       const raw = (await t.request(
         "fsList",
-        `/api/v1/fs/ls?uri=${encodeURIComponent(uri)}`,
+        `/api/v1/fs/ls?${params.toString()}`,
         undefined,
         signal,
       )) as Array<OVFsEntry>;

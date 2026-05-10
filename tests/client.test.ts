@@ -263,6 +263,63 @@ describe("OpenVikingClient", () => {
       expect(result.children[1].type).toBe("directory");
     });
 
+    test("passes recursive=true as query param", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue([
+        { uri: "viking://resources/docs/api.md", isDir: false },
+      ]);
+
+      const client = createClient(defaultConfig, transport);
+      await client.fsList("viking://resources/docs/", undefined, true);
+      expect(transport.request).toHaveBeenCalledWith(
+        "fsList",
+        "/api/v1/fs/ls?uri=viking%3A%2F%2Fresources%2Fdocs%2F&recursive=true",
+        undefined,
+        undefined,
+      );
+    });
+
+    test("passes simple=true as query param", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue([
+        { uri: "viking://resources/docs/api.md", isDir: false },
+      ]);
+
+      const client = createClient(defaultConfig, transport);
+      await client.fsList("viking://resources/docs/", undefined, undefined, true);
+      expect(transport.request).toHaveBeenCalledWith(
+        "fsList",
+        "/api/v1/fs/ls?uri=viking%3A%2F%2Fresources%2Fdocs%2F&simple=true",
+        undefined,
+        undefined,
+      );
+    });
+
+    test("passes both recursive and simple when provided", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue([
+        { uri: "viking://resources/docs/api.md", isDir: false },
+      ]);
+
+      const client = createClient(defaultConfig, transport);
+      await client.fsList("viking://resources/docs/", undefined, true, true);
+      const url = (transport.request.mock.calls[0] as any)[1];
+      expect(url).toContain("recursive=true");
+      expect(url).toContain("simple=true");
+      expect(url).toContain("uri=");
+    });
+
+    test("omits params when not provided", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue([]);
+
+      const client = createClient(defaultConfig, transport);
+      await client.fsList("viking://resources/docs/");
+      const url = (transport.request.mock.calls[0] as any)[1] as string;
+      expect(url).not.toContain("recursive");
+      expect(url).not.toContain("simple");
+    });
+
     test("throws user-facing error on server error", async () => {
       const transport = mockTransport();
       transport.request.mockRejectedValue(

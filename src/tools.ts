@@ -35,6 +35,8 @@ const MEMBROWSE_PARAMS = Type.Object({
     Type.Literal("tree"),
     Type.Literal("stat"),
   ], { description: "Browse view", default: "list" })),
+  recursive: Type.Optional(Type.Boolean({ description: "List all descendants recursively" })),
+  simple: Type.Optional(Type.Boolean({ description: "Return URI-only output" })),
 });
 
 const MEMDELETE_PARAMS = Type.Object({
@@ -146,7 +148,7 @@ export function registerMembrowseTool(pi: ExtensionAPI, client: OpenVikingClient
           result = await deps.client.fsStat(params.uri, signal);
           break;
         default:
-          result = await deps.client.fsList(params.uri, signal);
+          result = await deps.client.fsList(params.uri, signal, params.recursive, params.simple);
           break;
       }
 
