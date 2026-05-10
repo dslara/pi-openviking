@@ -58,7 +58,7 @@ describe("memsearch tool", () => {
   test("uses sync session and calls search", async () => {
     const client = createMockClient({
       search: vi.fn(async () => ({
-        memories: [{ text: "hello world", score: 0.95 }],
+        memories: [{ text: "hello world", score: 0.95, uri: "viking://test" }],
         resources: [],
         skills: [],
         total: 1,
@@ -311,7 +311,7 @@ describe("memcommit tool", () => {
 
   test("flushes pending messages and calls commit with ovSessionId", async () => {
     const client = createMockClient({
-      commit: vi.fn(async () => ({ task_id: "task-abc", archived: true })),
+      commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-abc", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
     });
     const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-123" });
     registerMemcommitTool(pi as any, client, sync);

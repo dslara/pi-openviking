@@ -163,7 +163,7 @@ describe("OpenVikingClient", () => {
 
       const client = createClient(defaultConfig, transport);
       await client.search("sess-1", "unscoped");
-      const body = transport.request.mock.calls[0][2]?.body;
+      const body = (transport.request.mock.calls[0] as any)[2]?.body;
       expect(body).not.toHaveProperty("target_uri");
     });
   });
@@ -353,9 +353,16 @@ describe("OpenVikingClient", () => {
   });
 
   describe("commit", () => {
-    test("returns task_id and archived on success", async () => {
+    test("returns full CommitResult on success", async () => {
       const transport = mockTransport();
-      transport.request.mockResolvedValue({ task_id: "task-999", archived: true });
+      transport.request.mockResolvedValue({
+        session_id: "sess-1",
+        status: "committed",
+        task_id: "task-999",
+        archive_uri: "viking://archived/sess-1",
+        archived: true,
+        trace_id: "trace-999",
+      });
 
       const client = createClient(defaultConfig, transport);
       const result = await client.commit("sess-1");
@@ -365,8 +372,14 @@ describe("OpenVikingClient", () => {
         { body: {}, timeout: 60000 },
         undefined,
       );
-      expect(result.task_id).toBe("task-999");
-      expect(result.archived).toBe(true);
+      expect(result).toEqual({
+        session_id: "sess-1",
+        status: "committed",
+        task_id: "task-999",
+        archive_uri: "viking://archived/sess-1",
+        archived: true,
+        trace_id: "trace-999",
+      });
     });
 
     test("uses commitTimeout from config", async () => {

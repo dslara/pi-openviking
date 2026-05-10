@@ -267,7 +267,6 @@ export function registerMemcommitTool(
         details: {
           task_id: result.task_id,
           archived: result.archived,
-          memories_extracted: 0,
         },
       };
     },

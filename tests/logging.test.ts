@@ -1,6 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { OpenVikingClient } from "../src/client";
+import type { OpenVikingConfig } from "../src/config";
 import { SessionSync } from "../src/session";
+
+function testConfig(): OpenVikingConfig {
+  return {
+    endpoint: "http://localhost",
+    timeout: 5000,
+    commitTimeout: 60000,
+    apiKey: "key",
+    account: "acc",
+    user: "u",
+    autoRecallLimit: 10,
+    autoRecallTimeout: 5000,
+    autoRecallTopN: 5,
+    openVikingAutoRecall: true,
+    autoRecallScoreThreshold: 0.15,
+    autoRecallMaxContentChars: 500,
+    autoRecallPreferAbstract: true,
+    autoRecallTokenBudget: 500,
+  };
+}
 
 function mockClient(overrides?: Partial<OpenVikingClient>): OpenVikingClient {
   return {
@@ -158,13 +178,7 @@ describe("Logging", () => {
       const mockTransport = {
         request: vi.fn().mockResolvedValue({ task_id: "t1", archived: true, session_id: "s1" }),
       };
-      const client = createClient({
-        endpoint: "http://localhost",
-        timeout: 5000,
-        apiKey: "key",
-        account: "acc",
-        user: "u",
-      }, mockTransport as any);
+      const client = createClient(testConfig(), mockTransport as any);
 
       await client.commit("sess-abc");
 
