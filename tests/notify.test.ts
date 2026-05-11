@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { notifyOnce } from "../src/notify";
+import { notifyOnce } from "../src/shared/notify";
 
 describe("notifyOnce", () => {
   test("notifies when ctx hasUI and ui.notify", () => {

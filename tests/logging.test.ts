@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { OpenVikingClient } from "../src/client";
-import type { OpenVikingConfig } from "../src/config";
+import type { OpenVikingConfig } from "../src/shared/config";
 
 const appendFileSyncMock = vi.fn();
 
@@ -70,7 +70,7 @@ describe("Logging", () => {
       process.env.OV_DEBUG = "true";
       vi.resetModules();
 
-      const { logger } = await import("../src/logger");
+      const { logger } = await import("../src/shared/logger");
       logger.debug("test message");
 
       expect(appendFileSyncMock).toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("Logging", () => {
       process.env.OV_DEBUG = "false";
       vi.resetModules();
 
-      const { logger } = await import("../src/logger");
+      const { logger } = await import("../src/shared/logger");
       logger.debug("should not appear");
 
       expect(appendFileSyncMock).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe("Logging", () => {
 
     it("error always writes to log file", async () => {
       vi.resetModules();
-      const { logger } = await import("../src/logger");
+      const { logger } = await import("../src/shared/logger");
       logger.error("something broke");
 
       expect(appendFileSyncMock).toHaveBeenCalled();

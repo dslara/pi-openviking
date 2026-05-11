@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { resolveSearchMode } from "../src/search-mode";
+import { resolveSearchMode } from "../src/shared/search-mode";
 
 describe("resolveSearchMode", () => {
   test("explicit fast returns fast", () => {

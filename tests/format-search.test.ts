@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatSearch } from "../src/format-search";
+import { formatSearch } from "../src/shared/format-search";
 import type { SearchResult } from "../src/client";
 
 function makeResult(overrides: Partial<SearchResult> = {}): SearchResult {

@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { loadConfig } from "./config";
+import { loadConfig } from "./shared/config";
 import { createClient } from "./client";
-import { logger } from "./logger";
+import { logger } from "./shared/logger";
 import {
   registerMemsearchTool,
   registerMemreadTool,

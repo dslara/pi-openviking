@@ -2,11 +2,11 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { OpenVikingClient } from "./client";
 import type { SessionSyncLike } from "./session";
 import type { AutoRecallState } from "./auto-recall";
-import { logger } from "./logger";
-import { parseArgs } from "./parse-args";
-import { formatSearch } from "./format-search";
-import { formatBrowse } from "./format-browse";
-import { resolveSearchMode } from "./search-mode";
+import { logger } from "./shared/logger";
+import { parseArgs } from "./shared/parse-args";
+import { formatSearch } from "./shared/format-search";
+import { formatBrowse } from "./shared/format-browse";
+import { resolveSearchMode } from "./shared/search-mode";
 import { resolveSource } from "./source-resolver";
 
 export interface RegisterCommandsDeps {

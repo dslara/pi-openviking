@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatBrowse } from "../src/format-browse";
+import { formatBrowse } from "../src/shared/format-browse";
 import type { BrowseResult } from "../src/client";
 
 function makeResult(overrides: Partial<BrowseResult> = {}): BrowseResult {

@@ -1,7 +1,7 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { TextContent, ImageContent, ThinkingContent, ToolCall } from "@mariozechner/pi-ai";
 import type { CommitResult, OpenVikingClient } from "./client";
-import { logger } from "./logger";
+import { logger } from "./shared/logger";
 
 export interface SessionSyncOpts {
   getSessionFile: () => string | undefined;

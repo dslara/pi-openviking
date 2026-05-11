@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
 import { createClient } from "../src/client";
-import type { OpenVikingConfig } from "../src/config";
+import type { OpenVikingConfig } from "../src/shared/config";
 
 const defaultConfig: OpenVikingConfig = {
   endpoint: "http://localhost:1933",

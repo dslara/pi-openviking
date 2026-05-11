@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { parseArgs } from "../src/parse-args";
+import { parseArgs } from "../src/shared/parse-args";
 
 describe("parseArgs", () => {
   test("returns empty for empty string", () => {

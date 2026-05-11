@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { OpenVikingConfig } from "../src/config";
+import type { OpenVikingConfig } from "../src/shared/config";
 
 function testConfig(): OpenVikingConfig {
   return {

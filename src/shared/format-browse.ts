@@ -1,4 +1,4 @@
-import type { BrowseResult } from "./client";
+import type { BrowseResult } from "../client";
 
 function formatChildren(children: BrowseResult["children"], indent = 0): string[] {
   const lines: string[] = [];

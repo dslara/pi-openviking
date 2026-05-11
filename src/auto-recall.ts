@@ -1,6 +1,6 @@
 import type { OpenVikingClient } from "./client";
 import type { SessionSyncLike } from "./session";
-import { logger } from "./logger";
+import { logger } from "./shared/logger";
 import { curate, DEFAULT_CURATE_OPTIONS, type CurateOptions, type CuratedItem } from "./recall-curator";
 
 export interface AutoRecallState {

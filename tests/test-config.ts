@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadConfig, OpenVikingConfig } from "../src/config";
+import { loadConfig, OpenVikingConfig } from "../src/shared/config";
 
 const META_PATH = join(__dirname, ".ov-test-meta.json");
 
