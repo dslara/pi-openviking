@@ -2,31 +2,27 @@ import { describe, test, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadConfig } from "../src/config";
 import { createClient } from "../src/client";
+import { getTestConfig, isTestServerUp } from "./test-config";
 
 /*
- * Integration test for memsearch target_uri scoping — requires running OV server.
+ * Integration test for memsearch target_uri scoping — runs against isolated test server.
  * Skips automatically if server is unreachable.
- *
- * Note: OV vector index sync is asynchronous and can lag behind FS state.
- * This test imports a resource, waits for indexing, then verifies scoping.
- * If indexing is too slow, the test falls back to verifying the API accepts
- * target_uri without error and returns consistent results.
  */
 
-const config = loadConfig(process.cwd());
+const config = getTestConfig();
 const client = createClient(config);
 
 let serverUp = false;
 let sessionId: string;
 
 beforeAll(async () => {
+  serverUp = await isTestServerUp(config);
+  if (!serverUp) return;
   try {
     sessionId = await client.createSession();
-    serverUp = true;
   } catch {
-    // server not available — skip all
+    serverUp = false;
   }
 });
 

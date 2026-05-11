@@ -245,12 +245,15 @@ export function curate(
     picked.push(s.item);
   }
 
-  // 6. Budget-trim from bottom (account for XML wrapper overhead)
-  // Wrapper is ~150 chars: tags, attributes, trailing instructions
-  const wrapperOverhead = 150;
-  const budgetForText = Math.max(0, options.maxTokens - Math.ceil(wrapperOverhead / 4));
+  // 6. Budget-trim from bottom (account for XML wrapper + per-item overhead)
+  // Fixed wrapper: tags, trailing instructions (~130 chars)
+  // Per-item overhead: score attr, uri attr, element tags (~60 chars each)
+  const wrapperOverhead = 130;
+  const itemOverhead = 60;
   for (let count = picked.length; count > 0; count--) {
     const subset = picked.slice(0, count);
+    const totalOverhead = wrapperOverhead + count * itemOverhead;
+    const budgetForText = Math.max(0, options.maxTokens - Math.ceil(totalOverhead / 4));
     const totalTokens = subset.reduce((sum, i) => sum + estimateTokens(i.text), 0);
     if (totalTokens <= budgetForText) {
       return subset;

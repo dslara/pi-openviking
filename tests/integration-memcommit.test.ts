@@ -1,26 +1,27 @@
 import { describe, test, expect, beforeAll } from "vitest";
-import { loadConfig } from "../src/config";
 import { createClient } from "../src/client";
 import { SessionSync } from "../src/session";
 import { registerMemcommitTool } from "../src/tools";
+import { getTestConfig, isTestServerUp } from "./test-config";
 
 /*
- * Integration test for memcommit — requires running OV server.
+ * Integration test for memcommit — runs against isolated test server when available.
  */
 
-const config = loadConfig(process.cwd());
+const config = getTestConfig();
 const client = createClient(config);
 
 let serverUp = false;
 let sessionId: string;
 
 beforeAll(async () => {
+  serverUp = await isTestServerUp(config);
+  if (!serverUp) return;
   try {
     sessionId = await client.createSession();
-    serverUp = true;
     await client.sendMessage(sessionId, "user", "hello from integration test");
   } catch {
-    // skip
+    serverUp = false;
   }
 });
 

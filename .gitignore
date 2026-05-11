@@ -64,3 +64,6 @@ node_modules
 package-lock.json
 bun.lock
 .env
+
+# Test fixtures
+.ov-test-data
