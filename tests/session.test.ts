@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import type { OpenVikingClient } from "../src/features/ov-client/client";
-import { SessionSync } from "../src/features/session-sync/session";
+import type { OpenVikingClient } from "../src/ov-client/client";
+import { SessionSync } from "../src/session-sync/session";
 import { createMockClient } from "./mocks";
 
 import type { AgentMessage } from "@mariozechner/pi-agent-core";

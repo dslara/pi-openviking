@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { SessionSyncLike } from "../session-sync/session";
-import { logger } from "../../shared/logger";
+import { logger } from "../shared/logger";
 
 export interface CommandDeps {
   pi: ExtensionAPI;

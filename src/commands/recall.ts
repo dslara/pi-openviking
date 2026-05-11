@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { AutoRecallState } from "../auto-recall/auto-recall";
-import { parseArgs } from "../../shared/parse-args";
+import { parseArgs } from "../shared/parse-args";
 
 export interface CommandDeps {
   pi: ExtensionAPI;

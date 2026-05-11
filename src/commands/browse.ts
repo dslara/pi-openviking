@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { OpenVikingClient } from "../ov-client/client";
-import { logger } from "../../shared/logger";
-import { parseArgs } from "../../shared/parse-args";
-import { formatBrowse } from "../../shared/format-browse";
+import { logger } from "../shared/logger";
+import { parseArgs } from "../shared/parse-args";
+import { formatBrowse } from "../shared/format-browse";
 
 export interface CommandDeps {
   pi: ExtensionAPI;

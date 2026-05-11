@@ -1,10 +1,10 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { OpenVikingClient } from "../ov-client/client";
 import type { SessionSyncLike } from "../session-sync/session";
-import { logger } from "../../shared/logger";
-import { parseArgs } from "../../shared/parse-args";
-import { formatSearch } from "../../shared/format-search";
-import { resolveSearchMode } from "../../shared/search-mode";
+import { logger } from "../shared/logger";
+import { parseArgs } from "../shared/parse-args";
+import { formatSearch } from "../shared/format-search";
+import { resolveSearchMode } from "../shared/search-mode";
 
 export interface CommandDeps {
   pi: ExtensionAPI;

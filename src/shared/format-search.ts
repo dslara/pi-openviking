@@ -1,4 +1,4 @@
-import type { SearchResult, MemorySearchItem, ResourceSearchItem, SkillSearchItem } from "../features/ov-client/client";
+import type { SearchResult, MemorySearchItem, ResourceSearchItem, SkillSearchItem } from "../ov-client/client";
 
 function formatItem(item: MemorySearchItem | ResourceSearchItem | SkillSearchItem, type: string): string {
   const score = item.score.toFixed(2);

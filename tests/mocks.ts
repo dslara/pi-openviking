@@ -1,6 +1,6 @@
 import { vi } from "vitest";
-import type { OpenVikingClient, SearchResult } from "../src/features/ov-client/client";
-import type { SessionSyncLike } from "../src/features/session-sync/session";
+import type { OpenVikingClient, SearchResult } from "../src/ov-client/client";
+import type { SessionSyncLike } from "../src/session-sync/session";
 
 export function createMockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient {
   return {

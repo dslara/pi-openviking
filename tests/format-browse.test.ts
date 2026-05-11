@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { formatBrowse } from "../src/shared/format-browse";
-import type { BrowseResult } from "../src/features/ov-client/client";
+import type { BrowseResult } from "../src/ov-client/client";
 
 function makeResult(overrides: Partial<BrowseResult> = {}): BrowseResult {
   return {

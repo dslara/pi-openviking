@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "../ov-client/client";
-import { defineTool } from "../../shared/tool-def";
+import { defineTool } from "../shared/tool-def";
 import { resolveSource } from "../importer/source-resolver";
 
 const MEMIMPORT_PARAMS = Type.Object({

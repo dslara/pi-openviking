@@ -1,16 +1,16 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { loadConfig } from "./shared/config";
-import { createClient } from "./features/ov-client/client";
+import { createClient } from "./ov-client/client";
 import { logger } from "./shared/logger";
-import { registerMemsearchTool } from "./features/tools/search";
-import { registerMemreadTool } from "./features/tools/read";
-import { registerMembrowseTool } from "./features/tools/browse";
-import { registerMemcommitTool } from "./features/tools/commit";
-import { registerMemdeleteTool } from "./features/tools/delete";
-import { registerMemimportTool } from "./features/tools/import";
-import { SessionSync } from "./features/session-sync/session";
-import { createAutoRecall } from "./features/auto-recall/auto-recall";
-import { registerCommands } from "./features/commands/register";
+import { registerMemsearchTool } from "./tools/search";
+import { registerMemreadTool } from "./tools/read";
+import { registerMembrowseTool } from "./tools/browse";
+import { registerMemcommitTool } from "./tools/commit";
+import { registerMemdeleteTool } from "./tools/delete";
+import { registerMemimportTool } from "./tools/import";
+import { SessionSync } from "./session-sync/session";
+import { createAutoRecall } from "./auto-recall/auto-recall";
+import { registerCommands } from "./commands/register";
 
 export interface BootstrapContext {
   cwd: string;

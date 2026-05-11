@@ -1,4 +1,4 @@
-import type { BrowseResult } from "../features/ov-client/client";
+import type { BrowseResult } from "../ov-client/client";
 
 function formatChildren(children: BrowseResult["children"], indent = 0): string[] {
   const lines: string[] = [];

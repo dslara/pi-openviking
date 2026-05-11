@@ -2,13 +2,13 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { SearchResult } from "../src/features/ov-client/client";
-import { registerMemsearchTool } from "../src/features/tools/search";
-import { registerMemreadTool } from "../src/features/tools/read";
-import { registerMembrowseTool } from "../src/features/tools/browse";
-import { registerMemcommitTool } from "../src/features/tools/commit";
-import { registerMemdeleteTool } from "../src/features/tools/delete";
-import { registerMemimportTool } from "../src/features/tools/import";
+import type { SearchResult } from "../src/ov-client/client";
+import { registerMemsearchTool } from "../src/tools/search";
+import { registerMemreadTool } from "../src/tools/read";
+import { registerMembrowseTool } from "../src/tools/browse";
+import { registerMemcommitTool } from "../src/tools/commit";
+import { registerMemdeleteTool } from "../src/tools/delete";
+import { registerMemimportTool } from "../src/tools/import";
 import { createMockClient, createMockSessionSync } from "./mocks";
 
 interface ToolResult {

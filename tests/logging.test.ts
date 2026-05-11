@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { OpenVikingClient } from "../src/features/ov-client/client";
+import type { OpenVikingClient } from "../src/ov-client/client";
 import type { OpenVikingConfig } from "../src/shared/config";
 
 const appendFileSyncMock = vi.fn();
@@ -133,7 +133,7 @@ describe("Logging", () => {
 
   describe("Session Sync: error catch logs", () => {
     it("logs error when createSession throws", async () => {
-      const { SessionSync } = await import("../src/features/session-sync/session");
+      const { SessionSync } = await import("../src/session-sync/session");
       const client = mockClient({
         createSession: vi.fn().mockRejectedValue(new Error("connection refused")),
       });
@@ -147,7 +147,7 @@ describe("Logging", () => {
     });
 
     it("logs error when sendMessage throws", async () => {
-      const { SessionSync } = await import("../src/features/session-sync/session");
+      const { SessionSync } = await import("../src/session-sync/session");
       const client = mockClient();
       (client.createSession as ReturnType<typeof vi.fn>).mockResolvedValue("sess-err");
       (client.sendMessage as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("timeout"));
@@ -167,7 +167,7 @@ describe("Logging", () => {
       process.env.OV_DEBUG = "true";
       vi.resetModules();
 
-      const { createClient } = await import("../src/features/ov-client/client");
+      const { createClient } = await import("../src/ov-client/client");
       const mockTransport = {
         request: vi.fn().mockResolvedValue({ task_id: "t1", archived: true, session_id: "s1" }),
       };

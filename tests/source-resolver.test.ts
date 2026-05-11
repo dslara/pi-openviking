@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { resolveSource } from "../src/features/importer/source-resolver";
+import { resolveSource } from "../src/importer/source-resolver";
 import { mkdirSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";

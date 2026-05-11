@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "../ov-client/client";
 import type { SessionSyncLike } from "../session-sync/session";
-import { defineTool } from "../../shared/tool-def";
+import { defineTool } from "../shared/tool-def";
 
 export function registerMemcommitTool(
   pi: ExtensionAPI,

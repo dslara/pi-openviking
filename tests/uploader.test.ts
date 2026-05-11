@@ -2,7 +2,7 @@ import { describe, test, expect, vi } from "vitest";
 import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { uploadDirectory } from "../src/features/importer/uploader";
+import { uploadDirectory } from "../src/importer/uploader";
 import { createMockClient } from "./mocks";
 
 describe("uploadDirectory", () => {

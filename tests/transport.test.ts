@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { createTransport, OpenVikingError } from "../src/features/ov-client/transport";
-import type { TransportConfig } from "../src/features/ov-client/transport";
+import { createTransport, OpenVikingError } from "../src/ov-client/transport";
+import type { TransportConfig } from "../src/ov-client/transport";
 
 const defaultConfig: TransportConfig = {
   endpoint: "http://localhost:1933",

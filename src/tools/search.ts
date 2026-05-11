@@ -2,10 +2,10 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "../ov-client/client";
 import type { SessionSyncLike } from "../session-sync/session";
-import { logger } from "../../shared/logger";
-import { defineTool } from "../../shared/tool-def";
-import { resolveSearchMode } from "../../shared/search-mode";
-import { notifyOnce } from "../../shared/notify";
+import { logger } from "../shared/logger";
+import { defineTool } from "../shared/tool-def";
+import { resolveSearchMode } from "../shared/search-mode";
+import { notifyOnce } from "../shared/notify";
 
 const SEARCH_PARAMS = Type.Object({
   query: Type.String({ description: "Search query to find relevant memories and resources" }),

@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "../ov-client/client";
-import { logger } from "../../shared/logger";
-import { defineTool } from "../../shared/tool-def";
+import { logger } from "../shared/logger";
+import { defineTool } from "../shared/tool-def";
 
 const MEMDELETE_PARAMS = Type.Object({
   uri: Type.String({ description: "viking:// URI to delete" }),

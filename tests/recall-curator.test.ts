@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
-import type { SearchResult } from "../src/features/ov-client/client";
-import { curate, DEFAULT_CURATE_OPTIONS, type CurateOptions } from "../src/features/auto-recall/recall-curator";
+import type { SearchResult } from "../src/ov-client/client";
+import { curate, DEFAULT_CURATE_OPTIONS, type CurateOptions } from "../src/auto-recall/recall-curator";
 
 function makeMemory(overrides: Partial<{
   text: string; score: number; uri: string; category: string;

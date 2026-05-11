@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { registerCommands } from "../src/features/commands/register";
+import { registerCommands } from "../src/commands/register";
 import { createMockClient, createMockSessionSync } from "./mocks";
 
 function createMockPi() {
