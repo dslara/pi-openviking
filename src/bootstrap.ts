@@ -10,7 +10,7 @@ import { registerMemdeleteTool } from "./features/tools/delete";
 import { registerMemimportTool } from "./features/tools/import";
 import { SessionSync } from "./features/session-sync/session";
 import { createAutoRecall } from "./features/auto-recall/auto-recall";
-import { registerCommands } from "./commands";
+import { registerCommands } from "./features/commands/register";
 
 export interface BootstrapContext {
   cwd: string;
