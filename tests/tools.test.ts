@@ -3,7 +3,12 @@ import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { SearchResult } from "../src/features/ov-client/client";
-import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool, registerMemdeleteTool, registerMemimportTool } from "../src/tools";
+import { registerMemsearchTool } from "../src/features/tools/search";
+import { registerMemreadTool } from "../src/features/tools/read";
+import { registerMembrowseTool } from "../src/features/tools/browse";
+import { registerMemcommitTool } from "../src/features/tools/commit";
+import { registerMemdeleteTool } from "../src/features/tools/delete";
+import { registerMemimportTool } from "../src/features/tools/import";
 import { createMockClient, createMockSessionSync } from "./mocks";
 
 interface ToolResult {

@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createClient } from "../src/features/ov-client/client";
 import { createAutoRecall } from "../src/features/auto-recall/auto-recall";
-import { registerMemdeleteTool, registerMemimportTool } from "../src/tools";
+import { registerMemdeleteTool } from "../src/features/tools/delete";
+import { registerMemimportTool } from "../src/features/tools/import";
 import { uploadDirectory } from "../src/features/importer/uploader";
 import { getTestConfig, isTestServerUp } from "./test-config";
 
