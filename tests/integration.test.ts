@@ -3,7 +3,7 @@ import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createClient } from "../src/features/ov-client/client";
-import { createAutoRecall } from "../src/auto-recall";
+import { createAutoRecall } from "../src/features/auto-recall/auto-recall";
 import { registerMemdeleteTool, registerMemimportTool } from "../src/tools";
 import { uploadDirectory } from "../src/features/importer/uploader";
 import { getTestConfig, isTestServerUp } from "./test-config";

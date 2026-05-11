@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
 import type { SearchResult } from "../src/features/ov-client/client";
-import { createAutoRecall } from "../src/auto-recall";
+import { createAutoRecall } from "../src/features/auto-recall/auto-recall";
 import { createMockClient, createMockSessionSync } from "./mocks";
 
 function makeState(enabled = true) {
