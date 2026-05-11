@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { zipSync } from "fflate";
-import type { OpenVikingClient } from "./client";
+import type { OpenVikingClient } from "./features/ov-client/client";
 
 const EXCLUDED_DIRS = new Set([".git", "node_modules"]);
 

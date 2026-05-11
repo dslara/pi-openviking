@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll } from "vitest";
-import { createClient } from "../src/client";
+import { createClient } from "../src/features/ov-client/client";
 import { SessionSync } from "../src/session";
 import { registerMemcommitTool } from "../src/tools";
 import { getTestConfig, isTestServerUp } from "./test-config";

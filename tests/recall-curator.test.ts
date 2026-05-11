@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import type { SearchResult } from "../src/client";
+import type { SearchResult } from "../src/features/ov-client/client";
 import { curate, DEFAULT_CURATE_OPTIONS, type CurateOptions } from "../src/recall-curator";
 
 function makeMemory(overrides: Partial<{

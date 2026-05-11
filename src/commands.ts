@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { OpenVikingClient } from "./client";
+import type { OpenVikingClient } from "./features/ov-client/client";
 import type { SessionSyncLike } from "./session";
 import type { AutoRecallState } from "./auto-recall";
 import { logger } from "./shared/logger";

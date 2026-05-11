@@ -1,4 +1,4 @@
-import type { SearchResult, MemorySearchItem } from "./client";
+import type { SearchResult, MemorySearchItem } from "./features/ov-client/client";
 
 // ── Output ──
 

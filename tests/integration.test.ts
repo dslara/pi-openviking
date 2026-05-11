@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createClient } from "../src/client";
+import { createClient } from "../src/features/ov-client/client";
 import { createAutoRecall } from "../src/auto-recall";
 import { registerMemdeleteTool, registerMemimportTool } from "../src/tools";
 import { uploadDirectory } from "../src/uploader";

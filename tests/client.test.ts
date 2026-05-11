@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { createClient } from "../src/client";
+import { createClient } from "../src/features/ov-client/client";
 import type { OpenVikingConfig } from "../src/shared/config";
 
 const defaultConfig: OpenVikingConfig = {

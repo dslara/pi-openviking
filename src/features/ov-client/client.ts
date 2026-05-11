@@ -1,4 +1,4 @@
-import type { OpenVikingConfig } from "./shared/config";
+import type { OpenVikingConfig } from "../../shared/config";
 import { createTransport, OpenVikingError } from "./transport";
 import type { Transport } from "./transport";
 
@@ -188,7 +188,7 @@ export function createClient(config: OpenVikingConfig, transport?: Transport): O
         { body: {}, timeout: config.commitTimeout },
         signal,
       )) as CommitResult;
-      const { logger } = await import("./shared/logger");
+      const { logger } = await import("../../shared/logger");
       logger.debug("commit:", sessionId, result);
       return result;
     },

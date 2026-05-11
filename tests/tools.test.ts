@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { SearchResult } from "../src/client";
+import type { SearchResult } from "../src/features/ov-client/client";
 import { registerMemsearchTool, registerMemreadTool, registerMembrowseTool, registerMemcommitTool, registerMemdeleteTool, registerMemimportTool } from "../src/tools";
 import { createMockClient, createMockSessionSync } from "./mocks";
 

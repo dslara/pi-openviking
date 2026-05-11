@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import type { OpenVikingClient } from "../src/client";
+import type { OpenVikingClient } from "../src/features/ov-client/client";
 import { SessionSync } from "../src/session";
 import { createMockClient } from "./mocks";
 

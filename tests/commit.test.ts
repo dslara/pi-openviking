@@ -30,7 +30,7 @@ describe("Client Adapter: commit returns CommitResult", () => {
   });
 
   it("returns full CommitResult from transport response", async () => {
-    const { createClient } = await import("../src/client");
+    const { createClient } = await import("../src/features/ov-client/client");
     const serverResponse = {
       session_id: "sess-abc",
       status: "committed",

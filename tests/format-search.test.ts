@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { formatSearch } from "../src/shared/format-search";
-import type { SearchResult } from "../src/client";
+import type { SearchResult } from "../src/features/ov-client/client";
 
 function makeResult(overrides: Partial<SearchResult> = {}): SearchResult {
   return {

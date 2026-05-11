@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { loadConfig } from "./shared/config";
-import { createClient } from "./client";
+import { createClient } from "./features/ov-client/client";
 import { logger } from "./shared/logger";
 import {
   registerMemsearchTool,

@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createClient } from "../src/client";
+import { createClient } from "../src/features/ov-client/client";
 import { getTestConfig, isTestServerUp } from "./test-config";
 
 /*

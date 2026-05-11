@@ -1,6 +1,6 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { TextContent, ImageContent, ThinkingContent, ToolCall } from "@mariozechner/pi-ai";
-import type { CommitResult, OpenVikingClient } from "./client";
+import type { CommitResult, OpenVikingClient } from "./features/ov-client/client";
 import { logger } from "./shared/logger";
 
 export interface SessionSyncOpts {
@@ -12,7 +12,7 @@ export interface SessionSyncOpts {
 export interface SessionSyncLike {
   getOvSessionId(): string | undefined;
   flush(): Promise<void>;
-  commit(): Promise<import("./client").CommitResult>;
+  commit(): Promise<import("./features/ov-client/client").CommitResult>;
 }
 
 export class SessionSync implements SessionSyncLike {

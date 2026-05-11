@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { OpenVikingClient } from "../src/client";
+import type { OpenVikingClient } from "../src/features/ov-client/client";
 import type { OpenVikingConfig } from "../src/shared/config";
 
 const appendFileSyncMock = vi.fn();
@@ -167,7 +167,7 @@ describe("Logging", () => {
       process.env.OV_DEBUG = "true";
       vi.resetModules();
 
-      const { createClient } = await import("../src/client");
+      const { createClient } = await import("../src/features/ov-client/client");
       const mockTransport = {
         request: vi.fn().mockResolvedValue({ task_id: "t1", archived: true, session_id: "s1" }),
       };
