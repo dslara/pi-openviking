@@ -5,7 +5,7 @@ import type { SessionSyncLike } from "./session";
 import { logger } from "./shared/logger";
 import { defineTool } from "./shared/tool-def";
 import { resolveSearchMode } from "./shared/search-mode";
-import { resolveSource } from "./source-resolver";
+import { resolveSource } from "./features/importer/source-resolver";
 import { notifyOnce } from "./shared/notify";
 
 const SEARCH_PARAMS = Type.Object({

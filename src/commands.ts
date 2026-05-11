@@ -7,7 +7,7 @@ import { parseArgs } from "./shared/parse-args";
 import { formatSearch } from "./shared/format-search";
 import { formatBrowse } from "./shared/format-browse";
 import { resolveSearchMode } from "./shared/search-mode";
-import { resolveSource } from "./source-resolver";
+import { resolveSource } from "./features/importer/source-resolver";
 
 export interface RegisterCommandsDeps {
   pi: ExtensionAPI;

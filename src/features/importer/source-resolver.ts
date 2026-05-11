@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { OpenVikingClient } from "./features/ov-client/client";
+import type { OpenVikingClient } from "../ov-client/client";
 
 export interface ImportResult {
   root_uri: string;

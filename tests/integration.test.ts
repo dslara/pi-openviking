@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { createClient } from "../src/features/ov-client/client";
 import { createAutoRecall } from "../src/auto-recall";
 import { registerMemdeleteTool, registerMemimportTool } from "../src/tools";
-import { uploadDirectory } from "../src/uploader";
+import { uploadDirectory } from "../src/features/importer/uploader";
 import { getTestConfig, isTestServerUp } from "./test-config";
 
 /*
