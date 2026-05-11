@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "./features/ov-client/client";
-import type { SessionSyncLike } from "./session";
+import type { SessionSyncLike } from "./features/session-sync/session";
 import { logger } from "./shared/logger";
 import { defineTool } from "./shared/tool-def";
 import { resolveSearchMode } from "./shared/search-mode";

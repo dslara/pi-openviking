@@ -10,7 +10,7 @@ import {
   registerMemdeleteTool,
   registerMemimportTool,
 } from "./tools";
-import { SessionSync } from "./session";
+import { SessionSync } from "./features/session-sync/session";
 import { createAutoRecall } from "./auto-recall";
 import { registerCommands } from "./commands";
 

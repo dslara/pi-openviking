@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { bootstrapExtension } from "./bootstrap";
-import type { SessionSync } from "./session";
+import type { SessionSync } from "./features/session-sync/session";
 
 export default function openVikingExtension(pi: ExtensionAPI) {
   let sessionSync: SessionSync | undefined;
