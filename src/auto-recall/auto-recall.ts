@@ -1,7 +1,7 @@
 import type { OpenVikingClient } from "../ov-client/client";
 import type { SessionSyncLike } from "../session-sync/session";
 import { logger } from "../shared/logger";
-import { curate, DEFAULT_CURATE_OPTIONS, type CurateOptions, type CuratedItem } from "./recall-curator";
+import { curate, DEFAULT_CURATE_OPTIONS, type CurateOptions, type RecallItem } from "./recall-curator";
 
 export interface AutoRecallState {
   enabled: boolean;
@@ -64,7 +64,7 @@ function escapeXml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function renderBlock(items: CuratedItem[]): string {
+function renderBlock(items: RecallItem[]): string {
   const lines: string[] = ["<relevant-memories>"];
   for (const item of items) {
     if (item.type === "memory") {

@@ -1,13 +1,18 @@
-import type { SearchResult, MemorySearchItem } from "../ov-client/client";
+import type { SearchResult, ResourceSearchItem } from "../ov-client/client";
 
 // ── Output ──
 
-export interface CuratedItem {
+export interface RecallItem {
   type: "memory" | "resource";
   score: number;
   text: string;
-  uri?: string;
+  uri: string;
   category?: string;
+  // Raw fields for scoring (populated during merge, used by rankItem)
+  abstract?: string;
+  overview?: string;
+  rawContent?: string;
+  level?: number;
 }
 
 // ── Options ──
@@ -48,13 +53,13 @@ const TOKEN_RE = /[a-z0-9]{2,}/gi;
 const PREFERENCE_RE = /prefer|preference|favorite|favourite|like/i;
 const TEMPORAL_RE = /when|what time|date|day|month|year|yesterday|today|tomorrow|last|next/i;
 
-interface QueryProfile {
+export interface QueryProfile {
   tokens: string[];
   wantsPreference: boolean;
   wantsTemporal: boolean;
 }
 
-function buildQueryProfile(query: string): QueryProfile {
+export function buildQueryProfile(query: string): QueryProfile {
   const text = query.trim();
   const allTokens = text.toLowerCase().match(TOKEN_RE) ?? [];
   const tokens = allTokens.filter((t) => !STOPWORDS.has(t));
@@ -67,23 +72,23 @@ function buildQueryProfile(query: string): QueryProfile {
 
 // ── Category helpers ──
 
-function isEventMemory(item: MemorySearchItem): boolean {
+function isEventMemory(item: RecallItem): boolean {
   const cat = (item.category ?? "").toLowerCase();
   return cat === "events" || item.uri.includes("/events/");
 }
 
-function isPreferencesMemory(item: MemorySearchItem): boolean {
+function isPreferencesMemory(item: RecallItem): boolean {
   const cat = (item.category ?? "").toLowerCase();
   return cat === "preferences" || item.uri.includes("/preferences/") || item.uri.endsWith("/preferences");
 }
 
-function isLeafLike(item: MemorySearchItem): boolean {
+function isLeafLike(item: RecallItem): boolean {
   return item.level === 2;
 }
 
 // ── Multi-factor scoring ──
 
-function lexicalOverlapBoost(tokens: string[], text: string): number {
+export function lexicalOverlapBoost(tokens: string[], text: string): number {
   if (tokens.length === 0 || !text) return 0;
   const haystack = ` ${text.toLowerCase()} `;
   let matched = 0;
@@ -95,24 +100,13 @@ function lexicalOverlapBoost(tokens: string[], text: string): number {
   return Math.min(0.2, (matched / Math.min(tokens.length, 4)) * 0.2);
 }
 
-interface ScoredItem {
-  item: CuratedItem;
-  compositeScore: number;
-}
-
-function scoreItem(
-  item: CuratedItem,
-  original: MemorySearchItem | undefined,
-  profile: QueryProfile,
-): number {
+export function rankItem(item: RecallItem, profile: QueryProfile): number {
   const baseScore = clampScore(item.score);
-  const abstract = original
-    ? (original.abstract ?? original.overview ?? "").trim()
-    : "";
-  const leafBoost = original && isLeafLike(original) ? 0.12 : 0;
-  const eventBoost = profile.wantsTemporal && original && isEventMemory(original) ? 0.1 : 0;
-  const prefBoost = profile.wantsPreference && original && isPreferencesMemory(original) ? 0.08 : 0;
-  const overlapBoost = lexicalOverlapBoost(profile.tokens, `${item.uri ?? ""} ${abstract}`);
+  const abstract = (item.abstract ?? item.overview ?? "").trim();
+  const leafBoost = isLeafLike(item) ? 0.12 : 0;
+  const eventBoost = profile.wantsTemporal && isEventMemory(item) ? 0.1 : 0;
+  const prefBoost = profile.wantsPreference && isPreferencesMemory(item) ? 0.08 : 0;
+  const overlapBoost = lexicalOverlapBoost(profile.tokens, `${item.uri} ${abstract}`);
   return baseScore + leafBoost + eventBoost + prefBoost + overlapBoost;
 }
 
@@ -122,19 +116,20 @@ function normalizeDedupeText(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function isEventOrCaseMemory(item: MemorySearchItem): boolean {
+function isEventOrCaseMemory(item: RecallItem): boolean {
   const cat = (item.category ?? "").toLowerCase();
   const uri = item.uri.toLowerCase();
   return cat === "events" || cat === "cases" || uri.includes("/events/") || uri.includes("/cases/");
 }
 
-function getMemoryDedupeKey(original: MemorySearchItem): string {
-  const abstract = normalizeDedupeText(original.abstract ?? original.overview ?? "");
-  const cat = (original.category ?? "").toLowerCase() || "unknown";
-  if (abstract && !isEventOrCaseMemory(original)) {
+function getDedupeKey(item: RecallItem): string {
+  if (item.type === "resource") return `resource:${item.uri}`;
+  const abstract = normalizeDedupeText(item.abstract ?? item.overview ?? "");
+  const cat = (item.category ?? "").toLowerCase() || "unknown";
+  if (abstract && !isEventOrCaseMemory(item)) {
     return `abstract:${cat}:${abstract}`;
   }
-  return `uri:${original.uri}`;
+  return `uri:${item.uri}`;
 }
 
 // ── Truncation ──
@@ -150,115 +145,136 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-// ── Main ──
+// ── Step 1: Merge search results into RecallItem[] ──
 
-export function curate(
-  results: SearchResult,
-  query: string,
-  options: CurateOptions = DEFAULT_CURATE_OPTIONS,
-): CuratedItem[] {
-  const profile = buildQueryProfile(query);
-
-  // 1. Merge memories + resources, track originals for scoring
-  const originals = new Map<CuratedItem, MemorySearchItem | undefined>();
-  const raw: CuratedItem[] = [];
+function mergeResults(results: SearchResult): RecallItem[] {
+  const items: RecallItem[] = [];
 
   for (const m of results.memories) {
-    const text = options.preferAbstract && m.abstract
-      ? truncate(m.abstract, options.maxContentChars)
-      : truncate(m.content ?? m.text, options.maxContentChars);
-    const item: CuratedItem = {
+    items.push({
       type: "memory",
       score: m.score,
-      text,
+      text: "",
       uri: m.uri,
       category: m.category,
-    };
-    raw.push(item);
-    originals.set(item, m);
+      abstract: m.abstract,
+      overview: m.overview,
+      rawContent: m.content ?? m.text,
+      level: m.level,
+    });
   }
 
   for (const r of results.resources) {
-    const text = truncate(
-      (r as Record<string, unknown>).abstract as string ?? "",
-      options.maxContentChars,
-    );
-    const item: CuratedItem = {
+    items.push({
       type: "resource",
       score: r.score,
-      text,
+      text: "",
       uri: r.uri,
-    };
-    raw.push(item);
-    originals.set(item, undefined);
+      abstract: (r as ResourceSearchItem).abstract,
+    });
   }
 
-  // 2. Score
-  const scored: ScoredItem[] = raw.map((item) => ({
-    item,
-    compositeScore: scoreItem(item, originals.get(item), profile),
-  }));
+  return items;
+}
 
-  // 3. Sort by composite score desc
+// ── Step 2: Score, sort, dedup, select ──
+
+export function pickItems(
+  items: RecallItem[],
+  limit: number,
+  query: string,
+  scoreThreshold: number = 0,
+): RecallItem[] {
+  if (items.length === 0 || limit <= 0) return [];
+
+  const profile = buildQueryProfile(query);
+
+  // Score + sort
+  const scored = items.map((item) => ({
+    item,
+    compositeScore: rankItem(item, profile),
+  }));
   scored.sort((a, b) => b.compositeScore - a.compositeScore);
 
-  // 4. Dedup — use original MemorySearchItem URI/abstract for memories, URI for resources
-  const seenKeys = new Set<string>();
-  const deduped: ScoredItem[] = [];
+  // Dedup
+  const seen = new Set<string>();
+  const deduped: Array<{ item: RecallItem; compositeScore: number }> = [];
   for (const s of scored) {
-    const original = originals.get(s.item);
-    let key: string;
-    if (original) {
-      key = getMemoryDedupeKey(original);
-    } else {
-      key = `resource:${s.item.uri ?? ""}`;
-    }
-    if (seenKeys.has(key)) continue;
-    seenKeys.add(key);
-    // Update score on the item to reflect composite
+    const key = getDedupeKey(s.item);
+    if (seen.has(key)) continue;
+    seen.add(key);
     s.item.score = s.compositeScore;
     deduped.push(s);
   }
 
-  // 5. Filter by scoreThreshold, prefer leaves, take topN
-  const leaves = deduped.filter((s) => {
-    const original = originals.get(s.item);
-    return original && isLeafLike(original) && clampScore(s.compositeScore) >= options.scoreThreshold;
-  });
+  // Filter by threshold, prefer leaves, take limit
+  const leaves = deduped.filter(
+    (s) => isLeafLike(s.item) && clampScore(s.compositeScore) >= scoreThreshold,
+  );
 
-  const picked: CuratedItem[] = [];
+  const picked: RecallItem[] = [];
   const usedUris = new Set<string>();
 
   // Fill with leaves first
   for (const s of leaves) {
-    if (picked.length >= options.topN) break;
+    if (picked.length >= limit) break;
     if (s.item.uri) usedUris.add(s.item.uri);
     picked.push(s.item);
   }
 
   // Supplement with non-leaves
   for (const s of deduped) {
-    if (picked.length >= options.topN) break;
+    if (picked.length >= limit) break;
     if (s.item.uri && usedUris.has(s.item.uri)) continue;
-    if (clampScore(s.compositeScore) < options.scoreThreshold) continue;
+    if (clampScore(s.compositeScore) < scoreThreshold) continue;
     if (s.item.uri) usedUris.add(s.item.uri);
     picked.push(s.item);
   }
 
-  // 6. Budget-trim from bottom (account for XML wrapper + per-item overhead)
-  // Fixed wrapper: tags, trailing instructions (~130 chars)
-  // Per-item overhead: score attr, uri attr, element tags (~60 chars each)
+  return picked;
+}
+
+// ── Step 3: Truncate display text ──
+
+export function truncateItems(
+  items: RecallItem[],
+  maxContentChars: number,
+  preferAbstract: boolean,
+): RecallItem[] {
+  return items.map((item) => {
+    const displayText = preferAbstract && item.abstract
+      ? truncate(item.abstract, maxContentChars)
+      : truncate(item.rawContent ?? item.abstract ?? "", maxContentChars);
+    return { ...item, text: displayText };
+  });
+}
+
+// ── Step 4: Budget trim ──
+
+export function trimToBudget(items: RecallItem[], maxTokens: number): RecallItem[] {
   const wrapperOverhead = 130;
   const itemOverhead = 60;
-  for (let count = picked.length; count > 0; count--) {
-    const subset = picked.slice(0, count);
+  for (let count = items.length; count > 0; count--) {
+    const subset = items.slice(0, count);
     const totalOverhead = wrapperOverhead + count * itemOverhead;
-    const budgetForText = Math.max(0, options.maxTokens - Math.ceil(totalOverhead / 4));
+    const budgetForText = Math.max(0, maxTokens - Math.ceil(totalOverhead / 4));
     const totalTokens = subset.reduce((sum, i) => sum + estimateTokens(i.text), 0);
     if (totalTokens <= budgetForText) {
       return subset;
     }
   }
-
   return [];
+}
+
+// ── Main ──
+
+export function curate(
+  results: SearchResult,
+  query: string,
+  options: CurateOptions = DEFAULT_CURATE_OPTIONS,
+): RecallItem[] {
+  const merged = mergeResults(results);
+  const picked = pickItems(merged, options.topN, query, options.scoreThreshold);
+  const truncated = truncateItems(picked, options.maxContentChars, options.preferAbstract);
+  return trimToBudget(truncated, options.maxTokens);
 }
