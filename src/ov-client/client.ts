@@ -1,127 +1,20 @@
 import type { OpenVikingConfig } from "../shared/config";
 import { createTransport, OpenVikingError } from "./transport";
 import type { Transport } from "./transport";
+import type { OpenVikingClient, SearchResult, ReadResult } from "./types";
+import { createFsOps } from "./fs-ops";
+import { createSessionOps } from "./session-ops";
 
 export { OpenVikingError };
-
-export interface MemorySearchItem {
-  text: string;
-  score: number;
-  uri: string;
-  category?: string;
-  abstract?: string;
-  content?: string;
-  overview?: string;
-  level?: number;
-  modTime?: string;
-  [k: string]: unknown;
-}
-
-export interface ResourceSearchItem {
-  uri: string;
-  score: number;
-  abstract?: string;
-  [k: string]: unknown;
-}
-
-export interface SkillSearchItem {
-  uri: string;
-  score: number;
-  abstract?: string;
-  [k: string]: unknown;
-}
-
-export interface SearchResult {
-  memories: MemorySearchItem[];
-  resources: ResourceSearchItem[];
-  skills: SkillSearchItem[];
-  total: number;
-  query_plan?: string;
-  [k: string]: unknown;
-}
-
-export interface ReadResult {
-  content: string;
-  [k: string]: unknown;
-}
-
-export interface BrowseResult {
-  uri: string;
-  children: Array<{ uri: string; type: string; abstract?: string; [k: string]: unknown }>;
-  [k: string]: unknown;
-}
-
-export interface CommitResult {
-  session_id: string;
-  status: string;
-  task_id: string;
-  archive_uri: string;
-  archived: boolean;
-  trace_id: string;
-}
-
-export interface OpenVikingClient {
-  createSession(signal?: AbortSignal): Promise<string>;
-  sendMessage(sessionId: string, role: string, content: string, signal?: AbortSignal): Promise<void>;
-  search(sessionId: string | undefined, query: string, limit?: number, mode?: "fast" | "deep", target_uri?: string, signal?: AbortSignal): Promise<SearchResult>;
-  read(uri: string, level?: "abstract" | "overview" | "read", signal?: AbortSignal): Promise<ReadResult>;
-  fsList(uri: string, signal?: AbortSignal, recursive?: boolean, simple?: boolean): Promise<BrowseResult>;
-  fsTree(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
-  fsStat(uri: string, signal?: AbortSignal): Promise<BrowseResult>;
-  commit(sessionId: string, signal?: AbortSignal): Promise<CommitResult>;
-  delete(uri: string, signal?: AbortSignal): Promise<{ uri: string }>;
-  addResource(params: { path?: string; temp_file_id?: string; parent?: string; reason?: string; kind?: "resource" | "skill" }, signal?: AbortSignal): Promise<{ root_uri: string; status: string; errors: string[] }>;
-  tempUpload(fileBody: string | Uint8Array, filename: string, signal?: AbortSignal): Promise<{ temp_file_id: string }>;
-}
-
-/** Raw OV fs/ls and fs/tree entry shape */
-interface OVFsEntry {
-  uri: string;
-  size?: number;
-  isDir?: boolean;
-  modTime?: string;
-  abstract?: string;
-  rel_path?: string;
-  [k: string]: unknown;
-}
-
-/** Raw OV fs/stat response */
-interface OVStatResult {
-  name: string;
-  size?: number;
-  mode?: number;
-  modTime?: string;
-  isDir?: boolean;
-  [k: string]: unknown;
-}
-
-function normalizeFsEntry(e: OVFsEntry): { uri: string; type: string; abstract?: string; [k: string]: unknown } {
-  return {
-    uri: e.uri,
-    type: e.isDir ? "directory" : "file",
-    abstract: e.abstract,
-    size: e.size,
-    modTime: e.modTime,
-  };
-}
+export type { OpenVikingClient, SearchResult, ReadResult, BrowseResult, CommitResult, MemorySearchItem, ResourceSearchItem, SkillSearchItem } from "./types";
 
 export function createClient(config: OpenVikingConfig, transport?: Transport): OpenVikingClient {
   const t = transport ?? createTransport(config);
+  const fs = createFsOps(t);
+  const session = createSessionOps(t, config.commitTimeout);
 
   return {
-    async createSession(signal?) {
-      const result = (await t.request("createSession", "/api/v1/sessions", { httpMethod: "POST" }, signal)) as { session_id: string };
-      return result.session_id;
-    },
-
-    async sendMessage(sessionId, role, content, signal?) {
-      await t.request(
-        "sendMessage",
-        `/api/v1/sessions/${sessionId}/messages`,
-        { body: { role, content } },
-        signal,
-      );
-    },
+    ...session,
 
     async search(sessionId, query, limit = 10, mode = "fast", target_uri, signal?) {
       const useDeep = mode === "deep" && !!sessionId;
@@ -144,54 +37,7 @@ export function createClient(config: OpenVikingConfig, transport?: Transport): O
       return { content: result };
     },
 
-    async fsList(uri, signal?, recursive?, simple?) {
-      const params = new URLSearchParams({ uri });
-      if (recursive !== undefined) params.set("recursive", String(recursive));
-      if (simple !== undefined) params.set("simple", String(simple));
-      const raw = (await t.request(
-        "fsList",
-        `/api/v1/fs/ls?${params.toString()}`,
-        undefined,
-        signal,
-      )) as Array<OVFsEntry>;
-      return { uri, children: raw.map(normalizeFsEntry) };
-    },
-
-    async fsTree(uri, signal?) {
-      const raw = (await t.request(
-        "fsTree",
-        `/api/v1/fs/tree?uri=${encodeURIComponent(uri)}`,
-        undefined,
-        signal,
-      )) as Array<OVFsEntry>;
-      return { uri, children: raw.map(normalizeFsEntry) };
-    },
-
-    async fsStat(uri, signal?) {
-      const raw = (await t.request(
-        "fsStat",
-        `/api/v1/fs/stat?uri=${encodeURIComponent(uri)}`,
-        undefined,
-        signal,
-      )) as OVStatResult;
-      const entryType = raw.isDir ? "directory" : "file";
-      return {
-        uri,
-        children: [{ uri, type: entryType, abstract: raw.name }],
-      };
-    },
-
-    async commit(sessionId, signal?) {
-      const result = (await t.request(
-        "commit",
-        `/api/v1/sessions/${sessionId}/commit`,
-        { body: {}, timeout: config.commitTimeout },
-        signal,
-      )) as CommitResult;
-      const { logger } = await import("../shared/logger");
-      logger.debug("commit:", sessionId, result);
-      return result;
-    },
+    ...fs,
 
     async delete(uri, signal?) {
       try {
