@@ -45,85 +45,35 @@ function readPiSettings(cwd: string): PiSettings {
   }
 }
 
-export function loadConfig(cwd: string): OpenVikingConfig {
-  const settings = readPiSettings(cwd);
+function cascade<T>(
+  settings: PiSettings,
+  settingKey: string,
+  envKey: string,
+  fallback: T,
+  parse?: (raw: string) => T,
+): T {
+  if (settings[settingKey] !== undefined) return settings[settingKey] as T;
+  const envVal = process.env[envKey];
+  if (envVal !== undefined) return parse ? parse(envVal) : (envVal as unknown as T);
+  return fallback;
+}
 
+export function loadConfig(cwd: string): OpenVikingConfig {
+  const s = readPiSettings(cwd);
   return {
-    endpoint:
-      settings.openVikingEndpoint ??
-      process.env.OPENVIKING_ENDPOINT ??
-      "http://localhost:1933",
-    timeout:
-      settings.openVikingTimeout ??
-      (process.env.OPENVIKING_TIMEOUT
-        ? parseInt(process.env.OPENVIKING_TIMEOUT, 10)
-        : undefined) ??
-      30000,
-    commitTimeout:
-      settings.openVikingCommitTimeout ??
-      (process.env.OPENVIKING_COMMIT_TIMEOUT
-        ? parseInt(process.env.OPENVIKING_COMMIT_TIMEOUT, 10)
-        : undefined) ??
-      60000,
-    apiKey:
-      settings.openVikingApiKey ??
-      process.env.OPENVIKING_API_KEY ??
-      "dev",
-    account:
-      settings.openVikingAccount ??
-      process.env.OPENVIKING_ACCOUNT ??
-      "default",
-    user:
-      settings.openVikingUser ??
-      process.env.OPENVIKING_USER ??
-      "default",
-    autoRecallLimit:
-      settings.openVikingAutoRecallLimit ??
-      (process.env.OPENVIKING_AUTO_RECALL_LIMIT
-        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_LIMIT, 10)
-        : undefined) ??
-      10,
-    autoRecallTimeout:
-      settings.openVikingAutoRecallTimeout ??
-      (process.env.OPENVIKING_AUTO_RECALL_TIMEOUT
-        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_TIMEOUT, 10)
-        : undefined) ??
-      5000,
-    autoRecallTopN:
-      settings.openVikingAutoRecallTopN ??
-      (process.env.OPENVIKING_AUTO_RECALL_TOPN
-        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_TOPN, 10)
-        : undefined) ??
-      5,
-    openVikingAutoRecall:
-      settings.openVikingAutoRecall ??
-      (process.env.OPENVIKING_AUTO_RECALL
-        ? process.env.OPENVIKING_AUTO_RECALL === "true"
-        : undefined) ??
-      true,
-    autoRecallScoreThreshold:
-      settings.openVikingAutoRecallScoreThreshold ??
-      (process.env.OPENVIKING_AUTO_RECALL_SCORE_THRESHOLD
-        ? parseFloat(process.env.OPENVIKING_AUTO_RECALL_SCORE_THRESHOLD)
-        : undefined) ??
-      0.15,
-    autoRecallMaxContentChars:
-      settings.openVikingAutoRecallMaxContentChars ??
-      (process.env.OPENVIKING_AUTO_RECALL_MAX_CONTENT_CHARS
-        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_MAX_CONTENT_CHARS, 10)
-        : undefined) ??
-      500,
-    autoRecallPreferAbstract:
-      settings.openVikingAutoRecallPreferAbstract ??
-      (process.env.OPENVIKING_AUTO_RECALL_PREFER_ABSTRACT
-        ? process.env.OPENVIKING_AUTO_RECALL_PREFER_ABSTRACT === "true"
-        : undefined) ??
-      true,
-    autoRecallTokenBudget:
-      settings.openVikingAutoRecallTokenBudget ??
-      (process.env.OPENVIKING_AUTO_RECALL_TOKEN_BUDGET
-        ? parseInt(process.env.OPENVIKING_AUTO_RECALL_TOKEN_BUDGET, 10)
-        : undefined) ??
-      500,
+    endpoint: cascade(s, "openVikingEndpoint", "OPENVIKING_ENDPOINT", "http://localhost:1933"),
+    timeout: cascade(s, "openVikingTimeout", "OPENVIKING_TIMEOUT", 30000, Number),
+    commitTimeout: cascade(s, "openVikingCommitTimeout", "OPENVIKING_COMMIT_TIMEOUT", 60000, Number),
+    apiKey: cascade(s, "openVikingApiKey", "OPENVIKING_API_KEY", "dev"),
+    account: cascade(s, "openVikingAccount", "OPENVIKING_ACCOUNT", "default"),
+    user: cascade(s, "openVikingUser", "OPENVIKING_USER", "default"),
+    autoRecallLimit: cascade(s, "openVikingAutoRecallLimit", "OPENVIKING_AUTO_RECALL_LIMIT", 10, Number),
+    autoRecallTimeout: cascade(s, "openVikingAutoRecallTimeout", "OPENVIKING_AUTO_RECALL_TIMEOUT", 5000, Number),
+    autoRecallTopN: cascade(s, "openVikingAutoRecallTopN", "OPENVIKING_AUTO_RECALL_TOPN", 5, Number),
+    openVikingAutoRecall: cascade(s, "openVikingAutoRecall", "OPENVIKING_AUTO_RECALL", true, v => v === "true"),
+    autoRecallScoreThreshold: cascade(s, "openVikingAutoRecallScoreThreshold", "OPENVIKING_AUTO_RECALL_SCORE_THRESHOLD", 0.15, Number),
+    autoRecallMaxContentChars: cascade(s, "openVikingAutoRecallMaxContentChars", "OPENVIKING_AUTO_RECALL_MAX_CONTENT_CHARS", 500, Number),
+    autoRecallPreferAbstract: cascade(s, "openVikingAutoRecallPreferAbstract", "OPENVIKING_AUTO_RECALL_PREFER_ABSTRACT", true, v => v === "true"),
+    autoRecallTokenBudget: cascade(s, "openVikingAutoRecallTokenBudget", "OPENVIKING_AUTO_RECALL_TOKEN_BUDGET", 500, Number),
   };
 }
