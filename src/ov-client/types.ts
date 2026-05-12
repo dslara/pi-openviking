@@ -45,6 +45,20 @@ export interface BrowseResult {
   [k: string]: unknown;
 }
 
+export interface TextPart {
+  type: "text";
+  text: string;
+}
+
+export interface ToolPart {
+  type: "tool_use";
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+export type Part = TextPart | ToolPart;
+
 export interface CommitResult {
   session_id: string;
   status: string;
@@ -56,7 +70,7 @@ export interface CommitResult {
 
 export interface OpenVikingClient {
   createSession(signal?: AbortSignal): Promise<string>;
-  sendMessage(sessionId: string, role: string, content: string, signal?: AbortSignal): Promise<void>;
+  sendMessage(sessionId: string, role: string, content: string | Part[], signal?: AbortSignal): Promise<void>;
   search(sessionId: string | undefined, query: string, limit?: number, mode?: "fast" | "deep", target_uri?: string, signal?: AbortSignal): Promise<SearchResult>;
   read(uri: string, level?: "abstract" | "overview" | "read", signal?: AbortSignal): Promise<ReadResult>;
   fsList(uri: string, signal?: AbortSignal, recursive?: boolean, simple?: boolean): Promise<BrowseResult>;

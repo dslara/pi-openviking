@@ -194,6 +194,21 @@ describe("OpenVikingClient", () => {
         "OpenViking sendMessage failed: bad key (HTTP 401)",
       );
     });
+
+    test("sends parts body when content is Part array", async () => {
+      const transport = mockTransport();
+      transport.request.mockResolvedValue({});
+
+      const client = createClient(defaultConfig, transport);
+      const parts = [{ type: "text" as const, text: "hello" }, { type: "tool_use" as const, id: "t1", name: "search", input: { query: "q" } }];
+      await client.sendMessage("sess-1", "user", parts);
+      expect(transport.request).toHaveBeenCalledWith(
+        "sendMessage",
+        "/api/v1/sessions/sess-1/messages",
+        { body: { role: "user", parts } },
+        undefined,
+      );
+    });
   });
 
   describe("read", () => {

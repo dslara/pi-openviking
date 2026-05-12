@@ -1,5 +1,5 @@
 import type { Transport } from "./transport";
-import type { CommitResult } from "./types";
+import type { CommitResult, Part } from "./types";
 
 export function createSessionOps(t: Transport, commitTimeout: number) {
   return {
@@ -8,11 +8,14 @@ export function createSessionOps(t: Transport, commitTimeout: number) {
       return result.session_id;
     },
 
-    async sendMessage(sessionId: string, role: string, content: string, signal?: AbortSignal): Promise<void> {
+    async sendMessage(sessionId: string, role: string, content: string | Part[], signal?: AbortSignal): Promise<void> {
+      const body: Record<string, unknown> = typeof content === "string"
+        ? { role, content }
+        : { role, parts: content };
       await t.request(
         "sendMessage",
         `/api/v1/sessions/${sessionId}/messages`,
-        { body: { role, content } },
+        { body },
         signal,
       );
     },

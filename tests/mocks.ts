@@ -1,11 +1,11 @@
 import { vi } from "vitest";
-import type { OpenVikingClient, SearchResult } from "../src/ov-client/client";
+import type { OpenVikingClient, SearchResult, Part } from "../src/ov-client/client";
 import type { SessionSyncLike } from "../src/session-sync/session";
 
 export function createMockClient(overrides: Partial<OpenVikingClient> = {}): OpenVikingClient {
   return {
     createSession: vi.fn(async () => "ov-sess-1"),
-    sendMessage: vi.fn(async () => {}),
+    sendMessage: vi.fn(async (_sessionId: string, _role: string, _content: string | Part[]) => {}),
     search: vi.fn(async () => ({
       memories: [],
       resources: [],

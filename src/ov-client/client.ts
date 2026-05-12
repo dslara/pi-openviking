@@ -6,7 +6,7 @@ import { createFsOps } from "./fs-ops";
 import { createSessionOps } from "./session-ops";
 
 export { OpenVikingError };
-export type { OpenVikingClient, SearchResult, ReadResult, BrowseResult, CommitResult, MemorySearchItem, ResourceSearchItem, SkillSearchItem } from "./types";
+export type { OpenVikingClient, SearchResult, ReadResult, BrowseResult, CommitResult, MemorySearchItem, ResourceSearchItem, SkillSearchItem, TextPart, ToolPart, Part } from "./types";
 
 export function createClient(config: OpenVikingConfig, transport?: Transport): OpenVikingClient {
   const t = transport ?? createTransport(config);
