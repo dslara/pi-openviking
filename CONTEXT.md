@@ -20,14 +20,14 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 | **memcommit** | Tool: commit current session to OV, triggering memory extraction. Fire-and-forget (returns task_id). |
 | **memimport** | Tool: import resource or skill into OV. Sources: URLs, local files, local directories (via temp_upload + zip). Optional `kind: "resource" \| "skill"`. Fire-and-forget. |
 | **memdelete** | Tool: remove by viking:// URI. No search-then-delete. |
-| **Operation** | Pure business-logic function in `src/operations/` that calls the Client Adapter and returns raw data. Each operation (browse, search, commit, delete, import) is written once — tools and commands are thin adapters that call the operation and format the result. |
+| **Operation** | Pure business-logic function in `src/operations/` that calls the Client Adapter and returns raw data. Operations: browse, search, commit, delete, import. Each written once — tools and commands are thin adapters that call the operation and format the result. **Exception:** `memread` calls Client Adapter directly (no operation wrapper — read is a simple passthrough). |
 | **Transport** | Low-level HTTP module for OpenViking. Handles fetch, timeout/abort merge, JSON envelope parsing, and `OpenVikingError` classification. Interface: `request(methodLabel, path, opts?, signal?)`. |
-| **Client Adapter** | `createClient` — maps domain operations (`search`, `read`, `fsList`, etc.) to transport calls. Knows endpoint paths, query/body assembly, and response normalization. |
+| **Client Adapter** | `createClient` (ov-client/client.ts) + modular operation factories: `createFsOps` (fs-ops.ts) for filesystem ops, `createSessionOps` (session-ops.ts) for session/commit ops. All share a `Transport` instance. Maps domain operations (`search`, `read`, `fsList`, `commit`, etc.) to HTTP calls. |
 | **Search Mode Resolver** | `resolveSearchMode` — decides between `fast` and `deep` for auto mode. Deep if session exists, else deep if query is complex (`?`, length ≥ 80, wordCount ≥ 8), else fast. |
 | **Tool Definition** | Reusable factory (`defineTool`) for registering OpenViking tools with pi. Handles metadata wiring, optional URI validation, error wrapping, and `ToolResult` assembly. Tool adapters call operations and format output for agent consumption (JSON). |
 | **Command** | User-facing CLI adapter (`/ov-search`, `/ov-ls`, etc.). Parses CLI args via `parseArgs`, calls the corresponding operation, formats output for humans via `formatSearch`/`formatBrowse`, and sends via `pi.sendMessage`. |
 | **Bootstrap** | `bootstrapExtension` — one-time setup per extension lifetime. Loads config, creates client and sessionSync, registers tools and commands, wires auto-recall. Returns `{ sessionSync }` for lifecycle delegation. |
-| **Recall Curator** | `curate` — multi-factor ranking and dedup pipeline for search results. Takes raw `SearchResult` + query + options, produces `CuratedItem[]`. Scoring: base + leaf boost (0.12) + temporal boost (0.10) + preference boost (0.08) + lexical overlap (max 0.20). Deduplicates by abstract for non-event categories, by URI for events/cases/resources. Prefers leaf items, truncates content, trims to token budget. Pure function — zero network calls, fully testable. |
+| **Recall Curator** | `curate` — multi-factor ranking and dedup pipeline for search results. Takes raw `SearchResult` + query + options, produces `RecallItem[]`. Scoring: base + leaf boost (0.12) + temporal boost (0.10) + preference boost (0.08) + lexical overlap (max 0.20). Deduplicates by abstract for non-event categories, by URI for events/cases/resources. Prefers leaf items, truncates content, trims to token budget. Pure function — zero network calls, fully testable. |
 | **Auto Recall Options** | Configurable parameters for `createAutoRecall`: `limit` (search results, default 10), `timeout` (ms, default 5000), `topN` (max memories injected, default 5). Set via `openVikingAutoRecallLimit/Timeout/TopN` in `.pi/settings.json` or env vars. |
 | **Resource** | External knowledge (docs, code, URLs) stored under `viking://resources/` |
 | **Skill** | Structured agent capability stored under `viking://agent/skills/` |
@@ -54,6 +54,10 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 - Auto-recall uses **deep** mode when OV session exists, **fast** when not.
 - Auto-recall is **configurable per project** via `openVikingAutoRecall` setting (default true).
 - Recall Curator options: `scoreThreshold` (0.15), `maxContentChars` (500), `preferAbstract` (true), `tokenBudget` (500) — configurable via settings/env vars.
+- **Logging**: file-based via `appendFileSync` → `~/.pi/agent/pi-openviking.log` (or `OV_LOG_FILE` env). No `console.*` in `src/` — tests enforce this. (ADR-002)
+- **Shutdown**: `onShutdown()` is synchronous, zero I/O — only resets state. Commit is manual-only via `/ov-commit` or `memcommit` tool. (ADR-001)
+- **Commands surface**: 6 slash commands (`/ov-search`, `/ov-browse`, `/ov-import`, `/ov-delete`, `/ov-recall`, `/ov-commit`) — each calls the corresponding operation, formats output for humans.
+- **Unified deps**: Tools use `ToolRegisterDeps`, commands use `CommandRegisterDeps`. Bootstrap wires both from shared `client` + `sessionSync` + `autoRecallState`.
 - Session sync is incremental: each `message_end` appends text-only content to OV session.
 - Async operations (commit, import) are fire-and-forget — return task_id but don't poll.
 - No reranking in plugin — trust OV's internal pipeline.
@@ -73,3 +77,8 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 - VikingBot interaction endpoints
 - WebDAV endpoints
 - Admin/multi-tenant management
+
+## Architecture Decision Records
+
+- **ADR-001**: Commit exclusivamente manual via `/ov-commit` — auto-commit on shutdown removed (blocks Pi exit). `onShutdown()` is sync, zero I/O.
+- **ADR-002**: Logging file-based — `appendFileSync` to log file. No `console.*` in src/.
