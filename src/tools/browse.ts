@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import type { OpenVikingClient } from "../ov-client/client";
+import type { ToolRegisterDeps } from "../shared/tool-def";
 import { defineTool } from "../shared/tool-def";
 import { browseOp } from "../operations/browse";
 
@@ -15,8 +15,8 @@ const MEMBROWSE_PARAMS = Type.Object({
   simple: Type.Optional(Type.Boolean({ description: "Return URI-only output" })),
 });
 
-export function registerMembrowseTool(pi: ExtensionAPI, client: OpenVikingClient) {
-  defineTool(pi, { client }, {
+export function registerMembrowseTool(pi: ExtensionAPI, deps: ToolRegisterDeps) {
+  defineTool(pi, deps, {
     name: "membrowse",
     label: "Memory Browse",
     description:

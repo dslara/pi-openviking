@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import type { OpenVikingClient } from "../ov-client/client";
+import type { ToolRegisterDeps } from "../shared/tool-def";
 import { defineTool } from "../shared/tool-def";
 import { importOp } from "../operations/import";
 
@@ -14,8 +14,8 @@ const MEMIMPORT_PARAMS = Type.Object({
   to: Type.Optional(Type.String({ description: "Optional target URI controlling where resource lands in the viking:// tree" })),
 });
 
-export function registerMemimportTool(pi: ExtensionAPI, client: OpenVikingClient) {
-  defineTool(pi, { client }, {
+export function registerMemimportTool(pi: ExtensionAPI, deps: ToolRegisterDeps) {
+  defineTool(pi, deps, {
     name: "memimport",
     label: "Memory Import",
     description:

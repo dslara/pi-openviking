@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import type { OpenVikingClient } from "../ov-client/client";
+import type { ToolRegisterDeps } from "../shared/tool-def";
 import { defineTool } from "../shared/tool-def";
 import { deleteOp } from "../operations/delete";
 
@@ -8,8 +8,8 @@ const MEMDELETE_PARAMS = Type.Object({
   uri: Type.String({ description: "viking:// URI to delete" }),
 });
 
-export function registerMemdeleteTool(pi: ExtensionAPI, client: OpenVikingClient) {
-  defineTool(pi, { client }, {
+export function registerMemdeleteTool(pi: ExtensionAPI, deps: ToolRegisterDeps) {
+  defineTool(pi, deps, {
     name: "memdelete",
     label: "Memory Delete",
     description:

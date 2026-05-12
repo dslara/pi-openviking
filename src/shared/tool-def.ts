@@ -1,5 +1,13 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { TSchema, Static } from "typebox";
+import type { OpenVikingClient } from "../ov-client/client";
+import type { SessionSyncLike } from "../session-sync/session";
+
+export interface ToolRegisterDeps {
+  client: OpenVikingClient;
+  sync: SessionSyncLike;
+  [key: string]: unknown;
+}
 
 export type ToolDeps = Record<string, unknown>;
 

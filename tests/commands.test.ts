@@ -1,5 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
-import { registerCommands } from "../src/commands/register";
+import { COMMANDS } from "../src/bootstrap";
+import type { CommandRegisterDeps } from "../src/commands/types";
 import { createMockClient, createMockSessionSync } from "./mocks";
 
 function createMockPi() {
@@ -25,22 +26,31 @@ function createMockCmdCtx() {
   };
 }
 
+function registerAll(pi: ReturnType<typeof createMockPi>, overrides?: {
+  client?: ReturnType<typeof createMockClient>;
+  sync?: ReturnType<typeof createMockSessionSync>;
+  autoRecallState?: { enabled: boolean };
+}) {
+  const client = overrides?.client ?? createMockClient();
+  const sync = overrides?.sync ?? createMockSessionSync();
+  const autoRecallState = overrides?.autoRecallState ?? { enabled: true };
+
+  const deps: CommandRegisterDeps = { pi: pi as any, client, sync, autoRecallState };
+  for (const register of COMMANDS) register(deps);
+
+  return { pi, client, sync, autoRecallState };
+}
+
 function makeDeps(overrides?: {
   client?: ReturnType<typeof createMockClient>;
-  sessionSync?: ReturnType<typeof createMockSessionSync>;
+  sync?: ReturnType<typeof createMockSessionSync>;
   autoRecallState?: { enabled: boolean };
 }) {
   const pi = createMockPi();
-  const client = overrides?.client ?? createMockClient();
-  const sessionSync = overrides?.sessionSync ?? createMockSessionSync();
-  const autoRecallState = overrides?.autoRecallState ?? { enabled: true };
-
-  registerCommands({ pi: pi as any, client, sessionSync, autoRecallState });
-
-  return { pi, client, sessionSync, autoRecallState };
+  return registerAll(pi, overrides);
 }
 
-describe("registerCommands", () => {
+describe("COMMANDS registry", () => {
   test("registers 6 commands", () => {
     const { pi } = makeDeps();
     expect(pi.registerCommand).toHaveBeenCalledTimes(6);
@@ -186,7 +196,7 @@ describe("registerCommands", () => {
     test("toggles state", async () => {
       const { autoRecallState } = makeDeps({ autoRecallState: { enabled: true } });
       const pi = createMockPi();
-      registerCommands({ pi: pi as any, client: createMockClient(), sessionSync: createMockSessionSync(), autoRecallState });
+      registerAll(pi, { autoRecallState });
       const cmd = pi.getCommand("ov-recall");
       const ctx = createMockCmdCtx();
 
@@ -199,7 +209,7 @@ describe("registerCommands", () => {
     test("shows status", async () => {
       const { autoRecallState } = makeDeps({ autoRecallState: { enabled: false } });
       const pi = createMockPi();
-      registerCommands({ pi: pi as any, client: createMockClient(), sessionSync: createMockSessionSync(), autoRecallState });
+      registerAll(pi, { autoRecallState });
       const cmd = pi.getCommand("ov-recall");
       const ctx = createMockCmdCtx();
 
@@ -210,22 +220,22 @@ describe("registerCommands", () => {
 
   describe("/ov-commit", () => {
     test("commits and notifies success", async () => {
-      const sessionSync = createMockSessionSync();
-      const { pi } = makeDeps({ sessionSync });
+      const sync = createMockSessionSync();
+      const { pi } = makeDeps({ sync });
       const cmd = pi.getCommand("ov-commit");
       const ctx = createMockCmdCtx();
 
       await cmd.handler("", ctx);
-      expect(sessionSync.flush).toHaveBeenCalled();
-      expect(sessionSync.commit).toHaveBeenCalled();
+      expect(sync.flush).toHaveBeenCalled();
+      expect(sync.commit).toHaveBeenCalled();
       expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("✓ Session committed. Task:"), "info");
     });
 
     test("notifies error", async () => {
-      const sessionSync = createMockSessionSync({
+      const sync = createMockSessionSync({
         commit: vi.fn(async () => { throw new Error("no session"); }),
       });
-      const { pi } = makeDeps({ sessionSync });
+      const { pi } = makeDeps({ sync });
       const cmd = pi.getCommand("ov-commit");
       const ctx = createMockCmdCtx();
 

@@ -1,19 +1,11 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { OpenVikingClient } from "../ov-client/client";
-import type { SessionSyncLike } from "../session-sync/session";
+import type { CommandRegisterDeps } from "./types";
 import { logger } from "../shared/logger";
 import { parseArgs } from "../shared/parse-args";
 import { formatSearch } from "../shared/format-search";
 import { searchOp } from "../operations/search";
 
-export interface CommandDeps {
-  pi: ExtensionAPI;
-  client: OpenVikingClient;
-  sessionSync: SessionSyncLike;
-}
-
-export function registerSearchCommand(deps: CommandDeps): void {
-  const { pi, client, sessionSync } = deps;
+export function registerSearchCommand(deps: CommandRegisterDeps): void {
+  const { pi, client, sync } = deps;
 
   pi.registerCommand("ov-search", {
     description: "Search OpenViking memories and resources",
@@ -30,7 +22,7 @@ export function registerSearchCommand(deps: CommandDeps): void {
         const limit = parsed.flags.limit ? parseInt(parsed.flags.limit, 10) : 10;
         const mode = "deep" in parsed.flags ? "deep" : "fast" in parsed.flags ? "fast" : "auto";
         const uri = parsed.flags.uri;
-        const sessionId = sessionSync.getOvSessionId();
+        const sessionId = sync.getOvSessionId();
 
         const results = await searchOp(client, {
           query,

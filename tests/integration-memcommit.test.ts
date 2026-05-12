@@ -40,7 +40,7 @@ describe("memcommit integration", () => {
     const pi = {
       registerTool: (_def: unknown) => {},
     };
-    registerMemcommitTool(pi as any, client, sync);
+    registerMemcommitTool(pi as any, { client, sync });
 
     // Simulate calling the tool directly
     const toolDef = (pi as any).tools?.[0];

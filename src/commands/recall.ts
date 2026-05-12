@@ -1,13 +1,7 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { AutoRecallState } from "../auto-recall/auto-recall";
+import type { CommandRegisterDeps } from "./types";
 import { parseArgs } from "../shared/parse-args";
 
-export interface CommandDeps {
-  pi: ExtensionAPI;
-  autoRecallState: AutoRecallState;
-}
-
-export function registerRecallCommand(deps: CommandDeps): void {
+export function registerRecallCommand(deps: CommandRegisterDeps): void {
   const { pi, autoRecallState } = deps;
 
   pi.registerCommand("ov-recall", {

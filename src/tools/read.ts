@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import type { OpenVikingClient } from "../ov-client/client";
+import type { ToolRegisterDeps } from "../shared/tool-def";
 import { defineTool } from "../shared/tool-def";
 
 const MEMREAD_PARAMS = Type.Object({
@@ -13,8 +13,8 @@ const MEMREAD_PARAMS = Type.Object({
   ], { description: "Content level (auto detects from fs/stat)", default: "auto" })),
 });
 
-export function registerMemreadTool(pi: ExtensionAPI, client: OpenVikingClient) {
-  defineTool(pi, { client }, {
+export function registerMemreadTool(pi: ExtensionAPI, deps: ToolRegisterDeps) {
+  defineTool(pi, deps, {
     name: "memread",
     label: "Memory Read",
     description:

@@ -74,7 +74,7 @@ describe("Client Adapter: commit returns CommitResult", () => {
     } as any;
 
     const pi = { registerTool: vi.fn() } as any;
-    registerMemcommitTool(pi, mockClient, sync);
+    registerMemcommitTool(pi, { client: mockClient, sync });
 
     const toolDef = (pi.registerTool as ReturnType<typeof vi.fn>).mock.calls[0][0];
     const result = await toolDef.execute("tc-1", {}, undefined, () => {});

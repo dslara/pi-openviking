@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { loadConfig } from "./shared/config";
+import type { ToolRegisterDeps } from "./shared/tool-def";
 import { createClient } from "./ov-client/client";
 import { logger } from "./shared/logger";
 import { registerMemsearchTool } from "./tools/search";
@@ -8,9 +9,33 @@ import { registerMembrowseTool } from "./tools/browse";
 import { registerMemcommitTool } from "./tools/commit";
 import { registerMemdeleteTool } from "./tools/delete";
 import { registerMemimportTool } from "./tools/import";
+import { registerSearchCommand } from "./commands/search";
+import { registerBrowseCommand } from "./commands/browse";
+import { registerImportCommand } from "./commands/import";
+import { registerDeleteCommand } from "./commands/delete";
+import { registerRecallCommand } from "./commands/recall";
+import { registerCommitCommand } from "./commands/commit";
+import type { CommandRegisterDeps } from "./commands/types";
 import { SessionSync } from "./session-sync/session";
 import { createAutoRecall } from "./auto-recall/auto-recall";
-import { registerCommands } from "./commands/register";
+
+export const TOOLS = [
+  registerMemsearchTool,
+  registerMemreadTool,
+  registerMembrowseTool,
+  registerMemcommitTool,
+  registerMemdeleteTool,
+  registerMemimportTool,
+];
+
+export const COMMANDS = [
+  registerSearchCommand,
+  registerBrowseCommand,
+  registerImportCommand,
+  registerDeleteCommand,
+  registerRecallCommand,
+  registerCommitCommand,
+];
 
 export interface BootstrapContext {
   cwd: string;
@@ -39,16 +64,13 @@ export function bootstrapExtension(
 
   logger.debug("session sync created");
 
-  registerMemsearchTool(pi, client, sessionSync);
-  registerMemreadTool(pi, client);
-  registerMembrowseTool(pi, client);
-  registerMemcommitTool(pi, client, sessionSync);
-  registerMemdeleteTool(pi, client);
-  registerMemimportTool(pi, client);
+  const toolDeps: ToolRegisterDeps = { client, sync: sessionSync };
+  for (const register of TOOLS) register(pi, toolDeps);
 
   const autoRecallState = { enabled: config.openVikingAutoRecall };
 
-  registerCommands({ pi, client, sessionSync, autoRecallState });
+  const cmdDeps: CommandRegisterDeps = { pi, client, sync: sessionSync, autoRecallState };
+  for (const register of COMMANDS) register(cmdDeps);
 
   const autoRecall = createAutoRecall(client, sessionSync, autoRecallState, {
     limit: config.autoRecallLimit,

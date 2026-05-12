@@ -1,15 +1,9 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { OpenVikingClient } from "../ov-client/client";
+import type { CommandRegisterDeps } from "./types";
 import { logger } from "../shared/logger";
 import { parseArgs } from "../shared/parse-args";
 import { importOp } from "../operations/import";
 
-export interface CommandDeps {
-  pi: ExtensionAPI;
-  client: OpenVikingClient;
-}
-
-export function registerImportCommand(deps: CommandDeps): void {
+export function registerImportCommand(deps: CommandRegisterDeps): void {
   const { pi, client } = deps;
 
   pi.registerCommand("ov-import", {

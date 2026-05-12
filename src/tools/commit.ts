@@ -1,16 +1,14 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import type { OpenVikingClient } from "../ov-client/client";
-import type { SessionSyncLike } from "../session-sync/session";
+import type { ToolRegisterDeps } from "../shared/tool-def";
 import { defineTool } from "../shared/tool-def";
 import { commitOp } from "../operations/commit";
 
 export function registerMemcommitTool(
   pi: ExtensionAPI,
-  client: OpenVikingClient,
-  sync: SessionSyncLike,
+  deps: ToolRegisterDeps,
 ) {
-  defineTool(pi, { client, sync }, {
+  defineTool(pi, deps, {
     name: "memcommit",
     label: "Memory Commit",
     description:

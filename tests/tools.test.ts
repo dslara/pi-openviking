@@ -47,7 +47,7 @@ describe("memsearch tool", () => {
   test("registers with promptSnippet and promptGuidelines", () => {
     const client = createMockClient();
     const sync = createMockSessionSync();
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     expect(pi.registerTool).toHaveBeenCalledOnce();
     const tool = pi.tools[0];
@@ -70,7 +70,7 @@ describe("memsearch tool", () => {
       } as SearchResult)),
     });
     const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-1" });
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
 
@@ -91,7 +91,7 @@ describe("memsearch tool", () => {
       } as SearchResult)),
     });
     const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-1" });
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
     await tool.execute("tc-1", { query: "hello", uri: "viking://resources/" });
@@ -101,7 +101,7 @@ describe("memsearch tool", () => {
   test("returns 'No results found' when empty", async () => {
     const client = createMockClient();
     const sync = createMockSessionSync();
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
     const result = await tool.execute("tc-1", { query: "nothing" });
@@ -115,7 +115,7 @@ describe("memsearch tool", () => {
       }),
     });
     const sync = createMockSessionSync();
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
     const result = await tool.execute("tc-1", { query: "test" });
@@ -130,7 +130,7 @@ describe("memsearch tool", () => {
       }),
     });
     const sync = createMockSessionSync();
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
     const notify = vi.fn();
@@ -152,7 +152,7 @@ describe("memsearch tool", () => {
       }),
     });
     const sync = createMockSessionSync();
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
     const ctx = { hasUI: false, ui: { notify: vi.fn() } } as any;
@@ -165,7 +165,7 @@ describe("memsearch tool", () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-1" });
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
     await tool.execute("tc-1", { query: "test", mode: "auto" });
@@ -176,7 +176,7 @@ describe("memsearch tool", () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync({ getOvSessionId: () => undefined });
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
     await tool.execute("tc-1", { query: "test", mode: "auto" });
@@ -187,7 +187,7 @@ describe("memsearch tool", () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync({ getOvSessionId: () => undefined });
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
     await tool.execute("tc-1", { query: "test", mode: "deep" });
@@ -199,7 +199,7 @@ describe("memsearch tool", () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
     const sync = createMockSessionSync({ getOvSessionId: () => undefined });
-    registerMemsearchTool(pi as any, client, sync);
+    registerMemsearchTool(pi as any, { client, sync });
 
     const tool = pi.tools[0];
     const complexQuery = "What are the detailed coding preferences and patterns used across all previous sessions?";
@@ -217,7 +217,7 @@ describe("memread tool", () => {
 
   test("registers with promptSnippet and no promptGuidelines", () => {
     const client = createMockClient();
-    registerMemreadTool(pi as any, client);
+    registerMemreadTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memread");
     expect(tool).toBeDefined();
@@ -229,7 +229,7 @@ describe("memread tool", () => {
     const client = createMockClient({
       read: vi.fn(async () => ({ content: "# Hello\n\nWorld" })),
     });
-    registerMemreadTool(pi as any, client);
+    registerMemreadTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memread")!;
     const result = await tool.execute("tc-1", { uri: "viking://docs/readme.md", level: "read" });
@@ -243,7 +243,7 @@ describe("memread tool", () => {
       fsStat: vi.fn(async () => ({ uri: "viking://docs/readme.md", children: [{ uri: "viking://docs/readme.md", type: "file" }] })),
       read: vi.fn(async () => ({ content: "file content" })),
     });
-    registerMemreadTool(pi as any, client);
+    registerMemreadTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memread")!;
     const result = await tool.execute("tc-1", { uri: "viking://docs/readme.md", level: "auto" });
@@ -258,7 +258,7 @@ describe("memread tool", () => {
       fsStat: vi.fn(async () => ({ uri: "viking://docs/", children: [{ uri: "viking://docs/", type: "directory" }] })),
       read: vi.fn(async () => ({ content: "dir overview" })),
     });
-    registerMemreadTool(pi as any, client);
+    registerMemreadTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memread")!;
     const result = await tool.execute("tc-1", { uri: "viking://docs/", level: "auto" });
@@ -270,7 +270,7 @@ describe("memread tool", () => {
 
   test("returns error for invalid URI prefix", async () => {
     const client = createMockClient();
-    registerMemreadTool(pi as any, client);
+    registerMemreadTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memread")!;
     const result = await tool.execute("tc-1", { uri: "https://example.com", level: "read" });
@@ -291,7 +291,7 @@ describe("memcommit tool", () => {
   test("registers with promptSnippet and promptGuidelines", () => {
     const client = createMockClient();
     const sync = createMockSessionSync();
-    registerMemcommitTool(pi as any, client, sync);
+    registerMemcommitTool(pi as any, { client, sync });
 
     const tool = pi.tools.find((t) => t.name === "memcommit");
     expect(tool).toBeDefined();
@@ -307,7 +307,7 @@ describe("memcommit tool", () => {
       getOvSessionId: () => undefined,
       commit: vi.fn(async () => { throw new Error("No OpenViking session mapped"); }),
     });
-    registerMemcommitTool(pi as any, client, sync);
+    registerMemcommitTool(pi as any, { client, sync });
 
     const tool = pi.tools.find((t) => t.name === "memcommit")!;
     const result = await tool.execute("tc-1", {});
@@ -322,7 +322,7 @@ describe("memcommit tool", () => {
       getOvSessionId: () => "ov-sess-123",
       commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-abc", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
     });
-    registerMemcommitTool(pi as any, client, sync);
+    registerMemcommitTool(pi as any, { client, sync });
 
     const tool = pi.tools.find((t) => t.name === "memcommit")!;
     const onUpdate = vi.fn();
@@ -346,7 +346,7 @@ describe("membrowse tool", () => {
 
   test("registers with promptSnippet and no promptGuidelines", () => {
     const client = createMockClient();
-    registerMembrowseTool(pi as any, client);
+    registerMembrowseTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "membrowse");
     expect(tool).toBeDefined();
@@ -364,7 +364,7 @@ describe("membrowse tool", () => {
         ],
       })),
     });
-    registerMembrowseTool(pi as any, client);
+    registerMembrowseTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "membrowse")!;
     const result = await tool.execute("tc-1", { uri: "viking://resources/docs/", view: "list" });
@@ -384,7 +384,7 @@ describe("membrowse tool", () => {
         ],
       })),
     });
-    registerMembrowseTool(pi as any, client);
+    registerMembrowseTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "membrowse")!;
     const result = await tool.execute("tc-1", { uri: "viking://resources/", view: "tree" });
@@ -400,7 +400,7 @@ describe("membrowse tool", () => {
         children: [{ uri: "viking://resources/file.md", type: "file" }],
       })),
     });
-    registerMembrowseTool(pi as any, client);
+    registerMembrowseTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "membrowse")!;
     const result = await tool.execute("tc-1", { uri: "viking://resources/file.md", view: "stat" });
@@ -413,7 +413,7 @@ describe("membrowse tool", () => {
     const client = createMockClient({
       fsList: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
     });
-    registerMembrowseTool(pi as any, client);
+    registerMembrowseTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "membrowse")!;
     await tool.execute("tc-1", { uri: "viking://resources/", view: "list", recursive: true });
@@ -424,7 +424,7 @@ describe("membrowse tool", () => {
     const client = createMockClient({
       fsList: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
     });
-    registerMembrowseTool(pi as any, client);
+    registerMembrowseTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "membrowse")!;
     await tool.execute("tc-1", { uri: "viking://resources/", view: "list", simple: true });
@@ -435,7 +435,7 @@ describe("membrowse tool", () => {
     const client = createMockClient({
       fsList: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
     });
-    registerMembrowseTool(pi as any, client);
+    registerMembrowseTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "membrowse")!;
     await tool.execute("tc-1", { uri: "viking://resources/", view: "list", recursive: true, simple: true });
@@ -446,7 +446,7 @@ describe("membrowse tool", () => {
     const client = createMockClient({
       fsList: vi.fn(async () => ({ uri: "viking://resources/", children: [] })),
     });
-    registerMembrowseTool(pi as any, client);
+    registerMembrowseTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "membrowse")!;
     await tool.execute("tc-1", { uri: "viking://resources/", view: "list" });
@@ -455,7 +455,7 @@ describe("membrowse tool", () => {
 
   test("returns error for invalid URI prefix", async () => {
     const client = createMockClient();
-    registerMembrowseTool(pi as any, client);
+    registerMembrowseTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "membrowse")!;
     const result = await tool.execute("tc-1", { uri: "http://example.com", view: "list" });
@@ -475,7 +475,7 @@ describe("memdelete tool", () => {
 
   test("registers with promptSnippet and no promptGuidelines", () => {
     const client = createMockClient();
-    registerMemdeleteTool(pi as any, client);
+    registerMemdeleteTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memdelete");
     expect(tool).toBeDefined();
@@ -487,7 +487,7 @@ describe("memdelete tool", () => {
     const client = createMockClient({
       delete: vi.fn(async () => ({ uri: "viking://resources/temp.txt" })),
     });
-    registerMemdeleteTool(pi as any, client);
+    registerMemdeleteTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memdelete")!;
     const result = await tool.execute("tc-1", { uri: "viking://resources/temp.txt" });
@@ -499,7 +499,7 @@ describe("memdelete tool", () => {
 
   test("returns error for invalid URI prefix", async () => {
     const client = createMockClient();
-    registerMemdeleteTool(pi as any, client);
+    registerMemdeleteTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memdelete")!;
     const result = await tool.execute("tc-1", { uri: "file:///etc/passwd" });
@@ -515,7 +515,7 @@ describe("memdelete tool", () => {
         throw new Error("OpenViking delete failed: not found (HTTP 404)");
       }),
     });
-    registerMemdeleteTool(pi as any, client);
+    registerMemdeleteTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memdelete")!;
     const result = await tool.execute("tc-1", { uri: "viking://resources/missing.txt" });
@@ -531,7 +531,7 @@ describe("memdelete tool", () => {
         memories: [], resources: [], skills: [], total: 0,
       })),
     });
-    registerMemdeleteTool(pi as any, client);
+    registerMemdeleteTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memdelete")!;
     const result = await tool.execute("tc-1", { uri: "viking://resources/doc.md" });
@@ -549,7 +549,7 @@ describe("memdelete tool", () => {
         skills: [], total: 1,
       })),
     });
-    registerMemdeleteTool(pi as any, client);
+    registerMemdeleteTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memdelete")!;
     const result = await tool.execute("tc-1", { uri: "viking://resources/stale.md" });
@@ -569,7 +569,7 @@ describe("memimport tool", () => {
 
   test("registers with promptSnippet and no promptGuidelines", () => {
     const client = createMockClient();
-    registerMemimportTool(pi as any, client);
+    registerMemimportTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memimport");
     expect(tool).toBeDefined();
@@ -581,7 +581,7 @@ describe("memimport tool", () => {
     const client = createMockClient({
       addResource: vi.fn(async () => ({ root_uri: "viking://resources/github.md", status: "success", errors: [] })),
     });
-    registerMemimportTool(pi as any, client);
+    registerMemimportTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memimport")!;
     const result = await tool.execute("tc-1", { source: "https://example.com/doc.md" });
@@ -595,7 +595,7 @@ describe("memimport tool", () => {
     const client = createMockClient({
       addResource: vi.fn(async () => ({ root_uri: "viking://resources/repo", status: "success", errors: [] })),
     });
-    registerMemimportTool(pi as any, client);
+    registerMemimportTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memimport")!;
     const result = await tool.execute("tc-1", { source: "git://github.com/user/repo.git" });
@@ -608,7 +608,7 @@ describe("memimport tool", () => {
     const client = createMockClient({
       addResource: vi.fn(async () => ({ root_uri: "viking://agent/skills/test.md", status: "success", errors: [] })),
     });
-    registerMemimportTool(pi as any, client);
+    registerMemimportTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memimport")!;
     const result = await tool.execute("tc-1", {
@@ -634,7 +634,7 @@ describe("memimport tool", () => {
       const client = createMockClient({
         addResource: vi.fn(async () => ({ root_uri: "viking://resources/local.md", status: "success", errors: [] })),
       });
-      registerMemimportTool(pi as any, client);
+      registerMemimportTool(pi as any, { client, sync: createMockSessionSync() });
 
       const tool = pi.tools.find((t) => t.name === "memimport")!;
       const result = await tool.execute("tc-1", {
@@ -660,7 +660,7 @@ describe("memimport tool", () => {
         throw new Error("OpenViking addResource failed: bad request (HTTP 400)");
       }),
     });
-    registerMemimportTool(pi as any, client);
+    registerMemimportTool(pi as any, { client, sync: createMockSessionSync() });
 
     const tool = pi.tools.find((t) => t.name === "memimport")!;
     const result = await tool.execute("tc-1", { source: "https://bad.url" });
@@ -679,7 +679,7 @@ describe("memimport tool", () => {
       const client = createMockClient({
         addResource: vi.fn(async () => ({ root_uri: "viking://resources/mydir", status: "success", errors: [] })),
       });
-      registerMemimportTool(pi as any, client);
+      registerMemimportTool(pi as any, { client, sync: createMockSessionSync() });
 
       const tool = pi.tools.find((t) => t.name === "memimport")!;
       const result = await tool.execute("tc-1", { source: tmpDir });
@@ -709,7 +709,7 @@ describe("memimport tool", () => {
       const client = createMockClient({
         addResource: vi.fn(async () => ({ root_uri: "viking://agent/skills/mydir", status: "success", errors: [] })),
       });
-      registerMemimportTool(pi as any, client);
+      registerMemimportTool(pi as any, { client, sync: createMockSessionSync() });
 
       const tool = pi.tools.find((t) => t.name === "memimport")!;
       const result = await tool.execute("tc-1", {

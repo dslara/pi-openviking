@@ -187,7 +187,7 @@ describe("memdelete integration", () => {
         (pi as any)._tool = def;
       }),
     };
-    registerMemdeleteTool(pi as any, client);
+    registerMemdeleteTool(pi as any, { client, sync: {} as any });
 
     const tool = (pi as any)._tool;
     const result = await tool.execute("tc-1", { uri: "file:///etc/passwd" });

@@ -1,7 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import type { OpenVikingClient } from "../ov-client/client";
-import type { SessionSyncLike } from "../session-sync/session";
+import type { ToolRegisterDeps } from "../shared/tool-def";
 import { defineTool } from "../shared/tool-def";
 import { notifyOnce } from "../shared/notify";
 import { searchOp } from "../operations/search";
@@ -17,8 +16,8 @@ const SEARCH_PARAMS = Type.Object({
   uri: Type.Optional(Type.String({ description: "Optional viking:// URI to scope search to a specific namespace" })),
 });
 
-export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient, sync: SessionSyncLike) {
-  defineTool(pi, { client, sync }, {
+export function registerMemsearchTool(pi: ExtensionAPI, deps: ToolRegisterDeps) {
+  defineTool(pi, deps, {
     name: "memsearch",
     label: "Memory Search",
     description:
