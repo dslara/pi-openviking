@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "../ov-client/client";
-import { logger } from "../shared/logger";
 import { defineTool } from "../shared/tool-def";
+import { deleteOp } from "../operations/delete";
 
 const MEMDELETE_PARAMS = Type.Object({
   uri: Type.String({ description: "viking:// URI to delete" }),
@@ -20,28 +20,11 @@ export function registerMemdeleteTool(pi: ExtensionAPI, client: OpenVikingClient
     validateUri: true,
 
     async execute({ params, deps, signal }) {
-      const result = await deps.client.delete(params.uri, signal);
-
-      // Post-delete verification: confirm resource no longer appears in search
-      try {
-        const uriParts = params.uri.replace("viking://", "").split("/");
-        const resourceName = uriParts[uriParts.length - 1] || "";
-        if (resourceName) {
-          const searchResults = await deps.client.search(undefined, resourceName, 5, "fast", undefined, signal);
-          const stillPresent = searchResults.resources.some(r => r.uri === params.uri);
-          if (stillPresent) {
-            return {
-              text: `Deleted: ${result.uri} (warning: resource may still appear in search due to async index sync)`,
-              details: { uri: result.uri, verified: false },
-            };
-          }
-        }
-      } catch (err) {
-        // Verification is best-effort; don't fail the delete on search errors
-        logger.error("delete verification failed:", (err as Error).message);
-      }
-
-      return { text: `Deleted: ${result.uri}`, details: { uri: result.uri, verified: true } };
+      const result = await deleteOp(deps.client, { uri: params.uri }, signal);
+      const text = result.verified
+        ? `Deleted: ${result.uri}`
+        : `Deleted: ${result.uri} (warning: resource may still appear in search due to async index sync)`;
+      return { text, details: { uri: result.uri, verified: result.verified } };
     },
   });
 }

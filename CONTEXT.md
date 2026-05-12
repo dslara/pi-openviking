@@ -20,11 +20,13 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 | **memcommit** | Tool: commit current session to OV, triggering memory extraction. Fire-and-forget (returns task_id). |
 | **memimport** | Tool: import resource or skill into OV. Sources: URLs, local files, local directories (via temp_upload + zip). Optional `kind: "resource" \| "skill"`. Fire-and-forget. |
 | **memdelete** | Tool: remove by viking:// URI. No search-then-delete. |
-| **Tool Definition** | Reusable factory (`defineTool`) for registering OpenViking tools with pi. Handles metadata wiring, optional URI validation, error wrapping, and `ToolResult` assembly. Tool executors provide only the unique logic. |
+| **Operation** | Pure business-logic function in `src/operations/` that calls the Client Adapter and returns raw data. Each operation (browse, search, commit, delete, import) is written once — tools and commands are thin adapters that call the operation and format the result. |
 | **Transport** | Low-level HTTP module for OpenViking. Handles fetch, timeout/abort merge, JSON envelope parsing, and `OpenVikingError` classification. Interface: `request(methodLabel, path, opts?, signal?)`. |
 | **Client Adapter** | `createClient` — maps domain operations (`search`, `read`, `fsList`, etc.) to transport calls. Knows endpoint paths, query/body assembly, and response normalization. |
 | **Search Mode Resolver** | `resolveSearchMode` — decides between `fast` and `deep` for auto mode. Deep if session exists, else deep if query is complex (`?`, length ≥ 80, wordCount ≥ 8), else fast. |
-| **Bootstrap** | `bootstrapExtension` — one-time setup per extension lifetime. Loads config, creates client and sessionSync, registers tools, wires auto-recall. Returns `{ sessionSync }` for lifecycle delegation. |
+| **Tool Definition** | Reusable factory (`defineTool`) for registering OpenViking tools with pi. Handles metadata wiring, optional URI validation, error wrapping, and `ToolResult` assembly. Tool adapters call operations and format output for agent consumption (JSON). |
+| **Command** | User-facing CLI adapter (`/ov-search`, `/ov-ls`, etc.). Parses CLI args via `parseArgs`, calls the corresponding operation, formats output for humans via `formatSearch`/`formatBrowse`, and sends via `pi.sendMessage`. |
+| **Bootstrap** | `bootstrapExtension` — one-time setup per extension lifetime. Loads config, creates client and sessionSync, registers tools and commands, wires auto-recall. Returns `{ sessionSync }` for lifecycle delegation. |
 | **Recall Curator** | `curate` — multi-factor ranking and dedup pipeline for search results. Takes raw `SearchResult` + query + options, produces `CuratedItem[]`. Scoring: base + leaf boost (0.12) + temporal boost (0.10) + preference boost (0.08) + lexical overlap (max 0.20). Deduplicates by abstract for non-event categories, by URI for events/cases/resources. Prefers leaf items, truncates content, trims to token budget. Pure function — zero network calls, fully testable. |
 | **Auto Recall Options** | Configurable parameters for `createAutoRecall`: `limit` (search results, default 10), `timeout` (ms, default 5000), `topN` (max memories injected, default 5). Set via `openVikingAutoRecallLimit/Timeout/TopN` in `.pi/settings.json` or env vars. |
 | **Resource** | External knowledge (docs, code, URLs) stored under `viking://resources/` |
@@ -44,6 +46,7 @@ Pi owns session history, prompt orchestration, and tool execution. OpenViking ow
 
 ## Design Decisions
 
+- **Operations layer** (`src/operations/`): business logic written once, called by both tools and commands. Operations return raw data. Tools format as JSON for agent reasoning; commands format as human-readable text. This is the seam — adding a third surface (e.g. MCP tool) reuses the operation without duplication.
 - Auto-recall and memsearch tool format search results differently **by design**: auto-recall produces compressed XML (`<relevant-memories>`) with dedup and token budget for system prompt injection; memsearch returns full JSON for agent reasoning. No shared formatter.
 
 - Pi keeps its own session history. OV does **not** reassemble it (no `assemble()` / `compact()` pattern).

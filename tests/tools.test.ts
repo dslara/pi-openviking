@@ -303,7 +303,10 @@ describe("memcommit tool", () => {
 
   test("returns error when no session mapped", async () => {
     const client = createMockClient();
-    const sync = createMockSessionSync({ getOvSessionId: () => undefined });
+    const sync = createMockSessionSync({
+      getOvSessionId: () => undefined,
+      commit: vi.fn(async () => { throw new Error("No OpenViking session mapped"); }),
+    });
     registerMemcommitTool(pi as any, client, sync);
 
     const tool = pi.tools.find((t) => t.name === "memcommit")!;
@@ -311,14 +314,14 @@ describe("memcommit tool", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("No OpenViking session mapped");
-    expect(client.commit).not.toHaveBeenCalled();
   });
 
-  test("flushes pending messages and calls commit with ovSessionId", async () => {
-    const client = createMockClient({
+  test("flushes pending messages and calls commit via sync", async () => {
+    const client = createMockClient();
+    const sync = createMockSessionSync({
+      getOvSessionId: () => "ov-sess-123",
       commit: vi.fn(async () => ({ session_id: "sess-1", status: "committed", task_id: "task-abc", archive_uri: "viking://archived/sess-1", archived: true, trace_id: "trace-1" })),
     });
-    const sync = createMockSessionSync({ getOvSessionId: () => "ov-sess-123" });
     registerMemcommitTool(pi as any, client, sync);
 
     const tool = pi.tools.find((t) => t.name === "memcommit")!;
@@ -326,8 +329,8 @@ describe("memcommit tool", () => {
     const result = await tool.execute("tc-1", {}, undefined, onUpdate);
 
     expect(sync.flush).toHaveBeenCalledTimes(1);
+    expect(sync.commit).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledWith({ content: [{ type: "text", text: "Committing session to OpenViking..." }], details: {} });
-    expect(client.commit).toHaveBeenCalledWith("ov-sess-123", undefined);
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain("task-abc");
     expect(result.content[0].text).toContain("Archived");

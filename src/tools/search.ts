@@ -2,10 +2,9 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "../ov-client/client";
 import type { SessionSyncLike } from "../session-sync/session";
-import { logger } from "../shared/logger";
 import { defineTool } from "../shared/tool-def";
-import { resolveSearchMode } from "../shared/search-mode";
 import { notifyOnce } from "../shared/notify";
+import { searchOp } from "../operations/search";
 
 const SEARCH_PARAMS = Type.Object({
   query: Type.String({ description: "Search query to find relevant memories and resources" }),
@@ -35,9 +34,13 @@ export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient
     async execute({ params, deps, signal, ctx }) {
       try {
         const sessionId = deps.sync.getOvSessionId();
-        const resolvedMode = resolveSearchMode(params.mode ?? "auto", params.query, sessionId ?? undefined);
-
-        const results = await deps.client.search(sessionId, params.query, params.limit ?? 10, resolvedMode, params.uri, signal);
+        const results = await searchOp(deps.client, {
+          query: params.query,
+          limit: params.limit ?? 10,
+          mode: params.mode ?? "auto",
+          uri: params.uri,
+          sessionId: sessionId ?? undefined,
+        }, signal);
 
         if (results.total === 0) {
           return { text: "No results found." };
@@ -56,7 +59,6 @@ export function registerMemsearchTool(pi: ExtensionAPI, client: OpenVikingClient
         return { text: JSON.stringify(payload, null, 2) };
       } catch (err) {
         const msg = (err as Error).message;
-        logger.error("search failed:", msg);
         notifyOnce(ctx, `OpenViking error: ${msg}`, "error");
         return { text: msg, isError: true };
       }

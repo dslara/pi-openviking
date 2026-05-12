@@ -59,7 +59,10 @@ describe("Client Adapter: commit returns CommitResult", () => {
 
   it("memcommit tool details contain task_id and archived without memories_extracted", async () => {
     const { registerMemcommitTool } = await import("../src/tools/commit");
-    const mockClient = {
+    const mockClient = {} as any;
+    const sync = {
+      getOvSessionId: () => "sess-x",
+      flush: vi.fn().mockResolvedValue(undefined),
       commit: vi.fn().mockResolvedValue({
         session_id: "sess-x",
         status: "committed",
@@ -68,10 +71,6 @@ describe("Client Adapter: commit returns CommitResult", () => {
         archived: false,
         trace_id: "trace-1",
       }),
-    } as any;
-    const sync = {
-      getOvSessionId: () => "sess-x",
-      flush: vi.fn().mockResolvedValue(undefined),
     } as any;
 
     const pi = { registerTool: vi.fn() } as any;

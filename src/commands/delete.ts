@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { OpenVikingClient } from "../ov-client/client";
 import { logger } from "../shared/logger";
 import { parseArgs } from "../shared/parse-args";
+import { deleteOp } from "../operations/delete";
 
 export interface CommandDeps {
   pi: ExtensionAPI;
@@ -22,8 +23,11 @@ export function registerDeleteCommand(deps: CommandDeps): void {
           return;
         }
 
-        await client.delete(uri);
-        ctx.ui.notify(`✓ Deleted: ${uri}`, "info");
+        const result = await deleteOp(client, { uri });
+        const label = result.verified
+          ? `✓ Deleted: ${result.uri}`
+          : `✓ Deleted: ${result.uri} (warning: may still appear in search due to async index sync)`;
+        ctx.ui.notify(label, "info");
       } catch (err) {
         const msg = (err as Error).message;
         logger.error("ov-delete command failed:", msg);

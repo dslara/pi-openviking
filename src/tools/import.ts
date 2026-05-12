@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "../ov-client/client";
 import { defineTool } from "../shared/tool-def";
-import { resolveSource } from "../importer/source-resolver";
+import { importOp } from "../operations/import";
 
 const MEMIMPORT_PARAMS = Type.Object({
   source: Type.String({ description: "URL (http://, https://, git://) or local file path to import" }),
@@ -26,19 +26,12 @@ export function registerMemimportTool(pi: ExtensionAPI, client: OpenVikingClient
     parameters: MEMIMPORT_PARAMS,
 
     async execute({ params, deps, signal }) {
-      const resolved = await resolveSource(params.source, params.kind ?? "resource", params.reason, params.to);
-
-      if (resolved.type === "directory") {
-        const result = await resolved.upload(deps.client, signal);
-        return { text: `Imported: ${result.root_uri} (status: ${result.status})` };
-      }
-
-      if (resolved.type === "file") {
-        const upload = await deps.client.tempUpload(resolved.body, resolved.filename, signal);
-        resolved.params.temp_file_id = upload.temp_file_id;
-      }
-
-      const result = await deps.client.addResource(resolved.params, signal);
+      const result = await importOp(deps.client, {
+        source: params.source,
+        kind: params.kind ?? "resource",
+        reason: params.reason,
+        to: params.to,
+      }, signal);
       return { text: `Imported: ${result.root_uri} (status: ${result.status})` };
     },
   });

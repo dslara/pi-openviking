@@ -3,6 +3,7 @@ import { Type } from "typebox";
 import type { OpenVikingClient } from "../ov-client/client";
 import type { SessionSyncLike } from "../session-sync/session";
 import { defineTool } from "../shared/tool-def";
+import { commitOp } from "../operations/commit";
 
 export function registerMemcommitTool(
   pi: ExtensionAPI,
@@ -23,21 +24,22 @@ export function registerMemcommitTool(
     parameters: Type.Object({}),
 
     async execute({ deps, onUpdate, signal }) {
-      const ovSessionId = deps.sync.getOvSessionId();
-      if (!ovSessionId) {
-        return { text: "No OpenViking session mapped. Start a conversation first.", isError: true };
+      try {
+        onUpdate?.({ content: [{ type: "text", text: "Committing session to OpenViking..." }], details: {} });
+        const result = await commitOp(deps.sync);
+        return {
+          text: `Committed to OpenViking. Task: ${result.task_id}, Archived: ${result.archived}`,
+          details: {
+            task_id: result.task_id,
+            archived: result.archived,
+          },
+        };
+      } catch (err) {
+        return {
+          text: (err as Error).message,
+          isError: true,
+        };
       }
-
-      await deps.sync.flush();
-      onUpdate?.({ content: [{ type: "text", text: "Committing session to OpenViking..." }], details: {} });
-      const result = await deps.client.commit(ovSessionId, signal);
-      return {
-        text: `Committed to OpenViking. Task: ${result.task_id}, Archived: ${result.archived}`,
-        details: {
-          task_id: result.task_id,
-          archived: result.archived,
-        },
-      };
     },
   });
 }

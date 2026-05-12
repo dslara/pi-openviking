@@ -3,6 +3,7 @@ import type { OpenVikingClient } from "../ov-client/client";
 import { logger } from "../shared/logger";
 import { parseArgs } from "../shared/parse-args";
 import { formatBrowse } from "../shared/format-browse";
+import { browseOp } from "../operations/browse";
 
 export interface CommandDeps {
   pi: ExtensionAPI;
@@ -23,18 +24,7 @@ export function registerBrowseCommand(deps: CommandDeps): void {
         const recursive = parsed.flags.recursive !== undefined;
         const simple = parsed.flags.simple !== undefined;
 
-        let result;
-        switch (view) {
-          case "tree":
-            result = await client.fsTree(uri);
-            break;
-          case "stat":
-            result = await client.fsStat(uri);
-            break;
-          default:
-            result = await client.fsList(uri, undefined, recursive, simple);
-            break;
-        }
+        const result = await browseOp(client, { uri, view, recursive, simple });
 
         const text = formatBrowse(result, view);
 

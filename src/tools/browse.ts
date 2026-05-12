@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { OpenVikingClient } from "../ov-client/client";
 import { defineTool } from "../shared/tool-def";
+import { browseOp } from "../operations/browse";
 
 const MEMBROWSE_PARAMS = Type.Object({
   uri: Type.String({ description: "viking:// URI to browse" }),
@@ -26,20 +27,12 @@ export function registerMembrowseTool(pi: ExtensionAPI, client: OpenVikingClient
     validateUri: true,
 
     async execute({ params, deps, signal }) {
-      const view = params.view ?? "list";
-
-      let result;
-      switch (view) {
-        case "tree":
-          result = await deps.client.fsTree(params.uri, signal);
-          break;
-        case "stat":
-          result = await deps.client.fsStat(params.uri, signal);
-          break;
-        default:
-          result = await deps.client.fsList(params.uri, signal, params.recursive, params.simple);
-          break;
-      }
+      const result = await browseOp(deps.client, {
+        uri: params.uri,
+        view: params.view ?? "list",
+        recursive: params.recursive,
+        simple: params.simple,
+      }, signal);
 
       const parts: string[] = [];
       parts.push(`URI: ${result.uri}`);

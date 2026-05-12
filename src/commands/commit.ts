@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { SessionSyncLike } from "../session-sync/session";
 import { logger } from "../shared/logger";
+import { commitOp } from "../operations/commit";
 
 export interface CommandDeps {
   pi: ExtensionAPI;
@@ -14,8 +15,7 @@ export function registerCommitCommand(deps: CommandDeps): void {
     description: "Commit the current conversation to OpenViking",
     handler: async (_args, ctx) => {
       try {
-        await sessionSync.flush();
-        const result = await sessionSync.commit();
+        const result = await commitOp(sessionSync);
         ctx.ui.notify(`✓ Session committed. Task: ${result.task_id}`, "info");
       } catch (err) {
         const message = (err as Error).message ?? "Unknown error";

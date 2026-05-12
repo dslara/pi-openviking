@@ -4,7 +4,7 @@ import type { SessionSyncLike } from "../session-sync/session";
 import { logger } from "../shared/logger";
 import { parseArgs } from "../shared/parse-args";
 import { formatSearch } from "../shared/format-search";
-import { resolveSearchMode } from "../shared/search-mode";
+import { searchOp } from "../operations/search";
 
 export interface CommandDeps {
   pi: ExtensionAPI;
@@ -30,11 +30,16 @@ export function registerSearchCommand(deps: CommandDeps): void {
         const limit = parsed.flags.limit ? parseInt(parsed.flags.limit, 10) : 10;
         const mode = "deep" in parsed.flags ? "deep" : "fast" in parsed.flags ? "fast" : "auto";
         const uri = parsed.flags.uri;
-
         const sessionId = sessionSync.getOvSessionId();
-        const resolvedMode = resolveSearchMode(mode, query, sessionId ?? undefined);
 
-        const results = await client.search(sessionId, query, limit, resolvedMode, uri);
+        const results = await searchOp(client, {
+          query,
+          limit,
+          mode,
+          uri,
+          sessionId: sessionId ?? undefined,
+        });
+
         const text = formatSearch(results, query);
 
         pi.sendMessage(
