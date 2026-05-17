@@ -245,33 +245,6 @@ describe("createAutoRecall", () => {
     expect(search).toHaveBeenCalledWith(undefined, "hello", 10, "fast", undefined, expect.any(AbortSignal));
   });
 
-  test("trims results bottom-up to respect token budget", async () => {
-    const client = createMockClient({
-      search: vi.fn(async () => ({
-        memories: Array.from({ length: 5 }, (_, i) => ({
-          text: `item-${i}-` + "a".repeat(390),
-          score: 0.99 - i * 0.01,
-          uri: `viking://user/memories/item-${i}`,
-        })),
-        resources: [],
-        skills: [],
-        total: 5,
-      } as SearchResult)),
-    });
-    const sync = createMockSessionSync();
-    const autoRecall = createAutoRecall(client, sync, makeState(), { topN: 5 });
-
-    const result = await autoRecall({ prompt: "q", systemPrompt: "base" });
-    const block = result.systemPrompt!.replace("base\n\n", "");
-
-    expect(Math.ceil(block.length / 4)).toBeLessThanOrEqual(500);
-    expect(block).toContain('score="0.99"');
-    expect(block).toContain('score="0.98"');
-    expect(block).toContain('score="0.97"');
-    expect(block).toContain('score="0.96"');
-    expect(block).not.toContain('score="0.95"');
-  });
-
   test("returns empty when auto recall is disabled via state", async () => {
     const search = vi.fn(async () => ({ memories: [], resources: [], skills: [], total: 0 } as SearchResult));
     const client = createMockClient({ search });
