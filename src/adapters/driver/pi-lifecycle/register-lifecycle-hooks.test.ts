@@ -1086,7 +1086,6 @@ describe("handleSessionStart", () => {
     const update = vi.fn();
     const createAndSet = vi.fn().mockResolvedValue({ value: "sess-1", toString: () => "sess-1" });
     const svcs = createMockServices({
-      healthCheck: { check } as any,
       widget: { update, attach: vi.fn() } as any,
       sessionService: {
         createAndSet,

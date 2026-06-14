@@ -6,7 +6,7 @@ import { init, shutdown } from "./lifecycle";
 import { FileLogger } from "../adapters/driven/logger/file-logger";
 import { RecallCurator } from "../domain/recall/recall-curator";
 import { RecallService } from "../domain/recall/recall-service";
-import { SessionService } from "../domain/services/session-service";
+import { SessionManager } from "../domain/services/session-service";
 import { SearchService } from "../domain/services/search-service";
 import { ProfileManager } from "../domain/profile/service/ProfileManager";
 import type { OpenVikingClient } from "../domain/client/open-viking-client";
@@ -119,10 +119,10 @@ describe("init", () => {
     expect(typeof curator.curate).toBe("function");
   });
 
-  it("container resolves sessionService as SessionService instance", async () => {
+  it("container resolves sessionService as SessionManager instance", async () => {
     const { container } = await init(tmpDir);
-    const svc = container.resolve<SessionService>("sessionService");
-    expect(svc).toBeInstanceOf(SessionService);
+    const svc = container.resolve<SessionManager>("sessionService");
+    expect(svc).toBeInstanceOf(SessionManager);
     expect(typeof svc.createAndSet).toBe("function");
   });
 
@@ -158,8 +158,8 @@ describe("init", () => {
 
   it("sessionService is wired to sessionStore", async () => {
     const { container } = await init(tmpDir);
-    const svc = container.resolve<SessionService>("sessionService");
-    expect(svc).toBeInstanceOf(SessionService);
+    const svc = container.resolve<SessionManager>("sessionService");
+    expect(svc).toBeInstanceOf(SessionManager);
     expect(typeof svc.createAndSet).toBe("function");
     expect(typeof svc.commit).toBe("function");
     expect(svc.getActive()).toBeNull();
@@ -220,7 +220,7 @@ describe("init", () => {
 
   it("merged recall config reflects profile behavior override", async () => {
     const { container } = await init(tmpDir);
-    const config = container.resolve<import("./config/schema").PiOVConfig>("config");
+    const config = container.resolve<import("./config").PiOVConfig>("config");
     // Default profile sets topN=3, but RecallConfig default is topN=8
     // So merged config should have topN=3 from profile
     expect(config.recall.topN).toBe(3);

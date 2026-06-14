@@ -11,7 +11,7 @@ import type { GraphStore } from "../../../domain/ports/graph-store";
 import type { SessionStore } from "../../../domain/ports/session-store";
 import type { ResourceStore } from "../../../domain/ports/resource-store";
 import type { SkillStore } from "../../../domain/ports/skill-store";
-import type { OVAdapterConfig } from "../../infrastructure/config";
+import type { OVAdapterConfig } from "../../../infrastructure/config";
 import type { Logger } from "../../../domain/ports/logger";
 import { Transport } from "./transport";
 import { FsStoreAdapter } from "./fs-store";

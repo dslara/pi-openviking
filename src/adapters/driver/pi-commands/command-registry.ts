@@ -1,11 +1,11 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { FsClient } from "../../../domain/client/open-viking-client";
 import type { RecallService } from "../../../domain/recall/recall-service";
-import type { SessionService } from "../../../domain/services/session-service";
+import type { SessionManager } from "../../../domain/services/session-service";
 import type { SearchService } from "../../../domain/services/search-service";
 import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
 import type { ProfileManager } from "../../../domain/profile/service/ProfileManager";
-import type { OVAdapterConfig } from "../../infrastructure/config";
+import type { OVAdapterConfig } from "../../../infrastructure/config";
 import type { RecallConfig } from "../../../domain/common/recall-config";
 import type { SystemStatusClient } from "../../driven/openviking/system-status";
 import { createOvRecallCommand } from "./ov-recall-command";
@@ -20,7 +20,7 @@ import { createOvReindexCommand } from "./ov-reindex-command";
 
 export interface CommandServices {
   recallService: RecallService;
-  sessionService: SessionService;
+  sessionService: SessionManager;
   searchService: SearchService;
   fsClient: FsClient;
   knowledgeBase: KnowledgeBase;

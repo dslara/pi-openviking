@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createOVAdapter } from "./adapter";
-import type { OVAdapterConfig } from "../../infrastructure/config";
+import type { OVAdapterConfig } from "../../../infrastructure/config";
 
 const TEST_CONFIG: OVAdapterConfig = {
   endpoint: "http://127.0.0.1:1933",

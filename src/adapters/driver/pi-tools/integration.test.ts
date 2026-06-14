@@ -13,7 +13,7 @@ import { createOvWriteTool } from "./ov-write";
 import { createOvReadTool } from "./ov-read";
 import { createOvRecallTool } from "./ov-recall";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { OVAdapterConfig } from "../../infrastructure/config";
+import type { OVAdapterConfig } from "../../../infrastructure/config";
 import { OpenVikingClientAdapter } from "../../driven/openviking/client/client-adapter";
 import { FsStoreAdapter } from "../../driven/openviking/fs-store";
 import { SessionStoreAdapter } from "../../driven/openviking/session-store";

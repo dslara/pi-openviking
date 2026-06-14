@@ -3,7 +3,7 @@ import { init } from "./infrastructure/lifecycle";
 import type { OpenVikingClient } from "./domain/client/open-viking-client";
 import type { SearchService } from "./domain/services/search-service";
 import type { RecallService } from "./domain/recall/recall-service";
-import type { SessionService } from "./domain/services/session-service";
+import type { SessionManager } from "./domain/services/session-service";
 import type { OVAdapter } from "./adapters/driven/openviking/adapter";
 import type { KnowledgeBase } from "./domain/ports/knowledge-base";
 import type { SkillStore } from "./domain/ports/skill-store";
@@ -36,7 +36,7 @@ export default async function openVikingExtension(pi: ExtensionAPI): Promise<voi
       const ovClient = container.resolve<OpenVikingClient>("ovClient");
       const searchService = container.resolve<SearchService>("searchService");
       const recallService = container.resolve<RecallService>("recallService");
-      const sessionService = container.resolve<SessionService>("sessionService");
+      const sessionService = container.resolve<SessionManager>("sessionService");
       const knowledgeBase = container.resolve<KnowledgeBase>("knowledgeBase");
       const profileManager = container.resolve<ProfileManager>("profileManager");
       const adapter = container.resolve<OVAdapter>("adapter");

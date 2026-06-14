@@ -1,8 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
-import type { SessionService } from "../../../domain/services/session-service";
-import type { SessionInfo } from "../../../domain/ports/session-store";
+import type { SessionManager } from "../../../domain/services/session-service";
 import { SessionId } from "../../../domain/common/session-id";
 
 const SessionSchema = Type.Object({
@@ -10,8 +8,7 @@ const SessionSchema = Type.Object({
 });
 
 export function createOvSessionTool(
-  svc: SessionService,
-  pipeline: Pipeline<SessionInfo>,
+  svc: SessionManager,
 ): ToolDefinition<typeof SessionSchema> {
   return defineTool({
     name: "ov_session",
@@ -34,10 +31,7 @@ export function createOvSessionTool(
           };
         }
 
-        const info = await pipeline.execute(
-          () => svc.getSession(sessionId),
-          signal ?? undefined,
-        );
+        const info = await svc.getSession(sessionId);
 
         return {
           content: [{ type: "text" as const, text: JSON.stringify(info, null, 2) }],

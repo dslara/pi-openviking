@@ -1,7 +1,7 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { SessionService } from "../../../domain/services/session-service";
+import type { SessionManager } from "../../../domain/services/session-service";
 
-export function createOvCommitCommand(sessionService: SessionService, widgetUpdater?: (field: string, value: string) => void) {
+export function createOvCommitCommand(sessionService: SessionManager, widgetUpdater?: (field: string, value: string) => void) {
   return {
     description: "Commit the current OV session. Usage: /ov-commit [--wait]",
     getArgumentCompletions: (_prefix: string) => [

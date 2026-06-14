@@ -7,7 +7,7 @@ import { RecallCurator } from "../domain/recall/recall-curator";
 import { GraphExpander } from "../domain/recall/graph-expander";
 import { relevanceScorer, temporalScorer } from "../domain/recall/curate";
 import { RecallService } from "../domain/recall/recall-service";
-import { SessionService } from "../domain/services/session-service";
+import { SessionManager } from "../domain/services/session-service";
 import { SearchService } from "../domain/services/search-service";
 import { ProfileManager } from "../domain/profile/service/ProfileManager";
 import { RepoContext } from "./repo-context";
@@ -76,7 +76,7 @@ export async function init(cwd: string): Promise<{
   const recallCurator = new RecallCurator(config.recall, [relevanceScorer, temporalScorer], logger, graphExpander);
   container.register("recallCurator", () => recallCurator, true);
 
-  const sessionService = new SessionService(adapter.sessionStore, {
+  const sessionService = new SessionManager(clientAdapter, {
     commitTimeout: config.ov.commitTimeout,
   });
   container.register("sessionService", () => sessionService, true);

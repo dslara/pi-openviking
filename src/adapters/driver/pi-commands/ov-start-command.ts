@@ -1,8 +1,8 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { SessionService } from "../../../domain/services/session-service";
+import type { SessionManager } from "../../../domain/services/session-service";
 
 export function createOvStartCommand(
-  sessionService: SessionService,
+  sessionService: SessionManager,
   widgetUpdater?: (field: string, value: string) => void,
 ) {
   return {

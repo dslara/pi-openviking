@@ -20,7 +20,7 @@ import type { ResourceStore } from "../../../domain/ports/resource-store";
 import type { SkillStore } from "../../../domain/ports/skill-store";
 import type { SearchService } from "../../../domain/services/search-service";
 import type { RecallService } from "../../../domain/recall/recall-service";
-import type { SessionService } from "../../../domain/services/session-service";
+import type { SessionManager } from "../../../domain/services/session-service";
 import type { SearchResult } from "../../../domain/knowledge/model/search-result";
 import type { GlobResult, GrepResult } from "../../../domain/ports/knowledge-base";
 import type { RecallResult } from "../../../domain/recall/recall-service";
@@ -35,7 +35,7 @@ export interface ToolServices {
   recallService: RecallService;
   resourceStore: ResourceStore;
   skillStore: SkillStore;
-  sessionService: SessionService;
+  sessionService: SessionManager;
 }
 
 export function registerAllTools(pi: ExtensionAPI, svcs: ToolServices, logger: Logger): void {
@@ -64,9 +64,7 @@ export function registerAllTools(pi: ExtensionAPI, svcs: ToolServices, logger: L
   importPipeline.use(loggingMiddleware("import", logger));
   pi.registerTool(createOvImportTool(svcs.resourceStore, importPipeline));
 
-  const sessionPipeline = new Pipeline<SessionInfo>();
-  sessionPipeline.use(loggingMiddleware("session", logger));
-  pi.registerTool(createOvSessionTool(svcs.sessionService, sessionPipeline));
+  pi.registerTool(createOvSessionTool(svcs.sessionService));
 
   // FS tools: no pipeline (migrated to FsClient in slice #3)
   pi.registerTool(createOvWriteTool(svcs.fsClient));

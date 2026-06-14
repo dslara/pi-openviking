@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Logger } from "../../../domain/ports/logger";
 import type { RecallService } from "../../../domain/recall/recall-service";
-import type { SessionService } from "../../../domain/services/session-service";
+import type { SessionManager } from "../../../domain/services/session-service";
 import type { OVAdapter } from "../../driven/openviking/adapter";
 import type { ProfileManager } from "../../../domain/profile/service/ProfileManager";
 import type { Part } from "../../../domain/common/part";
@@ -18,7 +18,7 @@ export const DEFAULT_AUTO_COMMIT_INTERVAL_MS = 5 * 60 * 1000;
 
 export interface LifecycleServices {
   logger: Logger;
-  sessionService: SessionService;
+  sessionService: SessionManager;
   recallService: RecallService;
   adapter: OVAdapter;
   widget: OVWidget;
@@ -75,7 +75,7 @@ function extractLatestUserText(messages: readonly { role: string; content?: unkn
  * Extracted for testability — does NOT own timer lifecycle.
  */
 export async function pollCommit(
-  sessionService: SessionService,
+  sessionService: SessionManager,
   logger?: Logger,
 ): Promise<{ committed: boolean; error?: string }> {
   const active = sessionService.getActive();
@@ -528,7 +528,7 @@ export async function handleSessionStart(
  */
 async function rehydrateSession(
   ctx: { cwd: string; ui: any; sessionManager?: { getBranch?: () => unknown[] } },
-  sessionService: SessionService,
+  sessionService: SessionManager,
   active: SessionId,
   logger?: Logger,
 ): Promise<void> {

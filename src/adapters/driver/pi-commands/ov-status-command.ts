@@ -1,13 +1,13 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { SessionService } from "../../../domain/services/session-service";
+import type { SessionManager } from "../../../domain/services/session-service";
 import type { RecallService } from "../../../domain/recall/recall-service";
-import type { OVAdapterConfig } from "../../infrastructure/config";
+import type { OVAdapterConfig } from "../../../infrastructure/config";
 import type { RecallConfig } from "../../../domain/common/recall-config";
 import type { SystemStatusClient } from "../../driven/openviking/system-status";
 
 export function createOvStatusCommand(
   ovConfig: OVAdapterConfig,
-  sessionService: SessionService,
+  sessionService: SessionManager,
   recallService: RecallService,
   recallConfig: RecallConfig,
   systemStatus?: SystemStatusClient,
