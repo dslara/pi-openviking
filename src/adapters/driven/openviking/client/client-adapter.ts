@@ -14,6 +14,9 @@ import type {
   SkillClient,
 } from "../../../../domain/client/open-viking-client";
 import type { OVAdapter } from "../adapter";
+import type { Part } from "../../../../domain/common/part";
+import type { Uri } from "../../../../domain/common/uri";
+import type { SkillData } from "../../../../domain/ports/skill-store";
 
 export class OpenVikingClientAdapter
   implements OpenVikingClient
@@ -151,7 +154,7 @@ export class OpenVikingClientAdapter
 
   sendMessages(
     id: Parameters<SessionClient["sendMessages"]>[0],
-    msgs: { role: string; content: import("../../../../domain/common/part").Part[] }[],
+    msgs: { role: string; content: Part[] }[],
     signal?: AbortSignal,
   ) {
     return this.adapter.sessionStore.sendMessages(id, msgs, signal);
@@ -181,7 +184,7 @@ export class OpenVikingClientAdapter
 
   sessionUsed(
     id: Parameters<SessionClient["sessionUsed"]>[0],
-    contexts: import("../../../../domain/common/uri").Uri[],
+    contexts: Uri[],
     signal?: AbortSignal,
   ) {
     return this.adapter.sessionStore.sessionUsed(id, contexts, signal);
@@ -234,7 +237,7 @@ export class OpenVikingClientAdapter
   // ── SkillClient ───────────────────────────────────────────────────────
 
   addSkill(
-    data: string | import("../../../../domain/ports/skill-store").SkillData,
+    data: string | SkillData,
     options?: Parameters<SkillClient["addSkill"]>[1],
     signal?: AbortSignal,
   ) {

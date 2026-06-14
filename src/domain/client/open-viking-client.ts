@@ -25,6 +25,7 @@ import type {
   CommitResult,
   CommitOptions,
   SessionInfo,
+  TaskStatus,
 } from "../ports/session-store";
 import type { Relation } from "../knowledge/model/relation";
 import type {
@@ -125,7 +126,7 @@ export interface SessionClient {
   getTaskStatus(
     taskId: string,
     signal?: AbortSignal,
-  ): Promise<import("../ports/session-store").TaskStatus>;
+  ): Promise<TaskStatus>;
   sessionUsed(
     id: SessionId,
     contexts: Uri[],
