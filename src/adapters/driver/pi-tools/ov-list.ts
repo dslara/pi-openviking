@@ -1,18 +1,14 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
-import type { FsEntry } from "../../../domain/ports/fs-store";
+import { Uri } from "../../../domain/common/uri";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 
 const ListSchema = Type.Object({
   uri: Type.String({ description: "URI to list (viking://...)" }),
   recursive: Type.Optional(Type.Boolean({ description: "List recursively" })),
 });
 
-export function createOvListTool(
-  svc: FsStoreService,
-  pipeline: Pipeline<FsEntry[]>,
-): ToolDefinition<typeof ListSchema> {
+export function createOvListTool(client: FsClient): ToolDefinition<typeof ListSchema> {
   return defineTool({
     name: "ov_list",
     label: "List Directory",
@@ -21,8 +17,9 @@ export function createOvListTool(
     parameters: ListSchema,
     async execute(_toolCallId, params, signal) {
       try {
-        const result = await pipeline.execute(
-          () => svc.list(params.uri!, params.recursive, signal ?? undefined),
+        const result = await client.list(
+          new Uri(params.uri!),
+          params.recursive,
           signal ?? undefined,
         );
         return {

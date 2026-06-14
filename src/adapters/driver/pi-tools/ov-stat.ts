@@ -1,17 +1,13 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
-import type { FsEntry } from "../../../domain/ports/fs-store";
+import { Uri } from "../../../domain/common/uri";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 
 const StatSchema = Type.Object({
   uri: Type.String({ description: "URI to stat (viking://...)" }),
 });
 
-export function createOvStatTool(
-  svc: FsStoreService,
-  pipeline: Pipeline<FsEntry>,
-): ToolDefinition<typeof StatSchema> {
+export function createOvStatTool(client: FsClient): ToolDefinition<typeof StatSchema> {
   return defineTool({
     name: "ov_stat",
     label: "Stat URI",
@@ -20,8 +16,8 @@ export function createOvStatTool(
     parameters: StatSchema,
     async execute(_toolCallId, params, signal) {
       try {
-        const result = await pipeline.execute(
-          () => svc.stat(params.uri!, signal ?? undefined),
+        const result = await client.stat(
+          new Uri(params.uri!),
           signal ?? undefined,
         );
         return {

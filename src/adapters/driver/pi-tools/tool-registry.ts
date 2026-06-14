@@ -15,23 +15,23 @@ import { createOvResourceTool } from "./ov-resource";
 import { createOvSkillTool } from "./ov-skill";
 import { createOvImportTool } from "./ov-import";
 import { createOvSessionTool } from "./ov-session";
-import type { SearchResult } from "../../../domain/knowledge/model/search-result";
-import type { GlobResult, GrepResult } from "../../../domain/ports/knowledge-base";
-import type { Content, FsEntry } from "../../../domain/ports/fs-store";
-import type { RecallResult } from "../../../domain/recall/recall-service";
-import type { AddSkillResult } from "../../../domain/ports/skill-store";
-import type { ResourceStore, ResourceImportResult } from "../../../domain/ports/resource-store";
+import type { SearchClient, FsClient, SessionClient } from "../../../domain/client/open-viking-client";
+import type { ResourceStore } from "../../../domain/ports/resource-store";
 import type { SkillStore } from "../../../domain/ports/skill-store";
 import type { SearchService } from "../../../domain/services/search-service";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
 import type { RecallService } from "../../../domain/recall/recall-service";
 import type { SessionService } from "../../../domain/services/session-service";
+import type { SearchResult } from "../../../domain/knowledge/model/search-result";
+import type { GlobResult, GrepResult } from "../../../domain/ports/knowledge-base";
+import type { RecallResult } from "../../../domain/recall/recall-service";
+import type { AddSkillResult } from "../../../domain/ports/skill-store";
+import type { ResourceImportResult } from "../../../domain/ports/resource-store";
 import type { SessionInfo } from "../../../domain/ports/session-store";
 import type { Logger } from "../../../domain/ports/logger";
 
 export interface ToolServices {
   searchService: SearchService;
-  fsStoreService: FsStoreService;
+  fsClient: FsClient;
   recallService: RecallService;
   resourceStore: ResourceStore;
   skillStore: SkillStore;
@@ -39,6 +39,7 @@ export interface ToolServices {
 }
 
 export function registerAllTools(pi: ExtensionAPI, svcs: ToolServices, logger: Logger): void {
+  // Non-FS tools still use Pipeline until slice #5
   const searchPipeline = new Pipeline<SearchResult>();
   searchPipeline.use(loggingMiddleware("search", logger));
   pi.registerTool(createOvSearchTool(svcs.searchService, searchPipeline));
@@ -51,37 +52,9 @@ export function registerAllTools(pi: ExtensionAPI, svcs: ToolServices, logger: L
   grepPipeline.use(loggingMiddleware("grep", logger));
   pi.registerTool(createOvGrepTool(svcs.searchService, grepPipeline));
 
-  const writePipeline = new Pipeline<unknown>();
-  writePipeline.use(loggingMiddleware("write", logger));
-  pi.registerTool(createOvWriteTool(svcs.fsStoreService, writePipeline));
-
-  const readPipeline = new Pipeline<Content>();
-  readPipeline.use(loggingMiddleware("read", logger));
-  pi.registerTool(createOvReadTool(svcs.fsStoreService, readPipeline));
-
   const recallPipeline = new Pipeline<RecallResult>();
   recallPipeline.use(loggingMiddleware("recall", logger));
   pi.registerTool(createOvRecallTool(svcs.recallService, recallPipeline));
-
-  const listPipeline = new Pipeline<FsEntry[]>();
-  listPipeline.use(loggingMiddleware("list", logger));
-  pi.registerTool(createOvListTool(svcs.fsStoreService, listPipeline));
-
-  const treePipeline = new Pipeline<FsEntry[]>();
-  treePipeline.use(loggingMiddleware("tree", logger));
-  pi.registerTool(createOvTreeTool(svcs.fsStoreService, treePipeline));
-
-  const statPipeline = new Pipeline<FsEntry>();
-  statPipeline.use(loggingMiddleware("stat", logger));
-  pi.registerTool(createOvStatTool(svcs.fsStoreService, statPipeline));
-
-  const deletePipeline = new Pipeline<void>();
-  deletePipeline.use(loggingMiddleware("delete", logger));
-  pi.registerTool(createOvDeleteTool(svcs.fsStoreService, deletePipeline));
-
-  const resourcePipeline = new Pipeline<unknown>();
-  resourcePipeline.use(loggingMiddleware("resource", logger));
-  pi.registerTool(createOvResourceTool(svcs.fsStoreService, resourcePipeline));
 
   const skillPipeline = new Pipeline<AddSkillResult>();
   skillPipeline.use(loggingMiddleware("skill", logger));
@@ -94,4 +67,13 @@ export function registerAllTools(pi: ExtensionAPI, svcs: ToolServices, logger: L
   const sessionPipeline = new Pipeline<SessionInfo>();
   sessionPipeline.use(loggingMiddleware("session", logger));
   pi.registerTool(createOvSessionTool(svcs.sessionService, sessionPipeline));
+
+  // FS tools: no pipeline (migrated to FsClient in slice #3)
+  pi.registerTool(createOvWriteTool(svcs.fsClient));
+  pi.registerTool(createOvReadTool(svcs.fsClient));
+  pi.registerTool(createOvListTool(svcs.fsClient));
+  pi.registerTool(createOvTreeTool(svcs.fsClient));
+  pi.registerTool(createOvStatTool(svcs.fsClient));
+  pi.registerTool(createOvDeleteTool(svcs.fsClient));
+  pi.registerTool(createOvResourceTool(svcs.fsClient));
 }

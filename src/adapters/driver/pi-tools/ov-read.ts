@@ -1,8 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
-import type { Content } from "../../../domain/ports/fs-store";
+import { Uri } from "../../../domain/common/uri";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 
 const ReadSchema = Type.Object({
   uri: Type.String({ description: "URI to read (viking://...)" }),
@@ -16,10 +15,7 @@ const ReadSchema = Type.Object({
   limit: Type.Optional(Type.Number({ description: "Max lines for L2 pagination" })),
 });
 
-export function createOvReadTool(
-  svc: FsStoreService,
-  pipeline: Pipeline<Content>,
-): ToolDefinition<typeof ReadSchema> {
+export function createOvReadTool(client: FsClient): ToolDefinition<typeof ReadSchema> {
   return defineTool({
     name: "ov_read",
     label: "Read Content",
@@ -28,8 +24,11 @@ export function createOvReadTool(
     parameters: ReadSchema,
     async execute(_toolCallId, params, signal) {
       try {
-        const result = await pipeline.execute(
-          () => svc.read(params.uri!, params.level, params.offset, params.limit, signal ?? undefined),
+        const result = await client.read(
+          new Uri(params.uri!),
+          params.level,
+          params.offset,
+          params.limit,
           signal ?? undefined,
         );
         return {

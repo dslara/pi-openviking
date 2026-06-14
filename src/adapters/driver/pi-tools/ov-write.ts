@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
+import { Uri } from "../../../domain/common/uri";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 
 const WriteSchema = Type.Object({
   action: Type.Union(
@@ -19,10 +19,7 @@ const WriteSchema = Type.Object({
   ),
 });
 
-export function createOvWriteTool(
-  svc: FsStoreService,
-  pipeline: Pipeline<unknown>,
-): ToolDefinition<typeof WriteSchema> {
+export function createOvWriteTool(client: FsClient): ToolDefinition<typeof WriteSchema> {
   return defineTool({
     name: "ov_write",
     label: "Write / Modify Content",
@@ -31,20 +28,33 @@ export function createOvWriteTool(
     parameters: WriteSchema,
     async execute(_toolCallId, params, signal) {
       try {
-        const result = await pipeline.execute(async () => {
-          switch (params.action) {
-            case "save":
-              return svc.save(params.uri!, params.content ?? "", params.mode, signal ?? undefined);
-            case "mkdir":
-              return svc.mkdir(params.uri!, signal ?? undefined);
-            case "mv": {
-              if (!params.targetUri) throw new Error("targetUri required for mv action");
-              return svc.mv(params.uri!, params.targetUri, signal ?? undefined);
-            }
-            default:
-              throw new Error(`Unknown action: ${params.action}`);
+        let result: unknown;
+        switch (params.action) {
+          case "save":
+            result = await client.save(
+              new Uri(params.uri!),
+              params.content ?? "",
+              params.mode,
+              signal ?? undefined,
+            );
+            break;
+          case "mkdir":
+            await client.mkdir(new Uri(params.uri!), signal ?? undefined);
+            result = "ok";
+            break;
+          case "mv": {
+            if (!params.targetUri) throw new Error("targetUri required for mv action");
+            await client.mv(
+              new Uri(params.uri!),
+              new Uri(params.targetUri),
+              signal ?? undefined,
+            );
+            result = "ok";
+            break;
           }
-        }, signal ?? undefined);
+          default:
+            throw new Error(`Unknown action: ${params.action}`);
+        }
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) ?? "ok" }],
           details: undefined,

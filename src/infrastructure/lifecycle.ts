@@ -9,7 +9,6 @@ import { relevanceScorer, temporalScorer } from "../domain/recall/curate";
 import { RecallService } from "../domain/recall/recall-service";
 import { SessionService } from "../domain/services/session-service";
 import { SearchService } from "../domain/services/search-service";
-import { FsStoreService } from "../domain/services/fs-store-service";
 import { ProfileManager } from "../domain/profile/service/ProfileManager";
 import { RepoContext } from "./repo-context";
 import type { Logger } from "../domain/ports/logger";
@@ -94,9 +93,6 @@ export async function init(cwd: string): Promise<{
   // F5 — application services
   const searchService = new SearchService(adapter.knowledgeBase, config.recall, logger);
   container.register("searchService", () => searchService, true);
-
-  const fsStoreService = new FsStoreService(adapter.fsStore);
-  container.register("fsStoreService", () => fsStoreService, true);
 
   // SkillStore and ResourceStore are registered via adapter above — no pass-through service needed
 

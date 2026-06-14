@@ -1,13 +1,13 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
-import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
 import { Uri } from "../../../domain/common/uri";
+import type { FsClient } from "../../../domain/client/open-viking-client";
+import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
 
 function isGlobPattern(s: string): boolean {
   return /[*?[]/.test(s);
 }
 
-export function createOvDeleteCommand(fsStoreService: FsStoreService, kb: KnowledgeBase) {
+export function createOvDeleteCommand(client: FsClient, kb: KnowledgeBase) {
   return {
     description:
       "Delete a resource from OV. Usage: /ov-delete <uri>. Supports glob patterns: /ov-delete viking://path/*",
@@ -38,7 +38,7 @@ export function createOvDeleteCommand(fsStoreService: FsStoreService, kb: Knowle
         let failures = 0;
         for (const entry of globResult.entries) {
           try {
-            await fsStoreService.delete(entry);
+            await client.delete(new Uri(entry));
           } catch {
             failures++;
           }
@@ -71,7 +71,7 @@ export function createOvDeleteCommand(fsStoreService: FsStoreService, kb: Knowle
       }
 
       try {
-        await fsStoreService.delete(input);
+        await client.delete(uri, undefined, ctx.signal ?? undefined);
         ctx.ui.notify(`Deleted: ${input}`, "info");
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

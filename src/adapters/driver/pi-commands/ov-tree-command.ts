@@ -1,8 +1,8 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
 import { Uri } from "../../../domain/common/uri";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 
-export function createOvTreeCommand(fsStoreService: FsStoreService) {
+export function createOvTreeCommand(client: FsClient) {
   return {
     description: "Show the OV filesystem tree. Usage: /ov-tree [uri]",
     getArgumentCompletions: (_prefix: string) => null,
@@ -17,7 +17,7 @@ export function createOvTreeCommand(fsStoreService: FsStoreService) {
       }
 
       try {
-        const entries = await fsStoreService.tree(uriStr);
+        const entries = await client.tree(uri, ctx.signal ?? undefined);
         if (entries.length === 0) {
           ctx.ui.notify("(empty)", "info");
           return;

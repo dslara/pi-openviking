@@ -1,22 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
+import { Uri } from "../../../domain/common/uri";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvResourceTool } from "./ov-resource";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
-import type { WriteResult } from "../../../domain/ports/fs-store";
-import type { Uri } from "../../../domain/common/uri";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 
-function makeFsStoreService(overrides?: Partial<FsStoreService>): FsStoreService {
+function makeFsClient(overrides?: Partial<FsClient>): FsClient {
   return {
-    save: vi.fn().mockResolvedValue({ uri: { value: "viking://resources/test" } as Uri, success: true } as WriteResult),
-    mkdir: vi.fn().mockResolvedValue(undefined),
-    mv: vi.fn().mockResolvedValue(undefined),
+    save: vi.fn().mockResolvedValue({ uri: new Uri("viking://resources/test"), success: true }),
     ...overrides,
-  } as unknown as FsStoreService;
-}
-
-function makePipeline() {
-  return new Pipeline<unknown>();
+  } as unknown as FsClient;
 }
 
 function executeTool(tool: ToolDefinition, params: Record<string, unknown>) {
@@ -44,13 +36,13 @@ function getText(result: any): string {
 
 describe("ov_resource tool", () => {
   it("has correct name and schema", () => {
-    const tool = createOvResourceTool(makeFsStoreService(), makePipeline());
+    const tool = createOvResourceTool(makeFsClient());
     expect(tool.name).toBe("ov_resource");
     expect(tool.parameters).toBeDefined();
   });
 
   it("rejects URI not under viking://resources/", async () => {
-    const tool = createOvResourceTool(makeFsStoreService(), makePipeline());
+    const tool = createOvResourceTool(makeFsClient());
     const result = await executeTool(tool, {
       uri: "viking://skills/test",
       content: "some content",
@@ -59,7 +51,7 @@ describe("ov_resource tool", () => {
   });
 
   it("rejects non-viking URI", async () => {
-    const tool = createOvResourceTool(makeFsStoreService(), makePipeline());
+    const tool = createOvResourceTool(makeFsClient());
     const result = await executeTool(tool, {
       uri: "/tmp/foo",
       content: "content",
@@ -67,15 +59,15 @@ describe("ov_resource tool", () => {
     expect(getText(result)).toContain("must start with viking://resources/");
   });
 
-  it("delegates to FsStoreService.save for valid resource URI", async () => {
-    const calls: unknown[] = [];
-    const svc = makeFsStoreService({
+  it("delegates to client.save for valid resource URI", async () => {
+    const calls: unknown[][] = [];
+    const client = makeFsClient({
       save: vi.fn().mockImplementation(async (...args: unknown[]) => {
         calls.push(args);
-        return { uri: { value: "viking://resources/test.md" } as Uri, success: true };
+        return { uri: new Uri("viking://resources/test.md"), success: true };
       }),
     });
-    const tool = createOvResourceTool(svc, makePipeline());
+    const tool = createOvResourceTool(client);
 
     const result = await executeTool(tool, {
       uri: "viking://resources/test.md",
@@ -84,36 +76,36 @@ describe("ov_resource tool", () => {
     });
 
     expect(calls).toHaveLength(1);
-    const args = calls[0] as [string, string, string | undefined];
-    expect(args[0]).toBe("viking://resources/test.md");
-    expect(args[1]).toBe("resource content");
-    expect(args[2]).toBe("replace");
+    expect(calls[0][0]).toEqual(new Uri("viking://resources/test.md"));
+    expect(calls[0][1]).toBe("resource content");
+    expect(calls[0][2]).toBe("replace");
+    expect(calls[0][3]).toBeUndefined();
     expect(getText(result)).toContain("success");
   });
 
-  it("defaults mode to replace", async () => {
-    const calls: unknown[] = [];
-    const svc = makeFsStoreService({
+  it("defaults mode to undefined", async () => {
+    const calls: unknown[][] = [];
+    const client = makeFsClient({
       save: vi.fn().mockImplementation(async (...args: unknown[]) => {
         calls.push(args);
-        return { uri: { value: "viking://resources/test.md" } as Uri, success: true };
+        return { uri: new Uri("viking://resources/test.md"), success: true };
       }),
     });
-    const tool = createOvResourceTool(svc, makePipeline());
+    const tool = createOvResourceTool(client);
 
     await executeTool(tool, {
       uri: "viking://resources/test.md",
       content: "hello",
     });
 
-    expect((calls[0] as [string, string, string | undefined])[2]).toBeUndefined();
+    expect((calls[0] as [Uri, string, string | undefined])[2]).toBeUndefined();
   });
 
   it("returns error message on failure", async () => {
-    const svc = makeFsStoreService({
+    const client = makeFsClient({
       save: vi.fn().mockRejectedValue(new Error("OV unavailable")),
     });
-    const tool = createOvResourceTool(svc, makePipeline());
+    const tool = createOvResourceTool(client);
 
     const result = await executeTool(tool, {
       uri: "viking://resources/test.md",

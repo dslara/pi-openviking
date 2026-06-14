@@ -1,23 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
+import { Uri } from "../../../domain/common/uri";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvTreeTool } from "./ov-tree";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 import type { FsEntry } from "../../../domain/ports/fs-store";
-import type { Uri } from "../../../domain/common/uri";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
 
-function makeFsStoreService(overrides?: Partial<FsStoreService>): FsStoreService {
+function makeFsClient(overrides?: Partial<FsClient>): FsClient {
   return {
-    list: vi.fn().mockResolvedValue([]),
     tree: vi.fn().mockResolvedValue([]),
-    stat: vi.fn().mockResolvedValue({ uri: { value: "viking://a" } as Uri, type: "file" }),
-    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  } as unknown as FsStoreService;
-}
-
-function makePipeline() {
-  return new Pipeline<FsEntry[]>();
+  } as unknown as FsClient;
 }
 
 function executeTool(tool: ToolDefinition, params: Record<string, unknown>) {
@@ -45,34 +37,35 @@ function getText(result: any): string {
 
 describe("ov_tree tool", () => {
   it("has correct name and schema", () => {
-    const tool = createOvTreeTool(makeFsStoreService(), makePipeline());
+    const tool = createOvTreeTool(makeFsClient());
     expect(tool.name).toBe("ov_tree");
     expect(tool.parameters).toBeDefined();
   });
 
-  it("delegates to service.tree with uri", async () => {
-    const calls: unknown[] = [];
-    const svc = makeFsStoreService({
+  it("delegates to client.tree with uri", async () => {
+    const calls: unknown[][] = [];
+    const client = makeFsClient({
       tree: vi.fn().mockImplementation(async (...args: unknown[]) => {
         calls.push(args);
         return [];
       }),
     });
-    const tool = createOvTreeTool(svc, makePipeline());
+    const tool = createOvTreeTool(client);
 
     await executeTool(tool, { uri: "viking://" });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toEqual(["viking://", undefined]);
+    expect(calls[0][0]).toEqual(new Uri("viking://"));
+    expect(calls[0][1]).toBeUndefined();
   });
 
   it("returns entries as JSON", async () => {
     const entries: FsEntry[] = [
-      { uri: { value: "viking://docs" } as Uri, type: "directory" },
-      { uri: { value: "viking://docs/a.md" } as Uri, type: "file" },
+      { uri: new Uri("viking://docs"), type: "directory" },
+      { uri: new Uri("viking://docs/a.md"), type: "file" },
     ];
-    const svc = makeFsStoreService({ tree: vi.fn().mockResolvedValue(entries) });
-    const tool = createOvTreeTool(svc, makePipeline());
+    const client = makeFsClient({ tree: vi.fn().mockResolvedValue(entries) });
+    const tool = createOvTreeTool(client);
 
     const result = await executeTool(tool, { uri: "viking://" });
 
@@ -81,10 +74,10 @@ describe("ov_tree tool", () => {
   });
 
   it("returns error on failure", async () => {
-    const svc = makeFsStoreService({
+    const client = makeFsClient({
       tree: vi.fn().mockRejectedValue(new Error("timeout")),
     });
-    const tool = createOvTreeTool(svc, makePipeline());
+    const tool = createOvTreeTool(client);
 
     const result = await executeTool(tool, { uri: "viking://" });
     expect(getText(result)).toContain("Tree failed");

@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
+import { Uri } from "../../../domain/common/uri";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 
 const RESOURCE_PREFIX = "viking://resources/";
 
@@ -16,10 +16,7 @@ const ResourceSchema = Type.Object({
   ),
 });
 
-export function createOvResourceTool(
-  svc: FsStoreService,
-  pipeline: Pipeline<unknown>,
-): ToolDefinition<typeof ResourceSchema> {
+export function createOvResourceTool(client: FsClient): ToolDefinition<typeof ResourceSchema> {
   return defineTool({
     name: "ov_resource",
     label: "Save Resource",
@@ -34,8 +31,10 @@ export function createOvResourceTool(
         };
       }
       try {
-        const result = await pipeline.execute(
-          () => svc.save(params.uri!, params.content!, params.mode, signal ?? undefined),
+        const result = await client.save(
+          new Uri(params.uri!),
+          params.content!,
+          params.mode,
           signal ?? undefined,
         );
         return {

@@ -1,22 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
+import { Uri } from "../../../domain/common/uri";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvDeleteTool } from "./ov-delete";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
-import type { Uri } from "../../../domain/common/uri";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 
-function makeFsStoreService(overrides?: Partial<FsStoreService>): FsStoreService {
+function makeFsClient(overrides?: Partial<FsClient>): FsClient {
   return {
-    list: vi.fn().mockResolvedValue([]),
-    tree: vi.fn().mockResolvedValue([]),
-    stat: vi.fn().mockResolvedValue({ uri: { value: "viking://a" } as Uri, type: "file" }),
     delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  } as unknown as FsStoreService;
-}
-
-function makePipeline() {
-  return new Pipeline<void>();
+  } as unknown as FsClient;
 }
 
 function executeTool(tool: ToolDefinition, params: Record<string, unknown>) {
@@ -44,45 +36,49 @@ function getText(result: any): string {
 
 describe("ov_delete tool", () => {
   it("has correct name and schema", () => {
-    const tool = createOvDeleteTool(makeFsStoreService(), makePipeline());
+    const tool = createOvDeleteTool(makeFsClient());
     expect(tool.name).toBe("ov_delete");
     expect(tool.parameters).toBeDefined();
   });
 
-  it("delegates to service.delete with uri", async () => {
-    const calls: unknown[] = [];
-    const svc = makeFsStoreService({
+  it("delegates to client.delete with uri", async () => {
+    const calls: unknown[][] = [];
+    const client = makeFsClient({
       delete: vi.fn().mockImplementation(async (...args: unknown[]) => {
         calls.push(args);
       }),
     });
-    const tool = createOvDeleteTool(svc, makePipeline());
+    const tool = createOvDeleteTool(client);
 
     const result = await executeTool(tool, { uri: "viking://docs/a.md" });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toEqual(["viking://docs/a.md", undefined, undefined]);
+    expect(calls[0][0]).toEqual(new Uri("viking://docs/a.md"));
+    expect(calls[0][1]).toBeUndefined();
+    expect(calls[0][2]).toBeUndefined();
     expect(getText(result)).toContain("Deleted");
   });
 
   it("passes recursive flag", async () => {
-    const calls: unknown[] = [];
-    const svc = makeFsStoreService({
+    const calls: unknown[][] = [];
+    const client = makeFsClient({
       delete: vi.fn().mockImplementation(async (...args: unknown[]) => {
         calls.push(args);
       }),
     });
-    const tool = createOvDeleteTool(svc, makePipeline());
+    const tool = createOvDeleteTool(client);
 
     await executeTool(tool, { uri: "viking://docs", recursive: true });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toEqual(["viking://docs", true, undefined]);
+    expect(calls[0][0]).toEqual(new Uri("viking://docs"));
+    expect(calls[0][1]).toBe(true);
+    expect(calls[0][2]).toBeUndefined();
   });
 
   it("returns success message on delete", async () => {
-    const svc = makeFsStoreService();
-    const tool = createOvDeleteTool(svc, makePipeline());
+    const client = makeFsClient();
+    const tool = createOvDeleteTool(client);
 
     const result = await executeTool(tool, { uri: "viking://docs/a.md" });
 
@@ -92,10 +88,10 @@ describe("ov_delete tool", () => {
   });
 
   it("returns error on failure", async () => {
-    const svc = makeFsStoreService({
+    const client = makeFsClient({
       delete: vi.fn().mockRejectedValue(new Error("permission denied")),
     });
-    const tool = createOvDeleteTool(svc, makePipeline());
+    const tool = createOvDeleteTool(client);
 
     const result = await executeTool(tool, { uri: "viking://docs/a.md" });
     expect(getText(result)).toContain("Delete failed");

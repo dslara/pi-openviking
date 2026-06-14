@@ -8,8 +8,8 @@ import { RecallCurator } from "../domain/recall/recall-curator";
 import { RecallService } from "../domain/recall/recall-service";
 import { SessionService } from "../domain/services/session-service";
 import { SearchService } from "../domain/services/search-service";
-import { FsStoreService } from "../domain/services/fs-store-service";
 import { ProfileManager } from "../domain/profile/service/ProfileManager";
+import type { OpenVikingClient } from "../domain/client/open-viking-client";
 import type { Logger } from "../domain/ports/logger";
 import type { KnowledgeBase } from "../domain/ports/knowledge-base";
 import type { FsStore } from "../domain/ports/fs-store";
@@ -229,22 +229,24 @@ describe("init", () => {
     expect(config.recall.autoRecall).toBe(true);
   });
 
-  it("container resolves fsStoreService as FsStoreService instance", async () => {
+  it("container resolves ovClient with FsClient methods", async () => {
     const { container } = await init(tmpDir);
-    const svc = container.resolve<FsStoreService>("fsStoreService");
-    expect(svc).toBeInstanceOf(FsStoreService);
-    expect(typeof svc.save).toBe("function");
-    expect(typeof svc.mkdir).toBe("function");
-    expect(typeof svc.mv).toBe("function");
-    expect(typeof svc.read).toBe("function");
-    expect(typeof svc.list).toBe("function");
-    expect(typeof svc.delete).toBe("function");
+    const client = container.resolve<OpenVikingClient>("ovClient");
+    expect(typeof client.read).toBe("function");
+    expect(typeof client.save).toBe("function");
+    expect(typeof client.mkdir).toBe("function");
+    expect(typeof client.mv).toBe("function");
+    expect(typeof client.list).toBe("function");
+    expect(typeof client.tree).toBe("function");
+    expect(typeof client.stat).toBe("function");
+    expect(typeof client.delete).toBe("function");
+    expect(typeof client.reindex).toBe("function");
   });
 
-  it("fsStoreService is singleton", async () => {
+  it("ovClient is singleton", async () => {
     const { container } = await init(tmpDir);
-    const s1 = container.resolve("fsStoreService");
-    const s2 = container.resolve("fsStoreService");
+    const s1 = container.resolve("ovClient");
+    const s2 = container.resolve("ovClient");
     expect(s1).toBe(s2);
   });
 

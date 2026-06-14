@@ -14,8 +14,12 @@ import { createOvReadTool } from "./ov-read";
 import { createOvRecallTool } from "./ov-recall";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { OVAdapterConfig } from "../../infrastructure/config";
-import { FsStoreService } from "../../../domain/services/fs-store-service";
+import { OpenVikingClientAdapter } from "../../driven/openviking/client/client-adapter";
 import { FsStoreAdapter } from "../../driven/openviking/fs-store";
+import { SessionStoreAdapter } from "../../driven/openviking/session-store";
+import { GraphStoreAdapter } from "../../driven/openviking/graph-store";
+import { ResourceStoreAdapter } from "../../driven/openviking/resource-store";
+import { SkillStoreAdapter } from "../../driven/openviking/skill-store";
 import type { SearchResult } from "../../../domain/knowledge/model/search-result";
 import type { GlobResult, GrepResult } from "../../../domain/ports/knowledge-base";
 import type { Content } from "../../../domain/ports/fs-store";
@@ -165,12 +169,22 @@ function wireStack() {
   grepPipeline.use(loggingMiddleware("grep", logger as any));
 
   const fsStore = new FsStoreAdapter(transport);
-  const fsStoreService = new FsStoreService(fsStore);
+  const sessionStore = new SessionStoreAdapter(transport, ovConfig.commitTimeout);
+  const graphStore = new GraphStoreAdapter(transport);
+  const resourceStore = new ResourceStoreAdapter(transport);
+  const skillStore = new SkillStoreAdapter(transport);
 
-  const writePipeline = new Pipeline<unknown>();
-  writePipeline.use(loggingMiddleware("write", logger as any));
-  const readPipeline = new Pipeline<Content>();
-  readPipeline.use(loggingMiddleware("read", logger as any));
+  const adapter: any = {
+    knowledgeBase: kb,
+    fsStore,
+    graphStore,
+    sessionStore,
+    resourceStore,
+    skillStore,
+    get circuitBreakerOpen() { return false; },
+    transport,
+  };
+  const client = new OpenVikingClientAdapter(adapter);
 
   // Recall
   const recallConfig = { topN: 5, scoreThreshold: 0.5, maxTokens: 4000, expandGraph: false, expandGraphDepth: 1 as const, expandGraphMaxRatio: 0.2, expandGraphMinSeedScore: 0.4, searchMode: "find" as const, recallSearchTimeout: 5000, autoRecall: true as const };
@@ -183,8 +197,8 @@ function wireStack() {
     searchTool: createOvSearchTool(svc, searchPipeline),
     globTool: createOvGlobTool(svc, globPipeline),
     grepTool: createOvGrepTool(svc, grepPipeline),
-    writeTool: createOvWriteTool(fsStoreService, writePipeline),
-    readTool: createOvReadTool(fsStoreService, readPipeline),
+    writeTool: createOvWriteTool(client),
+    readTool: createOvReadTool(client),
     recallTool: createOvRecallTool(recallService, recallPipeline),
   };
 }

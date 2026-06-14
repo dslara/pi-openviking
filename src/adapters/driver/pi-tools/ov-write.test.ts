@@ -1,22 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
+import { Uri } from "../../../domain/common/uri";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvWriteTool } from "./ov-write";
-import type { FsStoreService } from "../../../domain/services/fs-store-service";
-import type { WriteResult } from "../../../domain/ports/fs-store";
-import type { Uri } from "../../../domain/common/uri";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
+import type { FsClient } from "../../../domain/client/open-viking-client";
 
-function makeFsStoreService(overrides?: Partial<FsStoreService>): FsStoreService {
+function makeFsClient(overrides?: Partial<FsClient>): FsClient {
   return {
-    save: vi.fn().mockResolvedValue({ uri: { value: "viking://a" } as Uri, success: true } as WriteResult),
+    save: vi.fn().mockResolvedValue({ uri: new Uri("viking://a"), success: true }),
     mkdir: vi.fn().mockResolvedValue(undefined),
     mv: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  } as unknown as FsStoreService;
-}
-
-function makePipeline() {
-  return new Pipeline<unknown>();
+  } as unknown as FsClient;
 }
 
 function executeTool(tool: ToolDefinition, params: Record<string, unknown>) {
@@ -44,20 +38,20 @@ function getText(result: any): string {
 
 describe("ov_write tool", () => {
   it("has correct name and schema", () => {
-    const tool = createOvWriteTool(makeFsStoreService(), makePipeline());
+    const tool = createOvWriteTool(makeFsClient());
     expect(tool.name).toBe("ov_write");
     expect(tool.parameters).toBeDefined();
   });
 
-  it("action=save delegates to service.save", async () => {
-    const calls: unknown[] = [];
-    const svc = makeFsStoreService({
+  it("action=save delegates to client.save", async () => {
+    const calls: unknown[][] = [];
+    const client = makeFsClient({
       save: vi.fn().mockImplementation(async (...args: unknown[]) => {
         calls.push(args);
-        return { uri: { value: "viking://docs/a.md" } as Uri, success: true };
+        return { uri: new Uri("viking://docs/a.md"), success: true };
       }),
     });
-    const tool = createOvWriteTool(svc, makePipeline());
+    const tool = createOvWriteTool(client);
 
     const result = await executeTool(tool, {
       action: "save",
@@ -67,18 +61,21 @@ describe("ov_write tool", () => {
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toEqual(["viking://docs/a.md", "hello", "replace", undefined]);
+    expect(calls[0][0]).toEqual(new Uri("viking://docs/a.md"));
+    expect(calls[0][1]).toBe("hello");
+    expect(calls[0][2]).toBe("replace");
+    expect(calls[0][3]).toBeUndefined();
     expect(getText(result)).not.toContain("failed");
   });
 
-  it("action=mkdir delegates to service.mkdir", async () => {
-    const calls: unknown[] = [];
-    const svc = makeFsStoreService({
+  it("action=mkdir delegates to client.mkdir", async () => {
+    const calls: unknown[][] = [];
+    const client = makeFsClient({
       mkdir: vi.fn().mockImplementation(async (...args: unknown[]) => {
         calls.push(args);
       }),
     });
-    const tool = createOvWriteTool(svc, makePipeline());
+    const tool = createOvWriteTool(client);
 
     const result = await executeTool(tool, {
       action: "mkdir",
@@ -86,18 +83,19 @@ describe("ov_write tool", () => {
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toEqual(["viking://docs/new-dir", undefined]);
+    expect(calls[0][0]).toEqual(new Uri("viking://docs/new-dir"));
+    expect(calls[0][1]).toBeUndefined();
     expect(getText(result)).toContain("ok");
   });
 
-  it("action=mv delegates to service.mv", async () => {
-    const calls: unknown[] = [];
-    const svc = makeFsStoreService({
+  it("action=mv delegates to client.mv", async () => {
+    const calls: unknown[][] = [];
+    const client = makeFsClient({
       mv: vi.fn().mockImplementation(async (...args: unknown[]) => {
         calls.push(args);
       }),
     });
-    const tool = createOvWriteTool(svc, makePipeline());
+    const tool = createOvWriteTool(client);
 
     const result = await executeTool(tool, {
       action: "mv",
@@ -106,18 +104,20 @@ describe("ov_write tool", () => {
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toEqual(["viking://docs/a.md", "viking://docs/b.md", undefined]);
+    expect(calls[0][0]).toEqual(new Uri("viking://docs/a.md"));
+    expect(calls[0][1]).toEqual(new Uri("viking://docs/b.md"));
+    expect(calls[0][2]).toBeUndefined();
     expect(getText(result)).toContain("ok");
   });
 
   it("returns error on unknown action", async () => {
-    const tool = createOvWriteTool(makeFsStoreService(), makePipeline());
+    const tool = createOvWriteTool(makeFsClient());
     const result = await executeTool(tool, { action: "bogus", uri: "viking://x" });
     expect(getText(result)).toContain("failed");
   });
 
   it("returns error when mv called without targetUri", async () => {
-    const tool = createOvWriteTool(makeFsStoreService(), makePipeline());
+    const tool = createOvWriteTool(makeFsClient());
     const result = await executeTool(tool, { action: "mv", uri: "viking://x" });
     expect(getText(result)).toContain("failed");
   });
