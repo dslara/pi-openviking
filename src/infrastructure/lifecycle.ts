@@ -2,6 +2,7 @@ import { DIContainer } from "../infrastructure/di/container";
 import { loadConfig, mergeBehaviorIntoRecall } from "./config";
 import { FileLogger } from "../adapters/driven/logger/file-logger";
 import { createOVAdapter } from "../adapters/driven/openviking/adapter";
+import { OpenVikingClientAdapter } from "../adapters/driven/openviking/client/client-adapter";
 import { RecallCurator } from "../domain/recall/recall-curator";
 import { GraphExpander } from "../domain/recall/graph-expander";
 import { relevanceScorer, temporalScorer } from "../domain/recall/curate";
@@ -42,6 +43,10 @@ export async function init(cwd: string): Promise<{
   container.register("sessionStore", () => adapter.sessionStore, true);
   container.register("resourceStore", () => adapter.resourceStore, true);
   container.register("skillStore", () => adapter.skillStore, true);
+
+  // F# — Flat Hexagon: OpenVikingClient adapter (delegates to above ports)
+  const clientAdapter = new OpenVikingClientAdapter(adapter);
+  container.register("ovClient", () => clientAdapter, true);
 
   // F7a — ProfileManager: create, resolve active profile, merge into recall config
   const profileManager = new ProfileManager(
