@@ -1,4 +1,4 @@
-import type { OVAdapterConfig } from "../../../infrastructure/config/schema";
+import type { OVAdapterConfig } from "../../infrastructure/config";
 import { toDomainError } from "./mappers/ov-mappers";
 import { ConnectionError, DomainError } from "../../../domain/errors/domain-error";
 import type { Logger } from "../../../domain/ports/logger";

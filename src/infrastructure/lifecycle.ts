@@ -1,5 +1,5 @@
 import { DIContainer } from "../infrastructure/di/container";
-import { loadConfig, mergeBehaviorIntoRecall } from "../infrastructure/config/cascade";
+import { loadConfig, mergeBehaviorIntoRecall } from "./config";
 import { FileLogger } from "../adapters/driven/logger/file-logger";
 import { createOVAdapter } from "../adapters/driven/openviking/adapter";
 import { RecallCurator } from "../domain/recall/recall-curator";
@@ -12,7 +12,7 @@ import { FsStoreService } from "../domain/services/fs-store-service";
 import { ProfileManager } from "../domain/profile/service/ProfileManager";
 import { RepoContext } from "./repo-context";
 import type { Logger } from "../domain/ports/logger";
-import type { PiOVConfig } from "../infrastructure/config/schema";
+import type { PiOVConfig } from "./config";
 
 export async function init(cwd: string): Promise<{
   config: PiOVConfig;

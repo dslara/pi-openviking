@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { gunzipSync, gzipSync } from "fflate";
 import { FileLogger } from "./file-logger";
 import type { Logger } from "../../../domain/ports/logger";
-import type { LoggerConfig } from "../../../infrastructure/config/logger-schema";
+import type { LoggerConfig } from "../../infrastructure/config";
 
 function defaultOpts(path: string, overrides?: Partial<LoggerConfig>): LoggerConfig {
   return {

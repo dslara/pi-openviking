@@ -12,7 +12,7 @@ import { dirname } from "node:path";
 import { gzipSync } from "fflate";
 import { resolveHome } from "../../../infrastructure/path-resolver";
 import type { Logger, LogLevel } from "../../../domain/ports/logger";
-import type { LoggerConfig } from "../../../infrastructure/config/logger-schema";
+import type { LoggerConfig } from "../../infrastructure/config";
 
 const LEVEL_RANK: Record<LogLevel, number> = {
   debug: 0,

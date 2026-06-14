@@ -1,7 +1,7 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { SessionService } from "../../../domain/services/session-service";
 import type { RecallService } from "../../../domain/recall/recall-service";
-import type { OVAdapterConfig } from "../../../infrastructure/config/schema";
+import type { OVAdapterConfig } from "../../infrastructure/config";
 import type { RecallConfig } from "../../../domain/common/recall-config";
 import type { SystemStatusClient } from "../../driven/openviking/system-status";
 

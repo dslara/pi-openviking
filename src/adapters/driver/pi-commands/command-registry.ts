@@ -5,7 +5,7 @@ import type { SearchService } from "../../../domain/services/search-service";
 import type { FsStoreService } from "../../../domain/services/fs-store-service";
 import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
 import type { ProfileManager } from "../../../domain/profile/service/ProfileManager";
-import type { OVAdapterConfig } from "../../../infrastructure/config/schema";
+import type { OVAdapterConfig } from "../../infrastructure/config";
 import type { RecallConfig } from "../../../domain/common/recall-config";
 import type { SystemStatusClient } from "../../driven/openviking/system-status";
 import { createOvRecallCommand } from "./ov-recall-command";
