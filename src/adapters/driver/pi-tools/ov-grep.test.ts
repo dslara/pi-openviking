@@ -1,21 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvGrepTool } from "./ov-grep";
-import type { SearchService } from "../../../domain/services/search-service";
-import type { GrepResult } from "../../../domain/ports/knowledge-base";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
+import type { SearchClient } from "../../../domain/client/open-viking-client";
 
-function makeSearchService(overrides?: Partial<SearchService>): SearchService {
+function makeClient(overrides?: Partial<SearchClient>): SearchClient {
   return {
-    search: async () => ({ memories: [], resources: [], skills: [], total: 0 }),
-    glob: async () => ({ entries: [], total: 0 }),
-    grep: async () => ({ matches: [], total: 0 }),
+    find: vi.fn(),
+    search: vi.fn(),
+    glob: vi.fn(),
+    grep: vi.fn().mockResolvedValue({ matches: [], total: 0 }),
     ...overrides,
-  } as SearchService;
-}
-
-function makePipeline() {
-  return new Pipeline<GrepResult>();
+  };
 }
 
 function executeTool(tool: ToolDefinition, params: Record<string, unknown>) {
@@ -39,23 +34,35 @@ function executeTool(tool: ToolDefinition, params: Record<string, unknown>) {
 
 describe("ov_grep tool", () => {
   it("has correct name and schema", () => {
-    const tool = createOvGrepTool(makeSearchService(), makePipeline());
+    const tool = createOvGrepTool(makeClient());
     expect(tool.name).toBe("ov_grep");
     expect(tool.parameters).toBeDefined();
   });
 
   it("calls grep with pattern and returns matches", async () => {
-    const calls: unknown[] = [];
-    const svc = makeSearchService({
-      grep: async (pattern, opts) => {
-        calls.push({ pattern, opts });
-        return { matches: [{ uri: "viking://a.md", line: "hello world", lineNumber: 5 }], total: 1 };
-      },
+    const client = makeClient();
+    vi.mocked(client.grep!).mockResolvedValue({
+      matches: [{ uri: "viking://a.md", line: "hello world", lineNumber: 5 }],
+      total: 1,
     });
-    const tool = createOvGrepTool(svc, makePipeline());
+    const tool = createOvGrepTool(client);
     const result = await executeTool(tool, { pattern: "hello", uri: "viking://", caseInsensitive: true });
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject({ pattern: "hello", opts: { uri: "viking://", caseInsensitive: true } });
+    expect(client.grep).toHaveBeenCalledTimes(1);
+    expect(client.grep).toHaveBeenCalledWith(
+      "hello",
+      { uri: "viking://", caseInsensitive: true, levelLimit: undefined, nodeLimit: undefined },
+      undefined,
+    );
     expect(result.content[0]).toMatchObject({ type: "text" });
+  });
+
+  it("handles grep failure", async () => {
+    const client = makeClient();
+    vi.mocked(client.grep!).mockRejectedValue(new Error("search error"));
+    const tool = createOvGrepTool(client);
+    const result = await executeTool(tool, { pattern: "broken" });
+    const text = result.content[0] as any;
+    expect(text.text).toContain("Grep failed");
+    expect(text.text).toContain("search error");
   });
 });

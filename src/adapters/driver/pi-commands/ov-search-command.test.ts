@@ -39,21 +39,19 @@ const sampleResult: SearchResult = {
 };
 
 describe("ov-search command", () => {
-  it("calls searchService.search with mode=fast and query", async () => {
-    const search = vi.fn().mockResolvedValue(sampleResult);
-    const cmd = createOvSearchCommand({ search } as any);
+  it("calls searchClient.find with query", async () => {
+    const find = vi.fn().mockResolvedValue(sampleResult);
+    const cmd = createOvSearchCommand({ find } as any);
     const ctx = mockCtx();
 
     await cmd.handler("find something", ctx);
 
-    expect(search).toHaveBeenCalledWith(
-      { query: "find something", mode: "find" },
-    );
+    expect(find).toHaveBeenCalledWith({ query: "find something" });
   });
 
   it("formats results as readable table", async () => {
-    const search = vi.fn().mockResolvedValue(sampleResult);
-    const cmd = createOvSearchCommand({ search } as any);
+    const find = vi.fn().mockResolvedValue(sampleResult);
+    const cmd = createOvSearchCommand({ find } as any);
     const ctx = mockCtx();
 
     await cmd.handler("test", ctx);
@@ -67,8 +65,8 @@ describe("ov-search command", () => {
 
   it("shows no results message when total is 0", async () => {
     const emptyResult: SearchResult = { memories: [], resources: [], skills: [], total: 0 };
-    const search = vi.fn().mockResolvedValue(emptyResult);
-    const cmd = createOvSearchCommand({ search } as any);
+    const find = vi.fn().mockResolvedValue(emptyResult);
+    const cmd = createOvSearchCommand({ find } as any);
     const ctx = mockCtx();
 
     await cmd.handler("nothing", ctx);
@@ -77,19 +75,19 @@ describe("ov-search command", () => {
   });
 
   it("shows usage for empty query", async () => {
-    const search = vi.fn();
-    const cmd = createOvSearchCommand({ search } as any);
+    const find = vi.fn();
+    const cmd = createOvSearchCommand({ find } as any);
     const ctx = mockCtx();
 
     await cmd.handler("  ", ctx);
 
-    expect(search).not.toHaveBeenCalled();
+    expect(find).not.toHaveBeenCalled();
     expect(ctx.ui.notify).toHaveBeenCalledWith("Usage: /ov-search <query>", "warning");
   });
 
   it("handles search error", async () => {
-    const search = vi.fn().mockRejectedValue(new Error("search backend unavailable"));
-    const cmd = createOvSearchCommand({ search } as any);
+    const find = vi.fn().mockRejectedValue(new Error("search backend unavailable"));
+    const cmd = createOvSearchCommand({ find } as any);
     const ctx = mockCtx();
 
     await cmd.handler("test", ctx);
@@ -107,8 +105,8 @@ describe("ov-search command", () => {
       skills: [{ uri: "viking://skill/analyze", score: 0.6, abstract: "Analysis skill" }],
       total: 2,
     };
-    const search = vi.fn().mockResolvedValue(multiResult);
-    const cmd = createOvSearchCommand({ search } as any);
+    const find = vi.fn().mockResolvedValue(multiResult);
+    const cmd = createOvSearchCommand({ find } as any);
     const ctx = mockCtx();
 
     await cmd.handler("multi", ctx);

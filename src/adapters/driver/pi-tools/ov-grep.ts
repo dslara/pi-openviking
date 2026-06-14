@@ -1,8 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
-import type { SearchService } from "../../../domain/services/search-service";
-import type { GrepResult } from "../../../domain/ports/knowledge-base";
+import type { SearchClient } from "../../../domain/client/open-viking-client";
 
 const GrepSchema = Type.Object({
   pattern: Type.String({ description: "Regex pattern to search for" }),
@@ -12,10 +10,7 @@ const GrepSchema = Type.Object({
   nodeLimit: Type.Optional(Type.Number({ description: "Max nodes to traverse" })),
 });
 
-export function createOvGrepTool(
-  svc: SearchService,
-  pipeline: Pipeline<GrepResult>,
-): ToolDefinition<typeof GrepSchema> {
+export function createOvGrepTool(client: SearchClient): ToolDefinition<typeof GrepSchema> {
   return defineTool({
     name: "ov_grep",
     label: "Search Content",
@@ -24,15 +19,12 @@ export function createOvGrepTool(
     parameters: GrepSchema,
     async execute(_toolCallId, params, signal) {
       try {
-        const result = await pipeline.execute(
-          () => svc.grep(params.pattern!, {
-            uri: params.uri ?? "",
-            caseInsensitive: params.caseInsensitive,
-            levelLimit: params.levelLimit,
-            nodeLimit: params.nodeLimit,
-          }, signal ?? undefined),
-          signal ?? undefined,
-        );
+        const result = await client.grep(params.pattern!, {
+          uri: params.uri ?? "",
+          caseInsensitive: params.caseInsensitive,
+          levelLimit: params.levelLimit,
+          nodeLimit: params.nodeLimit,
+        }, signal ?? undefined);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           details: undefined,

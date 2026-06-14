@@ -7,7 +7,7 @@ import { FileLogger } from "../adapters/driven/logger/file-logger";
 import { RecallCurator } from "../domain/recall/recall-curator";
 import { RecallService } from "../domain/recall/recall-service";
 import { SessionManager } from "../domain/services/session-service";
-import { SearchService } from "../domain/services/search-service";
+
 import { ProfileManager } from "../domain/profile/service/ProfileManager";
 import type { OpenVikingClient } from "../domain/client/open-viking-client";
 import type { Logger } from "../domain/ports/logger";
@@ -163,24 +163,6 @@ describe("init", () => {
     expect(typeof svc.createAndSet).toBe("function");
     expect(typeof svc.commit).toBe("function");
     expect(svc.getActive()).toBeNull();
-  });
-
-  // ── F5 services ─────────────────────────────────────────────────────────────
-
-  it("container resolves searchService as SearchService instance", async () => {
-    const { container } = await init(tmpDir);
-    const svc = container.resolve<SearchService>("searchService");
-    expect(svc).toBeInstanceOf(SearchService);
-    expect(typeof svc.search).toBe("function");
-    expect(typeof svc.glob).toBe("function");
-    expect(typeof svc.grep).toBe("function");
-  });
-
-  it("searchService is singleton", async () => {
-    const { container } = await init(tmpDir);
-    const s1 = container.resolve("searchService");
-    const s2 = container.resolve("searchService");
-    expect(s1).toBe(s2);
   });
 
   // ── F7a — ProfileManager ───────────────────────────────────────────────────

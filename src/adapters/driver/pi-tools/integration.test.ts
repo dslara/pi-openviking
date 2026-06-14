@@ -3,9 +3,6 @@ import http from "http";
 import type { AddressInfo } from "net";
 import { Transport } from "../../driven/openviking/transport";
 import { KnowledgeBaseAdapter } from "../../driven/openviking/knowledge-base";
-import { SearchService } from "../../../domain/services/search-service";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
-import { loggingMiddleware } from "../../../domain/pipeline/logging-middleware";
 import { createOvSearchTool } from "./ov-search";
 import { createOvGlobTool } from "./ov-glob";
 import { createOvGrepTool } from "./ov-grep";
@@ -14,17 +11,18 @@ import { createOvReadTool } from "./ov-read";
 import { createOvRecallTool } from "./ov-recall";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { OVAdapterConfig } from "../../../infrastructure/config";
+import type { RecallConfig } from "../../../domain/common/recall-config";
 import { OpenVikingClientAdapter } from "../../driven/openviking/client/client-adapter";
 import { FsStoreAdapter } from "../../driven/openviking/fs-store";
 import { SessionStoreAdapter } from "../../driven/openviking/session-store";
 import { GraphStoreAdapter } from "../../driven/openviking/graph-store";
 import { ResourceStoreAdapter } from "../../driven/openviking/resource-store";
 import { SkillStoreAdapter } from "../../driven/openviking/skill-store";
-import type { SearchResult } from "../../../domain/knowledge/model/search-result";
-import type { GlobResult, GrepResult } from "../../../domain/ports/knowledge-base";
 import type { Content } from "../../../domain/ports/fs-store";
 import { RecallService, type RecallResult } from "../../../domain/recall/recall-service";
 import { RecallCurator } from "../../../domain/recall/recall-curator";
+import { Pipeline } from "../../../domain/pipeline/pipeline";
+import { loggingMiddleware } from "../../../domain/pipeline/logging-middleware";
 
 let server: http.Server;
 let port: number;
@@ -158,15 +156,6 @@ function wireStack() {
   };
   const logger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, isEnabled: () => true };
   const transport = new Transport(ovConfig);
-  const kb = new KnowledgeBaseAdapter(transport);
-  const svc = new SearchService(kb, { searchMode: "find" } as any, logger as any);
-
-  const searchPipeline = new Pipeline<SearchResult>();
-  searchPipeline.use(loggingMiddleware("search", logger as any));
-  const globPipeline = new Pipeline<GlobResult>();
-  globPipeline.use(loggingMiddleware("glob", logger as any));
-  const grepPipeline = new Pipeline<GrepResult>();
-  grepPipeline.use(loggingMiddleware("grep", logger as any));
 
   const fsStore = new FsStoreAdapter(transport);
   const sessionStore = new SessionStoreAdapter(transport, ovConfig.commitTimeout);
@@ -175,7 +164,7 @@ function wireStack() {
   const skillStore = new SkillStoreAdapter(transport);
 
   const adapter: any = {
-    knowledgeBase: kb,
+    knowledgeBase: new KnowledgeBaseAdapter(transport),
     fsStore,
     graphStore,
     sessionStore,
@@ -187,16 +176,27 @@ function wireStack() {
   const client = new OpenVikingClientAdapter(adapter);
 
   // Recall
-  const recallConfig = { topN: 5, scoreThreshold: 0.5, maxTokens: 4000, expandGraph: false, expandGraphDepth: 1 as const, expandGraphMaxRatio: 0.2, expandGraphMinSeedScore: 0.4, searchMode: "find" as const, recallSearchTimeout: 5000, autoRecall: true as const };
+  const recallConfig: RecallConfig = {
+    topN: 5,
+    scoreThreshold: 0.5,
+    maxTokens: 4000,
+    expandGraph: false,
+    expandGraphDepth: 1,
+    expandGraphMaxRatio: 0.2,
+    expandGraphMinSeedScore: 0.4,
+    searchMode: "find",
+    recallSearchTimeout: 5000,
+    autoRecall: true,
+  };
   const curator = new RecallCurator(recallConfig, [], logger as any);
-  const recallService = new RecallService(kb, curator, recallConfig, logger as any, true);
+  const recallService = new RecallService(adapter.knowledgeBase, curator, recallConfig, logger as any, true);
   const recallPipeline = new Pipeline<RecallResult>();
   recallPipeline.use(loggingMiddleware("recall", logger as any));
 
   return {
-    searchTool: createOvSearchTool(svc, searchPipeline),
-    globTool: createOvGlobTool(svc, globPipeline),
-    grepTool: createOvGrepTool(svc, grepPipeline),
+    searchTool: createOvSearchTool(client, recallConfig, logger as any),
+    globTool: createOvGlobTool(client),
+    grepTool: createOvGrepTool(client),
     writeTool: createOvWriteTool(client),
     readTool: createOvReadTool(client),
     recallTool: createOvRecallTool(recallService, recallPipeline),

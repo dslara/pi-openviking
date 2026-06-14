@@ -1,8 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
-import type { SearchService } from "../../../domain/services/search-service";
-import type { GlobResult } from "../../../domain/ports/knowledge-base";
+import type { SearchClient } from "../../../domain/client/open-viking-client";
 
 const GlobSchema = Type.Object({
   pattern: Type.String({ description: "URI glob pattern (e.g. viking://**/*.md)" }),
@@ -10,10 +8,7 @@ const GlobSchema = Type.Object({
   limit: Type.Optional(Type.Number({ description: "Maximum entries to return" })),
 });
 
-export function createOvGlobTool(
-  svc: SearchService,
-  pipeline: Pipeline<GlobResult>,
-): ToolDefinition<typeof GlobSchema> {
+export function createOvGlobTool(client: SearchClient): ToolDefinition<typeof GlobSchema> {
   return defineTool({
     name: "ov_glob",
     label: "Discover URIs",
@@ -22,10 +17,7 @@ export function createOvGlobTool(
     parameters: GlobSchema,
     async execute(_toolCallId, params, signal) {
       try {
-        const result = await pipeline.execute(
-          () => svc.glob(params.pattern!, params.uri, params.limit, signal ?? undefined),
-          signal ?? undefined,
-        );
+        const result = await client.glob(params.pattern!, params.uri, params.limit, signal ?? undefined);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           details: undefined,

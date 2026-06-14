@@ -1,8 +1,10 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
-import type { SearchService } from "../../../domain/services/search-service";
+import type { SearchClient } from "../../../domain/client/open-viking-client";
 import type { SearchResult } from "../../../domain/knowledge/model/search-result";
+import type { RecallConfig } from "../../../domain/common/recall-config";
+import type { Logger } from "../../../domain/ports/logger";
+import { Uri } from "../../../domain/common/uri";
 
 const SearchSchema = Type.Object({
   query: Type.String({ description: "Search query" }),
@@ -24,8 +26,9 @@ const SearchSchema = Type.Object({
 });
 
 export function createOvSearchTool(
-  svc: SearchService,
-  pipeline: Pipeline<SearchResult>,
+  client: SearchClient,
+  config: RecallConfig,
+  logger: Logger,
 ): ToolDefinition<typeof SearchSchema> {
   return defineTool({
     name: "ov_search",
@@ -34,28 +37,45 @@ export function createOvSearchTool(
     promptSnippet: "ov_search(query, mode?, limit?, targetUri?, scoreThreshold?, since?, until?, timeField?, level?, includeProvenance?) — search knowledge base",
     parameters: SearchSchema,
     async execute(_toolCallId, params, signal) {
+      const start = Date.now();
       try {
-        const result = await pipeline.execute(
-          () => svc.search({
-            query: params.query!,
-            mode: params.mode ?? "auto",
-            limit: params.limit,
-            targetUri: params.targetUri,
-            peerId: params.peerId,
-            scoreThreshold: params.scoreThreshold,
-            since: params.since,
-            until: params.until,
-            timeField: params.timeField,
-            level: params.level,
-            includeProvenance: params.includeProvenance,
-          }, signal ?? undefined),
-          signal ?? undefined,
-        );
+        const mode = params.mode === "auto" ? config.searchMode : (params.mode ?? config.searchMode);
+        const targetUri = params.targetUri ? new Uri(params.targetUri) : undefined;
+
+        const opts = {
+          scoreThreshold: params.scoreThreshold,
+          since: params.since,
+          until: params.until,
+          timeField: params.timeField,
+          level: params.level,
+          includeProvenance: params.includeProvenance,
+        };
+
+        let result: SearchResult;
+        if (mode === "find") {
+          result = await client.find(
+            { query: params.query!, limit: params.limit, targetUri, peerId: params.peerId },
+            opts,
+            signal ?? undefined,
+          );
+        } else {
+          result = await client.search(
+            { query: params.query!, limit: params.limit, targetUri, sessionId: undefined, peerId: params.peerId },
+            opts,
+            signal ?? undefined,
+          );
+        }
+
+        const durationMs = Date.now() - start;
+        logger.info("ov_search completed", { mode, durationMs, total: result.total });
+
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           details: undefined,
         };
       } catch (err) {
+        const durationMs = Date.now() - start;
+        logger.error("ov_search failed", { durationMs, error: err instanceof Error ? err.message : String(err) });
         return {
           content: [{ type: "text" as const, text: `Search failed: ${err instanceof Error ? err.message : String(err)}` }],
           details: undefined,

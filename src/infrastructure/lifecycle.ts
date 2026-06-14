@@ -8,7 +8,7 @@ import { GraphExpander } from "../domain/recall/graph-expander";
 import { relevanceScorer, temporalScorer } from "../domain/recall/curate";
 import { RecallService } from "../domain/recall/recall-service";
 import { SessionManager } from "../domain/services/session-service";
-import { SearchService } from "../domain/services/search-service";
+
 import { ProfileManager } from "../domain/profile/service/ProfileManager";
 import { RepoContext } from "./repo-context";
 import type { Logger } from "../domain/ports/logger";
@@ -89,10 +89,6 @@ export async function init(cwd: string): Promise<{
     true,
   );
   container.register("recallService", () => recallService, true);
-
-  // F5 — application services
-  const searchService = new SearchService(adapter.knowledgeBase, config.recall, logger);
-  container.register("searchService", () => searchService, true);
 
   // SkillStore and ResourceStore are registered via adapter above — no pass-through service needed
 

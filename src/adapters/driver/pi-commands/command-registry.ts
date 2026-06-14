@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { FsClient } from "../../../domain/client/open-viking-client";
 import type { RecallService } from "../../../domain/recall/recall-service";
 import type { SessionManager } from "../../../domain/services/session-service";
-import type { SearchService } from "../../../domain/services/search-service";
+import type { SearchClient } from "../../../domain/client/open-viking-client";
 import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
 import type { ProfileManager } from "../../../domain/profile/service/ProfileManager";
 import type { OVAdapterConfig } from "../../../infrastructure/config";
@@ -21,7 +21,7 @@ import { createOvReindexCommand } from "./ov-reindex-command";
 export interface CommandServices {
   recallService: RecallService;
   sessionService: SessionManager;
-  searchService: SearchService;
+  searchClient: SearchClient;
   fsClient: FsClient;
   knowledgeBase: KnowledgeBase;
   profileManager: ProfileManager;
@@ -39,7 +39,7 @@ export function registerAllCommands(pi: ExtensionAPI, svcs: CommandServices): vo
   pi.registerCommand("ov-status", createOvStatusCommand(svcs.ovConfig, svcs.sessionService, svcs.recallService, svcs.recallConfig, svcs.systemStatus));
   pi.registerCommand("ov-tree", createOvTreeCommand(svcs.fsClient));
   pi.registerCommand("ov-commit", createOvCommitCommand(svcs.sessionService, svcs.widgetUpdater));
-  pi.registerCommand("ov-search", createOvSearchCommand(svcs.searchService));
+  pi.registerCommand("ov-search", createOvSearchCommand(svcs.searchClient));
   pi.registerCommand("ov-delete", createOvDeleteCommand(svcs.fsClient, svcs.knowledgeBase));
   pi.registerCommand("ov-profile", createOvProfileCommand(
     svcs.profileManager,

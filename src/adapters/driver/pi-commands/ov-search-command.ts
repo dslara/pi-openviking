@@ -1,7 +1,7 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { SearchService } from "../../../domain/services/search-service";
+import type { SearchClient } from "../../../domain/client/open-viking-client";
 
-export function createOvSearchCommand(searchService: SearchService) {
+export function createOvSearchCommand(searchClient: SearchClient) {
   return {
     description: "Search the OV knowledge base. Usage: /ov-search <query>",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
@@ -12,7 +12,7 @@ export function createOvSearchCommand(searchService: SearchService) {
       }
 
       try {
-        const result = await searchService.search({ query, mode: "find" });
+        const result = await searchClient.find({ query });
         if (result.total === 0) {
           ctx.ui.notify("No results found.", "info");
           return;

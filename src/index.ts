@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { init } from "./infrastructure/lifecycle";
 import type { OpenVikingClient } from "./domain/client/open-viking-client";
-import type { SearchService } from "./domain/services/search-service";
+
 import type { RecallService } from "./domain/recall/recall-service";
 import type { SessionManager } from "./domain/services/session-service";
 import type { OVAdapter } from "./adapters/driven/openviking/adapter";
@@ -34,7 +34,7 @@ export default async function openVikingExtension(pi: ExtensionAPI): Promise<voi
 
       // Resolve all services from DI container
       const ovClient = container.resolve<OpenVikingClient>("ovClient");
-      const searchService = container.resolve<SearchService>("searchService");
+
       const recallService = container.resolve<RecallService>("recallService");
       const sessionService = container.resolve<SessionManager>("sessionService");
       const knowledgeBase = container.resolve<KnowledgeBase>("knowledgeBase");
@@ -47,7 +47,8 @@ export default async function openVikingExtension(pi: ExtensionAPI): Promise<voi
       const skillStore = container.resolve<SkillStore>("skillStore");
       const resourceStore = container.resolve<ResourceStore>("resourceStore");
       registerAllTools(pi, {
-        searchService,
+        searchClient: ovClient,
+        recallConfig: config.recall,
         fsClient: ovClient,
         recallService,
         resourceStore,
@@ -57,7 +58,7 @@ export default async function openVikingExtension(pi: ExtensionAPI): Promise<voi
       registerAllCommands(pi, {
         recallService,
         sessionService,
-        searchService,
+        searchClient: ovClient,
         fsClient: ovClient,
         knowledgeBase,
         profileManager,
