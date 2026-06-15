@@ -12,6 +12,7 @@ import { RepoContext } from "../../../infrastructure/repo-context";
 import { agentMessageToParts } from "./message-mapper";
 import { buildTurnParts } from "./build-turn-parts";
 import { SessionSync, DEFAULT_AUTO_COMMIT_INTERVAL_MS } from "../../../domain/services/session-sync-service";
+import { RecallCache } from "../../../domain/common/recall-cache";
 
 // ── Shared bag of services consumed by lifecycle hooks and per-session handler ──
 
@@ -89,12 +90,7 @@ export function registerLifecycleHooks(pi: ExtensionAPI, svcs: LifecycleServices
 
   // Context hook: auto-recall with cache, fires before each LLM call
   // Replaces the former before_agent_start approach (see ADR-019).
-  interface CacheEntry {
-    block: string;
-    queryHash: string;
-    stats?: string;
-  }
-  const recallCache = new Map<string, CacheEntry>();
+  const cache = new RecallCache();
 
   pi.on("context", async (event) => {
     // Guard 1: recall toggle
@@ -120,10 +116,10 @@ export function registerLifecycleHooks(pi: ExtensionAPI, svcs: LifecycleServices
     const queryHash = hashString(query);
 
     // Check cache: if same query hash exists, return cached block
-    const cached = recallCache.get(queryHash);
+    const cached = cache.get(queryHash);
     if (cached) {
       // Same query in same turn — inject cached block
-      widget.update("lastRecall", cached.stats ?? "");
+      widget.update("lastRecall", cache.getStats(queryHash) ?? "");
       logger?.debug("context: recall cache hit", { queryHash });
       return {
         messages: [
@@ -131,7 +127,7 @@ export function registerLifecycleHooks(pi: ExtensionAPI, svcs: LifecycleServices
           {
             role: "custom" as const,
             customType: "memory_context",
-            content: cached.block,
+            content: cached,
             display: false,
             timestamp: Date.now(),
           },
@@ -185,7 +181,7 @@ export function registerLifecycleHooks(pi: ExtensionAPI, svcs: LifecycleServices
     widget.update("lastRecall", recallStats);
 
     // Cache the result by query hash
-    recallCache.set(queryHash, { block: result.formatted, queryHash, stats: recallStats });
+    cache.set(queryHash, result.formatted, recallStats);
 
     // Inject as a custom message appended after user messages
     return {
@@ -254,7 +250,7 @@ export function registerLifecycleHooks(pi: ExtensionAPI, svcs: LifecycleServices
     }
 
     await sessionSync.onShutdown(active);
-    recallCache.clear();
+    cache.invalidate();
   });
 }
 
