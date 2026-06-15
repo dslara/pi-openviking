@@ -7,6 +7,7 @@ import { GraphExpander } from "../domain/recall/graph-expander";
 import { relevanceScorer, temporalScorer } from "../domain/recall/curate";
 import { RecallService } from "../domain/recall/recall-service";
 import { SessionManager } from "../domain/services/session-service";
+import { SessionSync } from "../domain/services/session-sync-service";
 
 import { ProfileManager } from "../domain/profile/service/ProfileManager";
 import { RepoContext } from "./repo-context";
@@ -37,6 +38,7 @@ export async function init(cwd: string): Promise<{
   sessionService: SessionManager;
   recallService: RecallService;
   repoContext: RepoContext;
+  sessionSync: SessionSync;
 }> {
   const config = loadConfig(cwd);
 
@@ -83,6 +85,8 @@ export async function init(cwd: string): Promise<{
     commitTimeout: config.ov.commitTimeout,
   });
 
+  const sessionSync = new SessionSync(sessionService, adapter, logger);
+
   const recallService = new RecallService(
     adapter.knowledgeBase,
     recallCurator,
@@ -111,6 +115,7 @@ export async function init(cwd: string): Promise<{
     graphExpander,
     recallCurator,
     sessionService,
+    sessionSync,
     recallService,
     repoContext,
   };

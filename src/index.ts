@@ -71,6 +71,7 @@ export default async function openVikingExtension(pi: ExtensionAPI): Promise<voi
         repoContext,
         autoCommitIntervalMs: config.ov.autoCommitIntervalMs,
         autoDetectRules: config.profile.autoDetectRules,
+        sessionSync: result.sessionSync,
       };
       registerLifecycleHooks(pi, lifecycleServices);
 

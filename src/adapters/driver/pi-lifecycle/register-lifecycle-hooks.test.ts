@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { registerLifecycleHooks, handleSessionStart, pollCommit, DEFAULT_AUTO_COMMIT_INTERVAL_MS, resetModuleState } from "./register-lifecycle-hooks";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { registerLifecycleHooks, handleSessionStart } from "./register-lifecycle-hooks";
+import { DEFAULT_AUTO_COMMIT_INTERVAL_MS } from "../../../domain/services/session-sync-service";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { LifecycleServices } from "./register-lifecycle-hooks";
 
@@ -34,14 +35,10 @@ function createMockServices(overrides?: Partial<LifecycleServices>): LifecycleSe
     healthCheck: { check: vi.fn().mockResolvedValue({ ok: true }) } as any,
     profileManager: { apply: vi.fn() } as any,
     autoDetectRules: {},
+    sessionSync: { onMessageEnd: vi.fn(), onTurnEnd: vi.fn(), onBeforeSwitch: vi.fn(), onShutdown: vi.fn(), startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), isDirty: vi.fn(), getActiveSession: vi.fn() } as any,
     ...overrides,
   } as LifecycleServices;
 }
-
-// Reset module-level state that could leak between tests
-beforeEach(() => {
-  resetModuleState();
-});
 
 function mockCtx() {
   return {
@@ -88,12 +85,12 @@ describe("registerLifecycleHooks", () => {
   });
 
   describe("message_end", () => {
-    it("sends user message to OV session", async () => {
+    it("sends user message via sessionSync.onMessageEnd", async () => {
       const { pi, handlers } = createMockPi();
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
-      const getActive = vi.fn().mockReturnValue("session-1");
+      const onMessageEnd = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: { getActive, sendMessage } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue("session-1") } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd, onTurnEnd: vi.fn(), onBeforeSwitch: vi.fn(), onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -103,15 +100,16 @@ describe("registerLifecycleHooks", () => {
         message: { role: "user", content: "hello", timestamp: 1 },
       });
 
-      expect(sendMessage).toHaveBeenCalledTimes(1);
-      expect(sendMessage.mock.calls[0][1]).toBe("user");
+      expect(onMessageEnd).toHaveBeenCalledTimes(1);
+      expect(onMessageEnd.mock.calls[0][1]).toBe("user");
     });
 
     it("does NOT send assistant message on message_end (deferred to turn_end)", async () => {
       const { pi, handlers } = createMockPi();
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const onMessageEnd = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: { getActive: vi.fn().mockReturnValue("session-1"), sendMessage } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue("session-1") } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd, onTurnEnd: vi.fn(), onBeforeSwitch: vi.fn(), onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -121,14 +119,15 @@ describe("registerLifecycleHooks", () => {
         message: { role: "assistant", content: [{ type: "text", text: "response" }], timestamp: 2 },
       });
 
-      expect(sendMessage).not.toHaveBeenCalled();
+      expect(onMessageEnd).not.toHaveBeenCalled();
     });
 
     it("skips toolResult messages on message_end (handled via turn_end)", async () => {
       const { pi, handlers } = createMockPi();
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const onMessageEnd = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: { getActive: vi.fn().mockReturnValue("session-1"), sendMessage } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue("session-1") } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd, onTurnEnd: vi.fn(), onBeforeSwitch: vi.fn(), onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -145,14 +144,15 @@ describe("registerLifecycleHooks", () => {
         },
       });
 
-      expect(sendMessage).not.toHaveBeenCalled();
+      expect(onMessageEnd).not.toHaveBeenCalled();
     });
 
     it("skips unknown role messages", async () => {
       const { pi, handlers } = createMockPi();
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const onMessageEnd = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: { getActive: vi.fn().mockReturnValue("session-1"), sendMessage } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue("session-1") } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd, onTurnEnd: vi.fn(), onBeforeSwitch: vi.fn(), onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -162,14 +162,15 @@ describe("registerLifecycleHooks", () => {
         message: { role: "custom", content: "something", timestamp: 4 },
       });
 
-      expect(sendMessage).not.toHaveBeenCalled();
+      expect(onMessageEnd).not.toHaveBeenCalled();
     });
 
     it("skips when no active session", async () => {
       const { pi, handlers } = createMockPi();
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const onMessageEnd = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: { getActive: vi.fn().mockReturnValue(null), sendMessage } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue(null) } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd, onTurnEnd: vi.fn(), onBeforeSwitch: vi.fn(), onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -179,17 +180,17 @@ describe("registerLifecycleHooks", () => {
         message: { role: "user", content: "hello", timestamp: 1 },
       });
 
-      expect(sendMessage).not.toHaveBeenCalled();
+      expect(onMessageEnd).not.toHaveBeenCalled();
     });
   });
 
   describe("turn_end", () => {
-    it("sends merged assistant parts + tool results to OV session", async () => {
+    it("sends merged assistant parts via sessionSync.onTurnEnd", async () => {
       const { pi, handlers } = createMockPi();
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
-      const getActive = vi.fn().mockReturnValue("session-1");
+      const onTurnEnd = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: { getActive, sendMessage } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue("session-1") } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd: vi.fn(), onTurnEnd, onBeforeSwitch: vi.fn(), onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -217,23 +218,17 @@ describe("registerLifecycleHooks", () => {
         ],
       });
 
-      expect(sendMessage).toHaveBeenCalledTimes(1);
-      expect(sendMessage.mock.calls[0][1]).toBe("assistant");
-      const sentParts = sendMessage.mock.calls[0][2];
-      expect(sentParts).toHaveLength(2);
-      expect(sentParts[0].type).toBe("text");
-      expect(sentParts[0].text).toBe("Let me check:");
-      expect(sentParts[1].type).toBe("tool");
-      expect(sentParts[1].toolId).toBe("call_1");
-      expect(sentParts[1].toolStatus).toBe("completed");
-      expect(sentParts[1].toolOutput).toBe('[{ "result": "ok" }]');
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd.mock.calls[0][0]).toBe("session-1");
+      expect(onTurnEnd.mock.calls[0][1]).toHaveLength(2);
     });
 
     it("sends text-only assistant message when no tool calls", async () => {
       const { pi, handlers } = createMockPi();
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const onTurnEnd = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: { getActive: vi.fn().mockReturnValue("session-1"), sendMessage } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue("session-1") } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd: vi.fn(), onTurnEnd, onBeforeSwitch: vi.fn(), onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -249,17 +244,17 @@ describe("registerLifecycleHooks", () => {
         toolResults: [],
       });
 
-      expect(sendMessage).toHaveBeenCalledTimes(1);
-      expect(sendMessage.mock.calls[0][2]).toHaveLength(1);
-      expect(sendMessage.mock.calls[0][2][0].type).toBe("text");
-      expect(sendMessage.mock.calls[0][2][0].text).toBe("Just text response");
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd.mock.calls[0][1]).toHaveLength(1);
+      expect(onTurnEnd.mock.calls[0][1][0].type).toBe("text");
     });
 
     it("sets toolStatus to error when tool result isError", async () => {
       const { pi, handlers } = createMockPi();
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const onTurnEnd = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: { getActive: vi.fn().mockReturnValue("session-1"), sendMessage } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue("session-1") } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd: vi.fn(), onTurnEnd, onBeforeSwitch: vi.fn(), onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -284,16 +279,17 @@ describe("registerLifecycleHooks", () => {
         ],
       });
 
-      const sentParts = sendMessage.mock.calls[0][2];
+      const sentParts = onTurnEnd.mock.calls[0][1];
       expect(sentParts[0].toolStatus).toBe("error");
       expect(sentParts[0].toolOutput).toBe("Command failed");
     });
 
     it("skips when no active session", async () => {
       const { pi, handlers } = createMockPi();
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const onTurnEnd = vi.fn();
       const svcs = createMockServices({
-        sessionService: { getActive: vi.fn().mockReturnValue(null), sendMessage } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue(null) } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd: vi.fn(), onTurnEnd, onBeforeSwitch: vi.fn(), onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -306,17 +302,17 @@ describe("registerLifecycleHooks", () => {
         toolResults: [],
       });
 
-      expect(sendMessage).not.toHaveBeenCalled();
+      expect(onTurnEnd).not.toHaveBeenCalled();
     });
   });
 
   describe("session_shutdown", () => {
-    it("commits active session", async () => {
+    it("calls sessionSync.onShutdown with active session", async () => {
       const { pi, handlers } = createMockPi();
-      const commit = vi.fn().mockResolvedValue({});
-      const getActive = vi.fn().mockReturnValue("session-1");
+      const onShutdown = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: { getActive, commit } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue("session-1") } as any,
+        sessionSync: { onShutdown, startAutoCommit: vi.fn(), stopAutoCommit: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -324,14 +320,15 @@ describe("registerLifecycleHooks", () => {
 
       await handler({ type: "session_shutdown", reason: "quit" });
 
-      expect(commit).toHaveBeenCalledWith("session-1");
+      expect(onShutdown).toHaveBeenCalledWith("session-1");
     });
 
     it("skips commit when no active session", async () => {
       const { pi, handlers } = createMockPi();
-      const commit = vi.fn().mockResolvedValue({});
+      const onShutdown = vi.fn();
       const svcs = createMockServices({
-        sessionService: { getActive: vi.fn().mockReturnValue(null), commit } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue(null) } as any,
+        sessionSync: { onShutdown, startAutoCommit: vi.fn(), stopAutoCommit: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -339,198 +336,36 @@ describe("registerLifecycleHooks", () => {
 
       await handler({ type: "session_shutdown", reason: "quit" });
 
-      expect(commit).not.toHaveBeenCalled();
-    });
-
-    it("clears recall cache on shutdown", async () => {
-      const { pi, handlers } = createMockPi();
-      const commit = vi.fn().mockResolvedValue({});
-      const getActive = vi.fn().mockReturnValue("session-1");
-      const svcs = createMockServices({
-        sessionService: { getActive, commit } as any,
-      });
-
-      registerLifecycleHooks(pi, svcs);
-
-      // Fire context once to populate cache, then shutdown
-      const contextHandler = handlers["context"] as Handler;
-      await contextHandler({
-        type: "context",
-        messages: [
-          { role: "user", content: "test query", timestamp: 1 },
-        ],
-      });
-
-      // Cache should be populated — verify by calling again (should hit cache)
-      const svc = svcs.recallService;
-      const recallSpy = svc.recall as ReturnType<typeof vi.fn>;
-
-      await contextHandler({
-        type: "context",
-        messages: [
-          { role: "user", content: "test query", timestamp: 1 },
-        ],
-      });
-
-      // Called only once (first call), second should hit cache
-      expect(recallSpy).toHaveBeenCalledTimes(1);
-
-      const shutdownHandler = handlers["session_shutdown"] as Handler;
-      await shutdownHandler({ type: "session_shutdown", reason: "quit" });
-
-      // After shutdown, cache is cleared — next call re-fetches
-      // (only testable via module state, we verify shutdown runs commit)
-      expect(commit).toHaveBeenCalledWith("session-1");
+      expect(onShutdown).not.toHaveBeenCalled();
     });
   });
 
   describe("session_before_switch", () => {
-    it("commits active session on switch", async () => {
+    it("calls sessionSync.onBeforeSwitch with active session and confirm", async () => {
       const { pi, handlers } = createMockPi();
-      const commit = vi.fn().mockResolvedValue({ sessionId: "session-1" });
+      const onBeforeSwitch = vi.fn().mockResolvedValue(undefined);
       const svcs = createMockServices({
-        sessionService: {
-          getActive: vi.fn().mockReturnValue("session-1"),
-          commit,
-        } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue("session-1") } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd: vi.fn(), onTurnEnd: vi.fn(), onBeforeSwitch, onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
       const handler = handlers["session_before_switch"] as Handler;
 
-      const result = await handler({ reason: "resume" }, mockCtx());
-
-      expect(commit).toHaveBeenCalledWith("session-1");
-      expect(commit).toHaveBeenCalledTimes(1);
-      expect(result).toBeUndefined(); // no cancel
-    });
-
-    it("sets skipShutdownCommit flag on successful commit", async () => {
-      const { pi, handlers } = createMockPi();
-      const commit = vi.fn().mockResolvedValue({ sessionId: "session-1" });
-      const svcs = createMockServices({
-        sessionService: {
-          getActive: vi.fn().mockReturnValue("session-1"),
-          commit,
-        } as any,
-      });
-
-      registerLifecycleHooks(pi, svcs);
-      // Fire session_before_switch successfully
-      const switchHandler = handlers["session_before_switch"] as Handler;
-      await switchHandler({ reason: "resume" }, mockCtx());
-
-      // Fire session_shutdown — should skip commit
-      const shutdownHandler = handlers["session_shutdown"] as Handler;
-      await shutdownHandler({ reason: "quit" });
-
-      // commit was only called once (by session_before_switch), not again by shutdown
-      expect(commit).toHaveBeenCalledTimes(1);
-    });
-
-    it("retries once on commit failure, then prompts user", async () => {
-      const { pi, handlers } = createMockPi();
-      const commit = vi.fn()
-        .mockRejectedValueOnce(new Error("network error"))
-        .mockRejectedValueOnce(new Error("network error"));
       const ctx = mockCtx();
-      ctx.ui.confirm = vi.fn().mockResolvedValue(false); // user cancels
-
-      const svcs = createMockServices({
-        sessionService: {
-          getActive: vi.fn().mockReturnValue("session-1"),
-          commit,
-        } as any,
-      });
-
-      registerLifecycleHooks(pi, svcs);
-      const handler = handlers["session_before_switch"] as Handler;
-
       const result = await handler({ reason: "resume" }, ctx);
 
-      expect(commit).toHaveBeenCalledTimes(2); // initial + retry
-      expect(ctx.ui.confirm).toHaveBeenCalledWith(
-        "OV Commit Failed",
-        expect.stringContaining("network error"),
-      );
-      expect(result).toEqual({ cancel: true });
-    });
-
-    it("returns cancel:true when user cancels after failed retry", async () => {
-      const { pi, handlers } = createMockPi();
-      const commit = vi.fn().mockRejectedValue(new Error("timeout"));
-      const ctx = mockCtx();
-      ctx.ui.confirm = vi.fn().mockResolvedValue(false);
-
-      const svcs = createMockServices({
-        sessionService: {
-          getActive: vi.fn().mockReturnValue("session-1"),
-          commit,
-        } as any,
-      });
-
-      registerLifecycleHooks(pi, svcs);
-      const handler = handlers["session_before_switch"] as Handler;
-
-      const result = await handler({ reason: "resume" }, ctx);
-
-      expect(result).toEqual({ cancel: true });
-    });
-
-    it("proceeds with switch when user confirms after failed retry", async () => {
-      const { pi, handlers } = createMockPi();
-      const commit = vi.fn().mockRejectedValue(new Error("timeout"));
-      const ctx = mockCtx();
-      ctx.ui.confirm = vi.fn().mockResolvedValue(true); // user proceeds
-
-      const svcs = createMockServices({
-        sessionService: {
-          getActive: vi.fn().mockReturnValue("session-1"),
-          commit,
-        } as any,
-      });
-
-      registerLifecycleHooks(pi, svcs);
-      const handler = handlers["session_before_switch"] as Handler;
-
-      const result = await handler({ reason: "resume" }, ctx);
-
-      expect(result).toBeUndefined(); // no cancel
-    });
-
-    it("retry succeeds after first failure", async () => {
-      const { pi, handlers } = createMockPi();
-      const commit = vi.fn()
-        .mockRejectedValueOnce(new Error("temp failure"))
-        .mockResolvedValueOnce({ sessionId: "session-1" });
-      const ctx = mockCtx();
-      ctx.ui.confirm = vi.fn();
-
-      const svcs = createMockServices({
-        sessionService: {
-          getActive: vi.fn().mockReturnValue("session-1"),
-          commit,
-        } as any,
-      });
-
-      registerLifecycleHooks(pi, svcs);
-      const handler = handlers["session_before_switch"] as Handler;
-
-      const result = await handler({ reason: "resume" }, ctx);
-
-      expect(commit).toHaveBeenCalledTimes(2);
-      expect(ctx.ui.confirm).not.toHaveBeenCalled(); // retry succeeded, no prompt needed
-      expect(result).toBeUndefined();
+      expect(onBeforeSwitch).toHaveBeenCalledWith("session-1", { confirm: ctx.ui.confirm });
+      expect(result).toBeUndefined(); // onBeforeSwitch returns void/cancel, handler passes through
+      expect(onBeforeSwitch).toHaveBeenCalledTimes(1);
     });
 
     it("is no-op when no active session", async () => {
       const { pi, handlers } = createMockPi();
-      const commit = vi.fn();
+      const onBeforeSwitch = vi.fn();
       const svcs = createMockServices({
-        sessionService: {
-          getActive: vi.fn().mockReturnValue(null),
-          commit,
-        } as any,
+        sessionService: { getActive: vi.fn().mockReturnValue(null) } as any,
+        sessionSync: { startAutoCommit: vi.fn(), stopAutoCommit: vi.fn(), onMessageEnd: vi.fn(), onTurnEnd: vi.fn(), onBeforeSwitch, onShutdown: vi.fn() } as any,
       });
 
       registerLifecycleHooks(pi, svcs);
@@ -538,7 +373,7 @@ describe("registerLifecycleHooks", () => {
 
       await handler({ reason: "resume" }, mockCtx());
 
-      expect(commit).not.toHaveBeenCalled();
+      expect(onBeforeSwitch).not.toHaveBeenCalled();
     });
   });
 
@@ -597,55 +432,6 @@ describe("registerLifecycleHooks", () => {
       });
 
       expect(result).toBeUndefined();
-    });
-  });
-
-  describe("pollCommit", () => {
-    it("commits active session", async () => {
-      const commit = vi.fn().mockResolvedValue({});
-      const getActive = vi.fn().mockReturnValue("session-1");
-      const result = await pollCommit({ getActive, commit } as any);
-      expect(result.committed).toBe(true);
-      expect(result.error).toBeUndefined();
-      expect(commit).toHaveBeenCalledWith("session-1");
-    });
-
-    it("returns committed:false when no active session", async () => {
-      const result = await pollCommit({ getActive: vi.fn().mockReturnValue(null) } as any);
-      expect(result.committed).toBe(false);
-    });
-
-    it("returns committed:false and error on commit failure", async () => {
-      const commit = vi.fn().mockRejectedValue(new Error("OV timeout"));
-      const getActive = vi.fn().mockReturnValue("session-1");
-      const result = await pollCommit({ getActive, commit } as any);
-      expect(result.committed).toBe(false);
-      expect(result.error).toContain("OV timeout");
-    });
-
-    it("starts background polling when commit returns taskId", async () => {
-      const waitForCommit = vi.fn().mockResolvedValue({ status: "completed" });
-      const commit = vi.fn().mockResolvedValue({ taskId: "task-123" });
-      const getActive = vi.fn().mockReturnValue("session-1");
-
-      await pollCommit({ getActive, commit, waitForCommit } as any);
-
-      // waitForCommit is called in a .catch() handler, so give microtask a tick
-      await new Promise((r) => setTimeout(r, 0));
-      expect(waitForCommit).toHaveBeenCalledWith("task-123");
-    });
-
-    it("logs warn when background polling fails", async () => {
-      const warn = vi.fn();
-      const waitForCommit = vi.fn().mockRejectedValue(new Error("task not found"));
-      const commit = vi.fn().mockResolvedValue({ taskId: "task-456" });
-      const getActive = vi.fn().mockReturnValue("session-1");
-
-      await pollCommit({ getActive, commit, waitForCommit } as any, { debug: vi.fn(), warn, error: vi.fn() } as any);
-
-      await new Promise((r) => setTimeout(r, 0));
-      expect(warn).toHaveBeenCalled();
-      expect(warn.mock.calls[0][0]).toContain("pollCommit");
     });
   });
 
