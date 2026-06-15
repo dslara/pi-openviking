@@ -21,9 +21,6 @@ import { SkillStoreAdapter } from "../../driven/openviking/skill-store";
 import type { Content } from "../../../domain/ports/fs-store";
 import { RecallService, type RecallResult } from "../../../domain/recall/recall-service";
 import { RecallCurator } from "../../../domain/recall/recall-curator";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
-import { loggingMiddleware } from "../../../domain/pipeline/logging-middleware";
-
 let server: http.Server;
 let port: number;
 
@@ -190,8 +187,6 @@ function wireStack() {
   };
   const curator = new RecallCurator(recallConfig, [], logger as any);
   const recallService = new RecallService(adapter.knowledgeBase, curator, recallConfig, logger as any, true);
-  const recallPipeline = new Pipeline<RecallResult>();
-  recallPipeline.use(loggingMiddleware("recall", logger as any));
 
   return {
     searchTool: createOvSearchTool(client, recallConfig, logger as any),
@@ -199,7 +194,7 @@ function wireStack() {
     grepTool: createOvGrepTool(client),
     writeTool: createOvWriteTool(client),
     readTool: createOvReadTool(client),
-    recallTool: createOvRecallTool(recallService, recallPipeline),
+    recallTool: createOvRecallTool(recallService, logger as any),
   };
 }
 

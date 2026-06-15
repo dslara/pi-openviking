@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvSkillTool } from "./ov-skill";
 import type { SkillStore, AddSkillResult } from "../../../domain/ports/skill-store";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
+import type { Logger } from "../../../domain/ports/logger";
 
 function makeSkillStore(overrides?: Partial<SkillStore>): SkillStore {
   return {
@@ -16,8 +16,14 @@ function makeSkillStore(overrides?: Partial<SkillStore>): SkillStore {
   } as unknown as SkillStore;
 }
 
-function makePipeline() {
-  return new Pipeline<AddSkillResult>();
+function makeLogger(): Logger {
+  return {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    isEnabled: () => true,
+  };
 }
 
 function executeTool(tool: ToolDefinition, params: Record<string, unknown>) {
@@ -45,7 +51,7 @@ function getText(result: any): string {
 
 describe("ov_skill tool", () => {
   it("has correct name and schema", () => {
-    const tool = createOvSkillTool(makeSkillStore(), makePipeline());
+    const tool = createOvSkillTool(makeSkillStore(), makeLogger());
     expect(tool.name).toBe("ov_skill");
     expect(tool.parameters).toBeDefined();
   });
@@ -63,7 +69,7 @@ describe("ov_skill tool", () => {
         } as AddSkillResult;
       }),
     });
-    const tool = createOvSkillTool(svc, makePipeline());
+    const tool = createOvSkillTool(svc, makeLogger());
 
     const result = await executeTool(tool, {
       content: "---\nname: my-skill\ndescription: Test\n---\n\nContent here",
@@ -89,7 +95,7 @@ describe("ov_skill tool", () => {
         } as AddSkillResult;
       }),
     });
-    const tool = createOvSkillTool(svc, makePipeline());
+    const tool = createOvSkillTool(svc, makeLogger());
 
     const result = await executeTool(tool, {
       content: "# Skill logic",
@@ -119,7 +125,7 @@ describe("ov_skill tool", () => {
         return { rootUri: "", uri: "", name: "", auxiliaryFiles: 0 };
       }),
     });
-    const tool = createOvSkillTool(svc, makePipeline());
+    const tool = createOvSkillTool(svc, makeLogger());
 
     await executeTool(tool, {
       content: "# test",
@@ -134,7 +140,7 @@ describe("ov_skill tool", () => {
     const svc = makeSkillStore({
       addSkill: vi.fn().mockRejectedValue(new Error("OV unavailable")),
     });
-    const tool = createOvSkillTool(svc, makePipeline());
+    const tool = createOvSkillTool(svc, makeLogger());
 
     const result = await executeTool(tool, {
       content: "# test",
@@ -142,5 +148,29 @@ describe("ov_skill tool", () => {
 
     expect(getText(result)).toContain("Skill save failed");
     expect(getText(result)).toContain("OV unavailable");
+  });
+
+  it("logs completion on success", async () => {
+    const svc = makeSkillStore();
+    const logger = makeLogger();
+    const tool = createOvSkillTool(svc, logger);
+    await executeTool(tool, { content: "# test" });
+    expect(logger.info).toHaveBeenCalledWith(
+      "ov_skill completed",
+      expect.objectContaining({ name: "test-skill" }),
+    );
+  });
+
+  it("logs error on failure", async () => {
+    const svc = makeSkillStore({
+      addSkill: vi.fn().mockRejectedValue(new Error("timeout")),
+    });
+    const logger = makeLogger();
+    const tool = createOvSkillTool(svc, logger);
+    await executeTool(tool, { content: "# test" });
+    expect(logger.error).toHaveBeenCalledWith(
+      "ov_skill failed",
+      expect.objectContaining({ error: "timeout" }),
+    );
   });
 });

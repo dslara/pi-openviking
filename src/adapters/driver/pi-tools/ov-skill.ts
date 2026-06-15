@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { Pipeline } from "../../../domain/pipeline/pipeline";
 import type { SkillStore, AddSkillResult, SkillData } from "../../../domain/ports/skill-store";
+import type { Logger } from "../../../domain/ports/logger";
 
 const SkillSchema = Type.Object({
   content: Type.String({ description: "Skill content (SKILL.md format with YAML frontmatter, or `content` field when using structured data)" }),
@@ -14,7 +14,7 @@ const SkillSchema = Type.Object({
 
 export function createOvSkillTool(
   store: SkillStore,
-  pipeline: Pipeline<AddSkillResult>,
+  logger: Logger,
 ): ToolDefinition<typeof SkillSchema> {
   return defineTool({
     name: "ov_skill",
@@ -23,6 +23,7 @@ export function createOvSkillTool(
     promptSnippet: "ov_skill(content, wait?, name?, description?, allowedTools?, tags?) — save skill definition via OV skills API",
     parameters: SkillSchema,
     async execute(_toolCallId, params, signal) {
+      const start = Date.now();
       try {
         const data: string | SkillData = params.name || params.description
           ? {
@@ -34,15 +35,17 @@ export function createOvSkillTool(
             }
           : params.content!;
 
-        const result = await pipeline.execute(
-          () => store.addSkill(data, { wait: params.wait }, signal ?? undefined),
-          signal ?? undefined,
-        );
+        const result = await store.addSkill(data, { wait: params.wait }, signal ?? undefined);
+        const durationMs = Date.now() - start;
+        logger.info("ov_skill completed", { durationMs, name: result.name });
+
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           details: undefined,
         };
       } catch (err) {
+        const durationMs = Date.now() - start;
+        logger.error("ov_skill failed", { durationMs, error: err instanceof Error ? err.message : String(err) });
         return {
           content: [{ type: "text" as const, text: `Skill save failed: ${err instanceof Error ? err.message : String(err)}` }],
           details: undefined,

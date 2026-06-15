@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvRecallTool } from "./ov-recall";
 import type { RecallService } from "../../../domain/recall/recall-service";
 import type { RecallResult } from "../../../domain/recall/recall-service";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
+import type { Logger } from "../../../domain/ports/logger";
 
 const emptyResult: RecallResult = { items: [], tokens: 0, formatted: "", total: 0 };
 
@@ -15,8 +15,14 @@ function makeRecallService(overrides?: Partial<RecallService>): RecallService {
   } as RecallService;
 }
 
-function makePipeline() {
-  return new Pipeline<RecallResult>();
+function makeLogger(): Logger {
+  return {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    isEnabled: () => true,
+  };
 }
 
 function executeTool(tool: ToolDefinition, params: Record<string, unknown>) {
@@ -44,7 +50,7 @@ function getText(result: any): string {
 
 describe("ov_recall tool", () => {
   it("has correct name and schema", () => {
-    const tool = createOvRecallTool(makeRecallService(), makePipeline());
+    const tool = createOvRecallTool(makeRecallService(), makeLogger());
     expect(tool.name).toBe("ov_recall");
     expect(tool.parameters).toBeDefined();
   });
@@ -62,7 +68,7 @@ describe("ov_recall tool", () => {
         };
       },
     });
-    const tool = createOvRecallTool(svc, makePipeline());
+    const tool = createOvRecallTool(svc, makeLogger());
     const result = await executeTool(tool, { prompt: "what did we decide" });
     expect(calls).toEqual(["what did we decide"]);
     expect(getText(result)).toContain("viking://kb/test");
@@ -73,7 +79,7 @@ describe("ov_recall tool", () => {
     const svc = makeRecallService({
       recall: async () => emptyResult,
     });
-    const tool = createOvRecallTool(svc, makePipeline());
+    const tool = createOvRecallTool(svc, makeLogger());
     const result = await executeTool(tool, { prompt: "nothing here" });
     expect(getText(result)).toContain("No relevant memories found");
   });
@@ -82,9 +88,41 @@ describe("ov_recall tool", () => {
     const svc = makeRecallService({
       recall: async () => { throw new Error("OV down"); },
     });
-    const tool = createOvRecallTool(svc, makePipeline());
+    const logger = makeLogger();
+    const tool = createOvRecallTool(svc, logger);
     const result = await executeTool(tool, { prompt: "test" });
     expect(getText(result)).toContain("Recall failed");
     expect(getText(result)).toContain("OV down");
+  });
+
+  it("logs completion on success", async () => {
+    const svc = makeRecallService({
+      recall: async () => ({
+        items: [{ uri: "viking://kb/test", text: "remembered", score: 0.9, source: "memory" as const }],
+        tokens: 10,
+        formatted: "results",
+        total: 3,
+      }),
+    });
+    const logger = makeLogger();
+    const tool = createOvRecallTool(svc, logger);
+    await executeTool(tool, { prompt: "test" });
+    expect(logger.info).toHaveBeenCalledWith(
+      "ov_recall completed",
+      expect.objectContaining({ total: 3, tokens: 10 }),
+    );
+  });
+
+  it("logs error on failure", async () => {
+    const svc = makeRecallService({
+      recall: async () => { throw new Error("timeout"); },
+    });
+    const logger = makeLogger();
+    const tool = createOvRecallTool(svc, logger);
+    await executeTool(tool, { prompt: "test" });
+    expect(logger.error).toHaveBeenCalledWith(
+      "ov_recall failed",
+      expect.objectContaining({ error: "timeout" }),
+    );
   });
 });

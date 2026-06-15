@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { Pipeline } from "../../../domain/pipeline/pipeline";
 import { createOvImportTool } from "./ov-import";
 import type { ResourceStore, ResourceImportResult } from "../../../domain/ports/resource-store";
+import type { Logger } from "../../../domain/ports/logger";
 
 function makeStore(overrides?: Partial<ResourceStore>): ResourceStore {
   return {
@@ -15,8 +15,14 @@ function makeStore(overrides?: Partial<ResourceStore>): ResourceStore {
   } as unknown as ResourceStore;
 }
 
-function makePipeline() {
-  return new Pipeline<unknown>();
+function makeLogger(): Logger {
+  return {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    isEnabled: () => true,
+  };
 }
 
 function executeTool(tool: ToolDefinition, params: Record<string, unknown>) {
@@ -51,14 +57,14 @@ const TOOL_PARAMS = {
 
 describe("ov_import tool", () => {
   it("has correct name and schema", () => {
-    const tool = createOvImportTool(makeStore(), makePipeline());
+    const tool = createOvImportTool(makeStore(), makeLogger());
     expect(tool.name).toBe("ov_import");
     expect(tool.parameters).toBeDefined();
   });
 
   it("calls store.importUrl with url and options", async () => {
     const svc = makeStore();
-    const tool = createOvImportTool(svc, makePipeline());
+    const tool = createOvImportTool(svc, makeLogger());
 
     await executeTool(tool, TOOL_PARAMS);
 
@@ -75,7 +81,7 @@ describe("ov_import tool", () => {
 
   it("returns success result as JSON text", async () => {
     const svc = makeStore();
-    const tool = createOvImportTool(svc, makePipeline());
+    const tool = createOvImportTool(svc, makeLogger());
 
     const result = await executeTool(tool, TOOL_PARAMS);
 
@@ -88,7 +94,7 @@ describe("ov_import tool", () => {
 
   it("handles missing optional params gracefully", async () => {
     const svc = makeStore();
-    const tool = createOvImportTool(svc, makePipeline());
+    const tool = createOvImportTool(svc, makeLogger());
 
     await executeTool(tool, { url: "https://example.com/doc.md" });
 
@@ -101,7 +107,7 @@ describe("ov_import tool", () => {
 
   it("returns error message on failure", async () => {
     const svc = makeStore({ importUrl: vi.fn().mockRejectedValue(new Error("OV unreachable")) });
-    const tool = createOvImportTool(svc, makePipeline());
+    const tool = createOvImportTool(svc, makeLogger());
 
     const result = await executeTool(tool, TOOL_PARAMS);
 
@@ -110,7 +116,7 @@ describe("ov_import tool", () => {
 
   it("handles non-Error rejection", async () => {
     const svc = makeStore({ importUrl: vi.fn().mockRejectedValue("string error") });
-    const tool = createOvImportTool(svc, makePipeline());
+    const tool = createOvImportTool(svc, makeLogger());
 
     const result = await executeTool(tool, TOOL_PARAMS);
 
@@ -124,12 +130,34 @@ describe("ov_import tool", () => {
       sourcePath: "https://example.com/guide.md",
     };
     const svc = makeStore({ importUrl: vi.fn().mockResolvedValue(importResult) });
-    const tool = createOvImportTool(svc, makePipeline());
+    const tool = createOvImportTool(svc, makeLogger());
 
     const result = await executeTool(tool, { url: "https://example.com/guide.md" });
 
     const parsed = JSON.parse(getText(result));
     expect(parsed.rootUri).toBe("viking://resources/guide.md");
     expect(parsed.sourcePath).toBe("https://example.com/guide.md");
+  });
+
+  it("logs completion on success", async () => {
+    const svc = makeStore();
+    const logger = makeLogger();
+    const tool = createOvImportTool(svc, logger);
+    await executeTool(tool, { url: "https://example.com/doc.md" });
+    expect(logger.info).toHaveBeenCalledWith(
+      "ov_import completed",
+      expect.objectContaining({ status: "success" }),
+    );
+  });
+
+  it("logs error on failure", async () => {
+    const svc = makeStore({ importUrl: vi.fn().mockRejectedValue(new Error("timeout")) });
+    const logger = makeLogger();
+    const tool = createOvImportTool(svc, logger);
+    await executeTool(tool, { url: "https://example.com/doc.md" });
+    expect(logger.error).toHaveBeenCalledWith(
+      "ov_import failed",
+      expect.objectContaining({ error: "timeout" }),
+    );
   });
 });
