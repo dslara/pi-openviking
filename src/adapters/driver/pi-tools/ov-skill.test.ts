@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvSkillTool } from "./ov-skill";
-import type { SkillStore, AddSkillResult } from "../../../domain/ports/skill-store";
+import type { AddSkillResult } from "../../../domain/ports/skill-store";
+import type { SkillClient } from "../../../domain/client/open-viking-client";
 import type { Logger } from "../../../domain/ports/logger";
 
-function makeSkillStore(overrides?: Partial<SkillStore>): SkillStore {
+function makeSkillStore(overrides?: Partial<SkillClient>): SkillClient {
   return {
     addSkill: vi.fn().mockResolvedValue({
       rootUri: "viking://agent/default/skills/test-skill",
@@ -13,7 +14,7 @@ function makeSkillStore(overrides?: Partial<SkillStore>): SkillStore {
       auxiliaryFiles: 0,
     } as AddSkillResult),
     ...overrides,
-  } as unknown as SkillStore;
+  } as SkillClient;
 }
 
 function makeLogger(): Logger {

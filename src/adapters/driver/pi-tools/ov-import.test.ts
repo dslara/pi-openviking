@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvImportTool } from "./ov-import";
-import type { ResourceStore, ResourceImportResult } from "../../../domain/ports/resource-store";
+import type { ResourceImportResult } from "../../../domain/ports/resource-store";
+import type { ResourceClient } from "../../../domain/client/open-viking-client";
 import type { Logger } from "../../../domain/ports/logger";
 
-function makeStore(overrides?: Partial<ResourceStore>): ResourceStore {
+function makeStore(overrides?: Partial<ResourceClient>): ResourceClient {
   return {
     importUrl: vi.fn().mockResolvedValue({
       status: "success",
@@ -12,7 +13,7 @@ function makeStore(overrides?: Partial<ResourceStore>): ResourceStore {
       sourcePath: "https://example.com/doc.md",
     }),
     ...overrides,
-  } as unknown as ResourceStore;
+  } as ResourceClient;
 }
 
 function makeLogger(): Logger {

@@ -1,6 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { SkillStore, AddSkillResult, SkillData } from "../../../domain/ports/skill-store";
+import type { SkillClient } from "../../../domain/client/open-viking-client";
+import type { SkillData } from "../../../domain/ports/skill-store";
 import type { Logger } from "../../../domain/ports/logger";
 
 const SkillSchema = Type.Object({
@@ -13,7 +14,7 @@ const SkillSchema = Type.Object({
 });
 
 export function createOvSkillTool(
-  store: SkillStore,
+  client: SkillClient,
   logger: Logger,
 ): ToolDefinition<typeof SkillSchema> {
   return defineTool({
@@ -35,7 +36,7 @@ export function createOvSkillTool(
             }
           : params.content!;
 
-        const result = await store.addSkill(data, { wait: params.wait }, signal ?? undefined);
+        const result = await client.addSkill(data, { wait: params.wait }, signal ?? undefined);
         const durationMs = Date.now() - start;
         logger.info("ov_skill completed", { durationMs, name: result.name });
 

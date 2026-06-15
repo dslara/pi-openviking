@@ -1,6 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { ResourceStore, ResourceImportResult } from "../../../domain/ports/resource-store";
+import type { ResourceClient } from "../../../domain/client/open-viking-client";
+import type { ResourceImportResult } from "../../../domain/ports/resource-store";
 import type { Logger } from "../../../domain/ports/logger";
 
 const ImportSchema = Type.Object({
@@ -11,7 +12,7 @@ const ImportSchema = Type.Object({
 });
 
 export function createOvImportTool(
-  store: ResourceStore,
+  client: ResourceClient,
   logger: Logger,
 ): ToolDefinition<typeof ImportSchema> {
   return defineTool({
@@ -23,7 +24,7 @@ export function createOvImportTool(
     async execute(_toolCallId, params, signal) {
       const start = Date.now();
       try {
-        const result = await store.importUrl(
+        const result = await client.importUrl(
           params.url!,
           {
             targetUri: params.targetUri ?? undefined,

@@ -6,8 +6,7 @@ import type { RecallService } from "./domain/recall/recall-service";
 import type { SessionManager } from "./domain/services/session-service";
 import type { OVAdapter } from "./adapters/driven/openviking/adapter";
 import type { KnowledgeBase } from "./domain/ports/knowledge-base";
-import type { SkillStore } from "./domain/ports/skill-store";
-import type { ResourceStore } from "./domain/ports/resource-store";
+
 import type { ProfileManager } from "./domain/profile/service/ProfileManager";
 import { registerAllTools } from "./adapters/driver/pi-tools/tool-registry";
 import { registerAllCommands } from "./adapters/driver/pi-commands/command-registry";
@@ -44,15 +43,14 @@ export default async function openVikingExtension(pi: ExtensionAPI): Promise<voi
       const systemStatus = new SystemStatusClient(adapter.transport);
 
       // Register tools and commands (once per process)
-      const skillStore = container.resolve<SkillStore>("skillStore");
-      const resourceStore = container.resolve<ResourceStore>("resourceStore");
+
       registerAllTools(pi, {
         searchClient: ovClient,
         recallConfig: config.recall,
         fsClient: ovClient,
         recallService,
-        resourceStore,
-        skillStore,
+        resourceClient: ovClient,
+        skillClient: ovClient,
         sessionService,
       }, logger);
       registerAllCommands(pi, {

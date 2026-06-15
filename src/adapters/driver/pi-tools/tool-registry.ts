@@ -13,9 +13,7 @@ import { createOvResourceTool } from "./ov-resource";
 import { createOvSkillTool } from "./ov-skill";
 import { createOvImportTool } from "./ov-import";
 import { createOvSessionTool } from "./ov-session";
-import type { SearchClient, FsClient, SessionClient } from "../../../domain/client/open-viking-client";
-import type { ResourceStore } from "../../../domain/ports/resource-store";
-import type { SkillStore } from "../../../domain/ports/skill-store";
+import type { SearchClient, FsClient, SessionClient, SkillClient, ResourceClient } from "../../../domain/client/open-viking-client";
 import type { RecallService } from "../../../domain/recall/recall-service";
 import type { SessionManager } from "../../../domain/services/session-service";
 import type { RecallConfig } from "../../../domain/common/recall-config";
@@ -25,8 +23,8 @@ export interface ToolServices {
   searchClient: SearchClient;
   fsClient: FsClient;
   recallService: RecallService;
-  resourceStore: ResourceStore;
-  skillStore: SkillStore;
+  resourceClient: ResourceClient;
+  skillClient: SkillClient;
   sessionService: SessionManager;
   recallConfig: RecallConfig;
 }
@@ -37,8 +35,8 @@ export function registerAllTools(pi: ExtensionAPI, svcs: ToolServices, logger: L
   pi.registerTool(createOvGlobTool(svcs.searchClient));
   pi.registerTool(createOvGrepTool(svcs.searchClient));
   pi.registerTool(createOvRecallTool(svcs.recallService, logger));
-  pi.registerTool(createOvSkillTool(svcs.skillStore, logger));
-  pi.registerTool(createOvImportTool(svcs.resourceStore, logger));
+  pi.registerTool(createOvSkillTool(svcs.skillClient, logger));
+  pi.registerTool(createOvImportTool(svcs.resourceClient, logger));
   pi.registerTool(createOvSessionTool(svcs.sessionService));
   pi.registerTool(createOvWriteTool(svcs.fsClient));
   pi.registerTool(createOvReadTool(svcs.fsClient));
