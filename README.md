@@ -3,6 +3,7 @@
 Pi extension for [OpenViking](https://github.com/openviking) — long-term memory and context database for AI coding agents.
 
 > **Status:** Production-ready. Active development.
+> **Architecture:** [Flat Hexagon](docs/adr/0021-flat-hexagon-architecture.md) — single `OpenVikingClient` port with 6 sub-interfaces, no DI container, no middleware pipeline.
 
 ## What it does
 
@@ -38,6 +39,8 @@ Pi is stateless between sessions. pi-openviking gives it persistent memory:
 | Command | Action |
 |---------|--------|
 | `/ov-start` | Create a new OV session. |
+| `/ov-profile {show\|list\|apply <name>\|detect}` | Manage behavioral profiles. |
+| `/ov-reindex <uri> [--mode vectors_only\|full]` | Rebuild vector embeddings for a URI. |
 | `/ov-reindex <uri> [--mode vectors_only\|full]` | Rebuild vector embeddings for a URI (e.g. after delete). |
 | `/ov-commit [--wait]` | Commit session to OV (triggers memory extraction). `--wait` polls until done. |
 | `/ov-search <query>` | Semantic search, human-readable. |
