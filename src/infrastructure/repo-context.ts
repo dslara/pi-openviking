@@ -5,7 +5,8 @@
  * caches with TTL, and builds a system prompt snippet listing indexed
  * repos with tool guidance. Returns empty string when no repos indexed.
  */
-import type { FsStore, FsEntry } from "../domain/ports/fs-store";
+import type { FsClient } from "../domain/client/open-viking-client";
+import type { FsEntry } from "../domain/client/ov-types";
 import type { Logger } from "../domain/ports/logger";
 import { Uri } from "../domain/common/uri";
 
@@ -20,7 +21,7 @@ export class RepoContext {
   private readonly ttlMs: number;
 
   constructor(
-    private readonly fsStore: FsStore,
+    private readonly fsClient: FsClient,
     private readonly logger?: Logger,
     config?: RepoContextConfig,
   ) {
@@ -52,7 +53,7 @@ export class RepoContext {
   private async fetchAndFormat(): Promise<string> {
     try {
       const uri = new Uri("viking://resources/");
-      const entries = await this.fsStore.list(uri, false);
+      const entries = await this.fsClient.list(uri, false);
 
       if (!entries || entries.length === 0) return "";
 

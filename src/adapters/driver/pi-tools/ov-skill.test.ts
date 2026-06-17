@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvSkillTool } from "./ov-skill";
-import type { AddSkillResult } from "../../../domain/ports/skill-store";
+import type { AddSkillResult } from "../../../domain/client/ov-types";
 import type { SkillClient } from "../../../domain/client/open-viking-client";
 import type { Logger } from "../../../domain/ports/logger";
 
@@ -11,7 +11,7 @@ function makeSkillStore(overrides?: Partial<SkillClient>): SkillClient {
       rootUri: "viking://agent/default/skills/test-skill",
       uri: "viking://agent/default/skills/test-skill",
       name: "test-skill",
-      auxiliaryFiles: 0,
+      auxiliaryFiles: [],
     } as AddSkillResult),
     ...overrides,
   } as SkillClient;
@@ -66,7 +66,7 @@ describe("ov_skill tool", () => {
           rootUri: "viking://agent/default/skills/my-skill",
           uri: "viking://agent/default/skills/my-skill",
           name: "my-skill",
-          auxiliaryFiles: 0,
+          auxiliaryFiles: [],
         } as AddSkillResult;
       }),
     });
@@ -92,7 +92,7 @@ describe("ov_skill tool", () => {
           rootUri: "viking://agent/default/skills/my-structured-skill",
           uri: "viking://agent/default/skills/my-structured-skill",
           name: "my-structured-skill",
-          auxiliaryFiles: 0,
+          auxiliaryFiles: [],
         } as AddSkillResult;
       }),
     });
@@ -123,7 +123,7 @@ describe("ov_skill tool", () => {
     const svc = makeSkillStore({
       addSkill: vi.fn().mockImplementation(async (...args: unknown[]) => {
         calls.push(args);
-        return { rootUri: "", uri: "", name: "", auxiliaryFiles: 0 };
+        return { rootUri: "", uri: "", name: "", auxiliaryFiles: [] };
       }),
     });
     const tool = createOvSkillTool(svc, makeLogger());

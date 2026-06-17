@@ -5,7 +5,7 @@
  */
 import type { Transport } from "./transport";
 import { toSessionId, toCommitResult, toTaskStatus, toSessionInfo, serializeParts } from "./mappers/session-mapper";
-import type { SessionStore, CommitResult, CommitOptions, TaskStatus, TaskFilter, SessionInfo } from "../../../domain/ports/session-store";
+import type { CommitResult, CommitOptions, TaskStatus, TaskFilter, SessionInfo } from "../../../domain/client/ov-types";
 import type { SessionId } from "../../../domain/common/session-id";
 import type { Uri } from "../../../domain/common/uri";
 import type { Part } from "../../../domain/common/part";
@@ -20,7 +20,7 @@ import type {
 } from "./types/ov-session";
 import type { OVTaskResponse } from "./types/ov-task";
 
-export class SessionStoreAdapter implements SessionStore {
+export class SessionStoreAdapter {
   private readonly commitTimeout: number;
 
   constructor(

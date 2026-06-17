@@ -42,7 +42,7 @@ describe("ov_grep tool", () => {
   it("calls grep with pattern and returns matches", async () => {
     const client = makeClient();
     vi.mocked(client.grep!).mockResolvedValue({
-      matches: [{ uri: "viking://a.md", line: "hello world", lineNumber: 5 }],
+      matches: [{ uri: "viking://a.md", line: 5, content: "hello world", lineNumber: 5 }],
       total: 1,
     });
     const tool = createOvGrepTool(client);

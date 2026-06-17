@@ -9,7 +9,7 @@ describe("toWriteResult", () => {
       written_bytes: 100, content_updated: true, semantic_status: "complete", vector_status: "complete",
     };
     const result = toWriteResult(raw, "viking://docs/file.md");
-    expect(result.uri.value).toBe("viking://docs/file.md");
+    expect(result.uri!.value).toBe("viking://docs/file.md");
     expect(result.success).toBe(true);
   });
 
@@ -28,7 +28,7 @@ describe("toWriteResult", () => {
       written_bytes: 100, content_updated: true, semantic_status: "complete", vector_status: "complete",
     };
     const result = toWriteResult(raw, "viking://explicit.md");
-    expect(result.uri.value).toBe("viking://explicit.md");
+    expect(result.uri!.value).toBe("viking://explicit.md");
   });
 });
 

@@ -4,14 +4,17 @@
  * See OV 03-filesystem.md.
  */
 import { Uri } from "../../../../domain/common/uri";
-import type { FsEntry, WriteResult } from "../../../../domain/ports/fs-store";
+import type { FsEntry, WriteResult } from "../../../../domain/client/ov-types";
 import type { OVFsEntry, OVWriteResponse } from "../types/ov-fs";
 
 export function toWriteResult(raw: OVWriteResponse, expectedUri: string): WriteResult {
-  // OV write always returns HTTP 2xx — success is implied.
   return {
     uri: new Uri(expectedUri),
     success: true,
+    writtenBytes: raw.written_bytes,
+    contentUpdated: raw.content_updated,
+    semanticStatus: raw.semantic_status,
+    vectorStatus: raw.vector_status,
   };
 }
 

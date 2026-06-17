@@ -5,10 +5,10 @@
  */
 import type { Transport } from "./transport";
 import { toAddSkillResult } from "./mappers/ov-mappers";
-import type { SkillStore, AddSkillResult, SkillData, AddSkillOptions } from "../../../domain/ports/skill-store";
+import type { AddSkillResult, SkillData, AddSkillOptions } from "../../../domain/client/ov-types";
 import type { OVAddSkillResponse } from "./types/ov-skills";
 
-export class SkillStoreAdapter implements SkillStore {
+export class SkillStoreAdapter {
   constructor(private readonly transport: Transport) {}
 
   async addSkill(

@@ -9,7 +9,7 @@ import { toWriteResult, toFsEntries, toFsEntry } from "./mappers/fs-mapper";
 import type { Uri } from "../../../domain/common/uri";
 import type { ContentLevel } from "../../../domain/common/content-level";
 import type { WriteMode } from "../../../domain/common/write-mode";
-import type { Content, FsStore, FsEntry, WriteResult, ReindexMode } from "../../../domain/ports/fs-store";
+import type { Content, FsEntry, WriteResult, ReindexMode } from "../../../domain/client/ov-types";
 import { ConnectionError, ValidationError } from "../../../domain/errors/domain-error";
 import type { Logger } from "../../../domain/ports/logger";
 import type { OVWriteResponse, OVFsEntry } from "./types/ov-fs";
@@ -59,7 +59,7 @@ function buildReadPath(
   return `/api/v1/content/read?${query}`;
 }
 
-export class FsStoreAdapter implements FsStore {
+export class FsStoreAdapter {
   constructor(
     private readonly transport: Transport,
     private readonly logger?: Logger,

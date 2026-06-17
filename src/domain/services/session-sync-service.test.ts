@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach, fakeTimers } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SessionSync } from "./session-sync-service";
 import type { SessionManager } from "./session-service";
 import type { Part } from "../common/part";
@@ -132,7 +132,7 @@ describe("SessionSync", () => {
       const sync = new SessionSync(sessionManager, adapter, logger);
       const parts = makeParts("assistant response");
 
-      await sync.onTurnEnd(sid(), parts, []);
+      await sync.onTurnEnd(sid(), parts);
 
       expect(sessionManager.sendMessage).toHaveBeenCalledWith(sid(), "assistant", parts);
       expect(sync.isDirty()).toBe(true);
@@ -142,7 +142,7 @@ describe("SessionSync", () => {
       adapter.circuitBreakerOpen = true;
       const sync = new SessionSync(sessionManager, adapter, logger);
 
-      await sync.onTurnEnd(sid(), makeParts(), []);
+      await sync.onTurnEnd(sid(), makeParts());
 
       expect(sessionManager.sendMessage).not.toHaveBeenCalled();
       expect(sync.isDirty()).toBe(false);
@@ -151,7 +151,7 @@ describe("SessionSync", () => {
     it("skips when parts array is empty", async () => {
       const sync = new SessionSync(sessionManager, adapter, logger);
 
-      await sync.onTurnEnd(sid(), [], []);
+      await sync.onTurnEnd(sid(), []);
 
       expect(sessionManager.sendMessage).not.toHaveBeenCalled();
       expect(sync.isDirty()).toBe(false);
@@ -162,7 +162,7 @@ describe("SessionSync", () => {
       const parts = makeParts("with tool calls");
       const toolResults = [{ toolCallId: "call_1", toolName: "test", content: [{ type: "text" as const, text: "result" }], isError: false }] as any;
 
-      await sync.onTurnEnd(sid(), parts, toolResults);
+      await sync.onTurnEnd(sid(), parts);
 
       expect(sessionManager.sendMessage).toHaveBeenCalledWith(sid(), "assistant", parts);
     });

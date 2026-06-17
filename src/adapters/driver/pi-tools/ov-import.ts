@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { ResourceClient } from "../../../domain/client/open-viking-client";
-import type { ResourceImportResult } from "../../../domain/ports/resource-store";
+import type { ResourceImportResult } from "../../../domain/client/ov-types";
 import type { Logger } from "../../../domain/ports/logger";
 
 const ImportSchema = Type.Object({

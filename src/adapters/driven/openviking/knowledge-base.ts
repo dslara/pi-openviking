@@ -5,14 +5,14 @@
  */
 import type { Transport } from "./transport";
 import { toSearchResult, toGlobResult, toGrepResult } from "./mappers/search-mapper";
-import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
+
 import type { FindQuery, SearchRequest, SearchOptions } from "../../../domain/common/search-query";
-import type { GrepOptions } from "../../../domain/ports/knowledge-base";
+import type { GrepOptions } from "../../../domain/client/ov-types";
 import type { SearchResult } from "../../../domain/knowledge/model/search-result";
-import type { GlobResult, GrepResult } from "../../../domain/ports/knowledge-base";
+import type { GlobResult, GrepResult } from "../../../domain/client/ov-types";
 import type { OVFindResponse, OVGlobResponse, OVGrepResponse } from "./types/ov-search";
 
-export class KnowledgeBaseAdapter implements KnowledgeBase {
+export class KnowledgeBaseAdapter {
   constructor(private readonly transport: Transport) {}
 
   async find(query: FindQuery, opts?: SearchOptions, signal?: AbortSignal): Promise<SearchResult> {

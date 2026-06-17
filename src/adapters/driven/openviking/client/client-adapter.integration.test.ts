@@ -257,7 +257,7 @@ describe("OpenVikingClientAdapter integration (mock HTTP)", () => {
       const client = createClient();
       const result = await client.grep("hello", { uri: "viking://" });
       expect(result.total).toBe(1);
-      expect(result.matches[0].line).toBe("hello world");
+      expect(result.matches[0].line).toBe(5); expect(result.matches[0].content).toBe("hello world");
     });
   });
 

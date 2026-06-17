@@ -105,38 +105,36 @@ describe("init", () => {
     expect(typeof adapter.knowledgeBase).toBe("object");
   });
 
-  it("returns configured knowledgeBase directly from init", async () => {
-    const { knowledgeBase } = await init(tmpDir);
-    expect(typeof knowledgeBase.find).toBe("function");
-    expect(typeof knowledgeBase.search).toBe("function");
+  it("returns configured knowledgeBase via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.knowledgeBase.find).toBe("function");
+    expect(typeof adapter.knowledgeBase.search).toBe("function");
   });
 
-  it("returns configured fsStore directly from init", async () => {
-    const { fsStore } = await init(tmpDir);
-    expect(typeof fsStore.read).toBe("function");
-    expect(typeof fsStore.write).toBe("function");
+  it("returns configured fsStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.fsStore.read).toBe("function");
   });
 
-  it("returns configured graphStore directly from init", async () => {
-    const { graphStore } = await init(tmpDir);
-    expect(typeof graphStore.link).toBe("function");
-    expect(typeof graphStore.graph).toBe("function");
+  it("returns configured graphStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.graphStore.link).toBe("function");
+    expect(typeof adapter.graphStore.graph).toBe("function");
   });
 
-  it("returns configured sessionStore directly from init", async () => {
-    const { sessionStore } = await init(tmpDir);
-    expect(typeof sessionStore.create).toBe("function");
-    expect(typeof sessionStore.commit).toBe("function");
+  it("returns configured sessionStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.sessionStore.commit).toBe("function");
   });
 
-  it("returns configured resourceStore directly from init", async () => {
-    const { resourceStore } = await init(tmpDir);
-    expect(typeof resourceStore.importUrl).toBe("function");
+  it("returns configured resourceStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.resourceStore.importUrl).toBe("function");
   });
 
-  it("returns configured skillStore directly from init", async () => {
-    const { skillStore } = await init(tmpDir);
-    expect(typeof skillStore.addSkill).toBe("function");
+  it("returns configured skillStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.skillStore.addSkill).toBe("function");
   });
 
   it("returns configured profileManager directly from init", async () => {

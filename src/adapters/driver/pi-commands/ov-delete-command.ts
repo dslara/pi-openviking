@@ -1,13 +1,12 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { Uri } from "../../../domain/common/uri";
-import type { FsClient } from "../../../domain/client/open-viking-client";
-import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
+import type { FsClient, SearchClient } from "../../../domain/client/open-viking-client";
 
 function isGlobPattern(s: string): boolean {
   return /[*?[]/.test(s);
 }
 
-export function createOvDeleteCommand(client: FsClient, kb: KnowledgeBase) {
+export function createOvDeleteCommand(client: FsClient, searchClient: SearchClient) {
   return {
     description:
       "Delete a resource from OV. Usage: /ov-delete <uri>. Supports glob patterns: /ov-delete viking://path/*",
@@ -20,7 +19,7 @@ export function createOvDeleteCommand(client: FsClient, kb: KnowledgeBase) {
 
       // Glob path
       if (isGlobPattern(input)) {
-        const globResult = await kb.glob(input);
+        const globResult = await searchClient.glob(input);
         if (globResult.total === 0) {
           ctx.ui.notify(`No resources match ${input}`, "warning");
           return;

@@ -18,7 +18,7 @@ import { SessionStoreAdapter } from "../../driven/openviking/session-store";
 import { GraphStoreAdapter } from "../../driven/openviking/graph-store";
 import { ResourceStoreAdapter } from "../../driven/openviking/resource-store";
 import { SkillStoreAdapter } from "../../driven/openviking/skill-store";
-import type { Content } from "../../../domain/ports/fs-store";
+import type { Content } from "../../../domain/client/ov-types";
 import { RecallService, type RecallResult } from "../../../domain/recall/recall-service";
 import { RecallCurator } from "../../../domain/recall/recall-curator";
 let server: http.Server;

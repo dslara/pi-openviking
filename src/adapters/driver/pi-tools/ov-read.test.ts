@@ -3,7 +3,7 @@ import { Uri } from "../../../domain/common/uri";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvReadTool } from "./ov-read";
 import type { FsClient } from "../../../domain/client/open-viking-client";
-import type { Content } from "../../../domain/ports/fs-store";
+import type { Content } from "../../../domain/client/ov-types";
 
 const sampleContent: Content = { uri: new Uri("viking://docs/a.md"), body: "file content", level: "read" };
 

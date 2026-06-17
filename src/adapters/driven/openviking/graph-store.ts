@@ -5,12 +5,12 @@
  */
 import type { Transport } from "./transport";
 import { toLinkResult, toRelations } from "./mappers/relation-mapper";
-import type { GraphStore, LinkResult } from "../../../domain/ports/graph-store";
+import type { LinkResult } from "../../../domain/client/ov-types";
 import type { Relation } from "../../../domain/knowledge/model/relation";
 import type { Uri } from "../../../domain/common/uri";
 import type { OVRelationItem } from "./types/ov-relation";
 
-export class GraphStoreAdapter implements GraphStore {
+export class GraphStoreAdapter {
   constructor(private readonly transport: Transport) {}
 
   async link(source: Uri, targets: Uri | Uri[], reason?: string, signal?: AbortSignal): Promise<LinkResult> {

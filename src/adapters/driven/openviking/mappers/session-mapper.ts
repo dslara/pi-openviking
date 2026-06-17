@@ -4,7 +4,7 @@
  * See OV 05-sessions.md.
  */
 import { SessionId } from "../../../../domain/common/session-id";
-import type { CommitResult, SessionInfo, TaskStatus } from "../../../../domain/ports/session-store";
+import type { CommitResult, SessionInfo, TaskStatus } from "../../../../domain/client/ov-types";
 import type { Part } from "../../../../domain/common/part";
 import type { OVCreateSessionResponse, OVCommitResponse, OVSessionInfo } from "../types/ov-session";
 import type { OVTaskResponse } from "../types/ov-task";

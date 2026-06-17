@@ -5,10 +5,10 @@
  */
 import type { Transport } from "./transport";
 import { toResourceImportResult } from "./mappers/ov-mappers";
-import type { ResourceStore, ResourceImportResult, ImportOptions } from "../../../domain/ports/resource-store";
+import type { ResourceImportResult, ImportOptions } from "../../../domain/client/ov-types";
 import type { OVResourceImportResponse } from "./types/ov-resource";
 
-export class ResourceStoreAdapter implements ResourceStore {
+export class ResourceStoreAdapter {
   constructor(private readonly transport: Transport) {}
 
   async importUrl(url: string, options?: ImportOptions, signal?: AbortSignal): Promise<ResourceImportResult> {

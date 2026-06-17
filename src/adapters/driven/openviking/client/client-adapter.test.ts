@@ -1,11 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import type { OVAdapter } from "../adapter";
-import type { KnowledgeBase } from "../../../../domain/ports/knowledge-base";
-import type { FsStore, Content, WriteResult, FsEntry } from "../../../../domain/ports/fs-store";
-import type { SessionStore, CommitResult, SessionInfo } from "../../../../domain/ports/session-store";
-import type { GraphStore, LinkResult } from "../../../../domain/ports/graph-store";
-import type { ResourceStore, ResourceImportResult } from "../../../../domain/ports/resource-store";
-import type { SkillStore, AddSkillResult } from "../../../../domain/ports/skill-store";
+import { Transport } from "../transport";
+import { KnowledgeBaseAdapter } from "../knowledge-base";
+import { FsStoreAdapter } from "../fs-store";
+import { SessionStoreAdapter } from "../session-store";
+import { GraphStoreAdapter } from "../graph-store";
+import { ResourceStoreAdapter } from "../resource-store";
+import { SkillStoreAdapter } from "../skill-store";
+import type { FsEntry, WriteResult, Content, LinkResult, ResourceImportResult, AddSkillResult, CommitResult, SessionInfo } from "../../../../domain/client/ov-types";
 import type { Relation } from "../../../../domain/knowledge/model/relation";
 import type { SearchResult } from "../../../../domain/knowledge/model/search-result";
 import type { SessionId } from "../../../../domain/common/session-id";
@@ -22,64 +24,66 @@ function mockSessionId(value: string): SessionId {
   return { value, toString: () => value } as SessionId;
 }
 
+/** Shared transport for all adapter mocks */
+function mockTransport(): Transport {
+  return new Transport({
+    endpoint: "http://127.0.0.1:0",
+    apiKey: "test",
+    account: "test",
+    user: "test",
+    agentId: "test",
+    timeout: 100,
+    commitTimeout: 15_000,
+    maxRetries: 0,
+    rateLimitPerSecond: 0,
+    autoCommitIntervalMs: 0,
+  });
+}
+
 /** Creates a fully-mocked OVAdapter with vi.fn() on every method. */
 function createMockAdapter(): OVAdapter {
-  const knowledgeBase: KnowledgeBase = {
-    find: vi.fn(),
-    search: vi.fn(),
-    glob: vi.fn(),
-    grep: vi.fn(),
-  };
+  const transport = mockTransport();
+  const knowledgeBase = new KnowledgeBaseAdapter(transport);
+  vi.spyOn(knowledgeBase, 'find');
+  vi.spyOn(knowledgeBase, 'search');
+  vi.spyOn(knowledgeBase, 'glob');
+  vi.spyOn(knowledgeBase, 'grep');
 
-  const fsStore: FsStore = {
-    read: vi.fn(),
-    write: vi.fn(),
-    list: vi.fn(),
-    tree: vi.fn(),
-    stat: vi.fn(),
-    mkdir: vi.fn(),
-    mv: vi.fn(),
-    delete: vi.fn(),
-    reindex: vi.fn(),
-  };
+  const fsStore = new FsStoreAdapter(transport);
+  vi.spyOn(fsStore, 'read');
+  vi.spyOn(fsStore, 'write');
+  vi.spyOn(fsStore, 'list');
+  vi.spyOn(fsStore, 'tree');
+  vi.spyOn(fsStore, 'stat');
+  vi.spyOn(fsStore, 'mkdir');
+  vi.spyOn(fsStore, 'mv');
+  vi.spyOn(fsStore, 'delete');
+  vi.spyOn(fsStore, 'reindex');
 
-  const sessionStore: SessionStore = {
-    create: vi.fn(),
-    sendMessage: vi.fn(),
-    sendMessages: vi.fn(),
-    commit: vi.fn(),
-    getTaskStatus: vi.fn(),
-    listTasks: vi.fn(),
-    sessionUsed: vi.fn(),
-    deleteSession: vi.fn(),
-    getSession: vi.fn(),
-    listSessions: vi.fn(),
-  };
+  const sessionStore = new SessionStoreAdapter(transport, 15_000);
+  vi.spyOn(sessionStore, 'create');
+  vi.spyOn(sessionStore, 'sendMessage');
+  vi.spyOn(sessionStore, 'sendMessages');
+  vi.spyOn(sessionStore, 'commit');
+  vi.spyOn(sessionStore, 'getTaskStatus');
+  vi.spyOn(sessionStore, 'listTasks');
+  vi.spyOn(sessionStore, 'sessionUsed');
+  vi.spyOn(sessionStore, 'deleteSession');
+  vi.spyOn(sessionStore, 'getSession');
+  vi.spyOn(sessionStore, 'listSessions');
 
-  const graphStore: GraphStore = {
-    link: vi.fn(),
-    unlink: vi.fn(),
-    graph: vi.fn(),
-  };
+  const graphStore = new GraphStoreAdapter(transport);
+  vi.spyOn(graphStore, 'link');
+  vi.spyOn(graphStore, 'unlink');
+  vi.spyOn(graphStore, 'graph');
 
-  const resourceStore: ResourceStore = {
-    importUrl: vi.fn(),
-  };
+  const resourceStore = new ResourceStoreAdapter(transport);
+  vi.spyOn(resourceStore, 'importUrl');
 
-  const skillStore: SkillStore = {
-    addSkill: vi.fn(),
-  };
+  const skillStore = new SkillStoreAdapter(transport);
+  vi.spyOn(skillStore, 'addSkill');
 
-  return {
-    knowledgeBase,
-    fsStore,
-    graphStore,
-    sessionStore,
-    resourceStore,
-    skillStore,
-    circuitBreakerOpen: false,
-    transport: {} as any,
-  };
+  return { knowledgeBase, fsStore, graphStore, sessionStore, resourceStore, skillStore, circuitBreakerOpen: false, transport };
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────
@@ -414,7 +418,7 @@ describe("OpenVikingClientAdapter", () => {
     it("addSkill delegates to skillStore.addSkill", async () => {
       const adapter = createMockAdapter();
       const client = new OpenVikingClientAdapter(adapter);
-      const expected: AddSkillResult = { rootUri: "viking://s", uri: "viking://s/skill", name: "test", auxiliaryFiles: 0 };
+      const expected: AddSkillResult = { rootUri: "viking://s", uri: "viking://s/skill", name: "test", auxiliaryFiles: [] };
       (adapter.skillStore.addSkill as ReturnType<typeof vi.fn>).mockResolvedValue(expected);
 
       const result = await client.addSkill("# my skill", { wait: true });

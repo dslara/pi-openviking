@@ -1,5 +1,5 @@
-export const DEFAULT_TTL_MS = 5 * 60 * 1000;
-export const DEFAULT_MAX_SIZE = 50;
+const DEFAULT_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_MAX_SIZE = 50;
 
 interface Entry {
   block: string;

@@ -3,7 +3,7 @@ import type { FsClient } from "../../../domain/client/open-viking-client";
 import type { RecallService } from "../../../domain/recall/recall-service";
 import type { SessionManager } from "../../../domain/services/session-service";
 import type { SearchClient } from "../../../domain/client/open-viking-client";
-import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
+
 import type { ProfileManager } from "../../../domain/profile/service/ProfileManager";
 import type { OVAdapterConfig } from "../../../infrastructure/config";
 import type { RecallConfig } from "../../../domain/common/recall-config";
@@ -23,7 +23,6 @@ export interface CommandServices {
   sessionService: SessionManager;
   searchClient: SearchClient;
   fsClient: FsClient;
-  knowledgeBase: KnowledgeBase;
   profileManager: ProfileManager;
   autoDetectRules: Record<string, string>;
   ovConfig: OVAdapterConfig;
@@ -40,7 +39,7 @@ export function registerAllCommands(pi: ExtensionAPI, svcs: CommandServices): vo
   pi.registerCommand("ov-tree", createOvTreeCommand(svcs.fsClient));
   pi.registerCommand("ov-commit", createOvCommitCommand(svcs.sessionService, svcs.widgetUpdater));
   pi.registerCommand("ov-search", createOvSearchCommand(svcs.searchClient));
-  pi.registerCommand("ov-delete", createOvDeleteCommand(svcs.fsClient, svcs.knowledgeBase));
+  pi.registerCommand("ov-delete", createOvDeleteCommand(svcs.fsClient, svcs.searchClient));
   pi.registerCommand("ov-profile", createOvProfileCommand(
     svcs.profileManager,
     svcs.autoDetectRules,

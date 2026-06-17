@@ -5,12 +5,7 @@
  * See OV 01-overview.md (connection/auth), 02-resources.md, 03-filesystem.md,
  *     05-sessions.md, 06-retrieval.md, 08-relations.md.
  */
-import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
-import type { FsStore } from "../../../domain/ports/fs-store";
-import type { GraphStore } from "../../../domain/ports/graph-store";
-import type { SessionStore } from "../../../domain/ports/session-store";
-import type { ResourceStore } from "../../../domain/ports/resource-store";
-import type { SkillStore } from "../../../domain/ports/skill-store";
+
 import type { OVAdapterConfig } from "../../../infrastructure/config";
 import type { Logger } from "../../../domain/ports/logger";
 import { Transport } from "./transport";
@@ -22,12 +17,12 @@ import { ResourceStoreAdapter } from "./resource-store";
 import { SkillStoreAdapter } from "./skill-store";
 
 export interface OVAdapter {
-  knowledgeBase: KnowledgeBase;
-  fsStore: FsStore;
-  graphStore: GraphStore;
-  sessionStore: SessionStore;
-  resourceStore: ResourceStore;
-  skillStore: SkillStore;
+  knowledgeBase: KnowledgeBaseAdapter;
+  fsStore: FsStoreAdapter;
+  graphStore: GraphStoreAdapter;
+  sessionStore: SessionStoreAdapter;
+  resourceStore: ResourceStoreAdapter;
+  skillStore: SkillStoreAdapter;
   /** True when the circuit breaker is OPEN — fast fail for recall guard */
   readonly circuitBreakerOpen: boolean;
   /** Underlying HTTP transport, shared by all adapters */

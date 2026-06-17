@@ -1,13 +1,13 @@
 import type { Part } from "../common/part";
 import type { SessionId } from "../common/session-id";
 import type { SessionManager } from "./session-service";
+import type { Logger } from "../ports/logger";
 
 const RETRY_DELAY_MS = 500;
 
 export const DEFAULT_AUTO_COMMIT_INTERVAL_MS = 5 * 60 * 1000;
 
 export type ConfirmFn = (title: string, message: string) => Promise<boolean>;
-type Logger = { debug: (msg: string, ...args: any[]) => void; info: (msg: string, ...args: any[]) => void; warn: (msg: string, ...args: any[]) => void; error: (msg: string, ...args: any[]) => void };
 
 export class SessionSync {
   #dirtySinceLastCommit = false;
@@ -57,7 +57,7 @@ export class SessionSync {
     }
   }
 
-  async onTurnEnd(sessionId: SessionId, parts: Part[], _toolResults: unknown[]): Promise<void> {
+  async onTurnEnd(sessionId: SessionId, parts: Part[]): Promise<void> {
     if (this.#adapter.circuitBreakerOpen) {
       this.#logger.debug("onTurnEnd: circuit breaker open, skipping sync");
       return;
@@ -74,7 +74,7 @@ export class SessionSync {
 
   async onBeforeSwitch(
     sessionId: SessionId,
-    opts?: { confirm?: ConfirmFn },
+    opts?: { confirm?: ConfirmFn; onCommitted?: () => void },
   ): Promise<{ cancel: boolean } | void> {
     // CB open — skip commit, don't block switch
     if (this.#adapter.circuitBreakerOpen) {
@@ -120,6 +120,7 @@ export class SessionSync {
 
     // Commit succeeded — skip duplicate commit in shutdown
     this.#skipShutdownCommit = true;
+    opts?.onCommitted?.();
     this.#logger.debug("onBeforeSwitch: commit succeeded, skipShutdownCommit flag set");
   }
 

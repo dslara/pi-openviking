@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { SkillClient } from "../../../domain/client/open-viking-client";
-import type { SkillData } from "../../../domain/ports/skill-store";
+import type { SkillData } from "../../../domain/client/ov-types";
 import type { Logger } from "../../../domain/ports/logger";
 
 const SkillSchema = Type.Object({

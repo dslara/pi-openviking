@@ -16,7 +16,7 @@ import type {
 import type { OVAdapter } from "../adapter";
 import type { Part } from "../../../../domain/common/part";
 import type { Uri } from "../../../../domain/common/uri";
-import type { SkillData } from "../../../../domain/ports/skill-store";
+import type { SkillData } from "../../../../domain/client/ov-types";
 
 export class OpenVikingClientAdapter
   implements OpenVikingClient
@@ -245,17 +245,3 @@ export class OpenVikingClientAdapter
   }
 }
 
-/** Helper: create adapter + extract sub-clients in one call. */
-export function createOpenVikingClient(
-  adapter: OVAdapter,
-): OpenVikingClient & {
-  searchClient: SearchClient;
-  fsClient: FsClient;
-  sessionClient: SessionClient;
-  relationClient: RelationClient;
-  resourceClient: ResourceClient;
-  skillClient: SkillClient;
-} {
-  const client = new OpenVikingClientAdapter(adapter);
-  return client;
-}

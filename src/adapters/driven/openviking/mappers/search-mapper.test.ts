@@ -162,7 +162,7 @@ describe("toGlobResult", () => {
 });
 
 describe("toGrepResult", () => {
-  it("maps grep response converting line→lineNumber and count→total", () => {
+  it("maps grep response converting line→line and count→total", () => {
     const raw: OVGrepResponse = {
       matches: [
         { uri: "viking://docs/a.md", line: 15, content: "function foo()" },
@@ -172,11 +172,11 @@ describe("toGrepResult", () => {
     };
     const result = toGrepResult(raw);
     expect(result.matches).toHaveLength(2);
-    expect(result.matches[0].lineNumber).toBe(15);
-    expect(result.matches[0].line).toBe("function foo()");
+    expect(result.matches[0].line).toBe(15);
+    expect(result.matches[0].content).toBe("function foo()");
     expect(result.total).toBe(2);
-    expect(result.matches[1].lineNumber).toBe(25);
-    expect(result.matches[1].line).toBe("function bar()");
+    expect(result.matches[1].line).toBe(25);
+    expect(result.matches[1].content).toBe("function bar()");
   });
 
   it("handles empty matches", () => {

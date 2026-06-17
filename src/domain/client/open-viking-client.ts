@@ -15,30 +15,26 @@ import type {
   WriteResult,
   FsEntry,
   ReindexMode,
-} from "../ports/fs-store";
+  GlobResult,
+  GrepResult,
+  GrepOptions,
+  CommitResult,
+  CommitOptions,
+  SessionInfo,
+  TaskStatus,
+  LinkResult,
+  ResourceImportResult,
+  ImportOptions,
+  AddSkillResult,
+  SkillData,
+  AddSkillOptions,
+} from "./ov-types";
 import type { WriteMode } from "../common/write-mode";
 import type { Uri } from "../common/uri";
 import type { ContentLevel } from "../common/content-level";
 import type { SessionId } from "../common/session-id";
 import type { Part } from "../common/part";
-import type {
-  CommitResult,
-  CommitOptions,
-  SessionInfo,
-  TaskStatus,
-} from "../ports/session-store";
 import type { Relation } from "../knowledge/model/relation";
-import type {
-  ResourceImportResult,
-  ImportOptions,
-} from "../ports/resource-store";
-import type {
-  AddSkillResult,
-  SkillData,
-  AddSkillOptions,
-} from "../ports/skill-store";
-import type { GlobResult, GrepResult, GrepOptions } from "../ports/knowledge-base";
-import type { LinkResult } from "../ports/graph-store";
 
 // ── Sub-interfaces ──────────────────────────────────────────────────────
 

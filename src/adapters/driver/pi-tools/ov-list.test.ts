@@ -3,7 +3,7 @@ import { Uri } from "../../../domain/common/uri";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvListTool } from "./ov-list";
 import type { FsClient } from "../../../domain/client/open-viking-client";
-import type { FsEntry } from "../../../domain/ports/fs-store";
+import type { FsEntry } from "../../../domain/client/ov-types";
 
 function makeFsClient(overrides?: Partial<FsClient>): FsClient {
   return {

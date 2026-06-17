@@ -1,7 +1,7 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { Uri } from "../../../domain/common/uri";
 import type { FsClient } from "../../../domain/client/open-viking-client";
-import type { ReindexMode } from "../../../domain/ports/fs-store";
+import type { ReindexMode } from "../../../domain/client/ov-types";
 
 export function createOvReindexCommand(client: FsClient) {
   return {

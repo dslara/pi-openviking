@@ -3,7 +3,7 @@ import { Uri } from "../../../domain/common/uri";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createOvStatTool } from "./ov-stat";
 import type { FsClient } from "../../../domain/client/open-viking-client";
-import type { FsEntry } from "../../../domain/ports/fs-store";
+import type { FsEntry } from "../../../domain/client/ov-types";
 
 const sampleEntry: FsEntry = { uri: new Uri("viking://docs/a.md"), type: "file", size: 1024, modTime: "2025-01-01" };
 

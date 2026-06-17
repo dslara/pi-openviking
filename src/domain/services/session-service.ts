@@ -1,6 +1,6 @@
 import type { SessionId } from "../common/session-id";
 import type { SessionClient } from "../client/open-viking-client";
-import type { CommitOptions, CommitResult, SessionInfo, TaskStatus } from "../ports/session-store";
+import type { CommitOptions, CommitResult, SessionInfo, TaskStatus } from "../client/ov-types";
 import type { Uri } from "../common/uri";
 import type { Part } from "../common/part";
 

@@ -7,7 +7,7 @@ import type { SearchResult } from "../../../../domain/knowledge/model/search-res
 import type { KnowledgeItem } from "../../../../domain/knowledge/model/knowledge-item";
 import type { ResourceItem } from "../../../../domain/knowledge/model/resource-item";
 import type { SkillItem } from "../../../../domain/knowledge/model/skill-item";
-import type { GlobResult, GrepResult } from "../../../../domain/ports/knowledge-base";
+import type { GlobResult, GrepResult } from "../../../../domain/client/ov-types";
 import type { OVFindResponse, OVMatchedContext, OVGlobResponse, OVGrepResponse } from "../types/ov-search";
 
 function toKnowledgeItem(raw: OVMatchedContext): KnowledgeItem {
@@ -70,8 +70,8 @@ export function toGlobResult(raw: OVGlobResponse): GlobResult {
 export function toGrepResult(raw: OVGrepResponse): GrepResult {
   const matches = raw.matches.map((m) => ({
     uri: m.uri,
-    lineNumber: m.line,
-    line: m.content,
+    line: m.line,
+    content: m.content,
   }));
   return {
     matches,

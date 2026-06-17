@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import type { SessionClient } from "../client/open-viking-client";
-import type { CommitResult } from "../ports/session-store";
-import type { TaskStatus } from "../ports/session-store";
+import type { CommitResult } from "../client/ov-types";
+import type { TaskStatus } from "../client/ov-types";
 import type { SessionId } from "../common/session-id";
 import { SessionManager } from "./session-service";
 

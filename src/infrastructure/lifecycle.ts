@@ -12,25 +12,13 @@ import { SessionSync } from "../domain/services/session-sync-service";
 import { ProfileManager } from "../domain/profile/service/ProfileManager";
 import { RepoContext } from "./repo-context";
 import type { Logger } from "../domain/ports/logger";
-import type { KnowledgeBase } from "../domain/ports/knowledge-base";
-import type { FsStore } from "../domain/ports/fs-store";
-import type { GraphStore } from "../domain/ports/graph-store";
-import type { SessionStore } from "../domain/ports/session-store";
-import type { ResourceStore } from "../domain/ports/resource-store";
-import type { SkillStore } from "../domain/ports/skill-store";
-import type { OpenVikingClient } from "../domain/client/open-viking-client";
+import type { FsClient, OpenVikingClient } from "../domain/client/open-viking-client";
 import type { PiOVConfig } from "./config";
 
 export async function init(cwd: string): Promise<{
   config: PiOVConfig;
   logger: Logger;
   adapter: OVAdapter;
-  knowledgeBase: KnowledgeBase;
-  fsStore: FsStore;
-  graphStore: GraphStore;
-  sessionStore: SessionStore;
-  resourceStore: ResourceStore;
-  skillStore: SkillStore;
   ovClient: OpenVikingClient;
   profileManager: ProfileManager;
   graphExpander: GraphExpander | undefined;
@@ -69,8 +57,8 @@ export async function init(cwd: string): Promise<{
   // F4 — domain services
   const graphExpander = config.recall.expandGraph
     ? new GraphExpander(
-        adapter.graphStore,
-        adapter.fsStore,
+        clientAdapter,
+        clientAdapter,
         {
           expandGraphMaxRatio: config.recall.expandGraphMaxRatio,
           expandGraphMinSeedScore: config.recall.expandGraphMinSeedScore,
@@ -88,7 +76,7 @@ export async function init(cwd: string): Promise<{
   const sessionSync = new SessionSync(sessionService, adapter, logger);
 
   const recallService = new RecallService(
-    adapter.knowledgeBase,
+    clientAdapter,
     recallCurator,
     config.recall,
     logger,
@@ -98,18 +86,12 @@ export async function init(cwd: string): Promise<{
   // SkillStore and ResourceStore are registered via adapter above — no pass-through service needed
 
   // RepoContext: lists viking://resources/ with TTL cache for system prompt injection
-  const repoContext = new RepoContext(adapter.fsStore, logger);
+  const repoContext = new RepoContext(clientAdapter, logger);
 
   return {
     config,
     logger,
     adapter,
-    knowledgeBase: adapter.knowledgeBase,
-    fsStore: adapter.fsStore,
-    graphStore: adapter.graphStore,
-    sessionStore: adapter.sessionStore,
-    resourceStore: adapter.resourceStore,
-    skillStore: adapter.skillStore,
     ovClient: clientAdapter,
     profileManager,
     graphExpander,

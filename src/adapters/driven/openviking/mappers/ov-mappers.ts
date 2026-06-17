@@ -9,15 +9,15 @@
  * 02-resources.md (resource import), 04-skills.md (skills API).
  */
 
-import type { Content } from "../../../../domain/ports/fs-store";
+import type { Content } from "../../../../domain/client/ov-types";
 import type { ContentLevel } from "../../../../domain/common/content-level";
 import { Uri } from "../../../../domain/common/uri";
 import type { OVContentReadResponse } from "../types/ov-common";
 import { ConnectionError, NotFoundError, ValidationError, DomainError } from "../../../../domain/errors/domain-error";
 import type { OVErrorBody } from "../types/ov-common";
-import type { ResourceImportResult } from "../../../../domain/ports/resource-store";
+import type { ResourceImportResult } from "../../../../domain/client/ov-types";
 import type { OVResourceImportResponse } from "../types/ov-resource";
-import type { AddSkillResult } from "../../../../domain/ports/skill-store";
+import type { AddSkillResult } from "../../../../domain/client/ov-types";
 import type { OVAddSkillResponse } from "../types/ov-skills";
 
 // ── Content mapper ───────────────────────────────────────────────────────────
@@ -105,6 +105,6 @@ export function toAddSkillResult(raw: OVAddSkillResponse): AddSkillResult {
     rootUri: raw.root_uri,
     uri: raw.uri,
     name: raw.name,
-    auxiliaryFiles: raw.auxiliary_files,
+    auxiliaryFiles: typeof raw.auxiliary_files === "number" || Array.isArray(raw.auxiliary_files) ? raw.auxiliary_files as unknown as string[] : [],
   };
 }

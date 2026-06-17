@@ -4,7 +4,7 @@
  * See OV 08-relations.md.
  */
 import { Uri } from "../../../../domain/common/uri";
-import type { LinkResult } from "../../../../domain/ports/graph-store";
+import type { LinkResult } from "../../../../domain/client/ov-types";
 import type { Relation } from "../../../../domain/knowledge/model/relation";
 import type { OVRelationItem, OVRelationEnvelope } from "../types/ov-relation";
 

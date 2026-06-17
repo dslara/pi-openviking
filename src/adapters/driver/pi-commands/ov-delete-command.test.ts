@@ -3,7 +3,7 @@ import { Uri } from "../../../domain/common/uri";
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { createOvDeleteCommand } from "./ov-delete-command";
 import type { FsClient } from "../../../domain/client/open-viking-client";
-import type { KnowledgeBase } from "../../../domain/ports/knowledge-base";
+import type { SearchClient } from "../../../domain/client/open-viking-client";
 
 function mockCtx(overrides?: Partial<ExtensionCommandContext>): ExtensionCommandContext {
   return {
@@ -31,7 +31,7 @@ function mockCtx(overrides?: Partial<ExtensionCommandContext>): ExtensionCommand
   };
 }
 
-function makeKB(): KnowledgeBase {
+function makeKB(): SearchClient {
   return {
     find: vi.fn(),
     search: vi.fn(),

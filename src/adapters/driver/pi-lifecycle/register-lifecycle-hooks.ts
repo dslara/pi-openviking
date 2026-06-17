@@ -227,7 +227,7 @@ export function registerLifecycleHooks(pi: ExtensionAPI, svcs: LifecycleServices
 
     const merged = buildTurnParts(assistantParts, event.toolResults);
 
-    await sessionSync.onTurnEnd(active, merged, event.toolResults);
+    await sessionSync.onTurnEnd(active, merged);
   });
 
   // session_before_switch: commit active session before switching to another
@@ -238,7 +238,10 @@ export function registerLifecycleHooks(pi: ExtensionAPI, svcs: LifecycleServices
       return;
     }
 
-    await sessionSync.onBeforeSwitch(active, { confirm: ctx.ui.confirm });
+    await sessionSync.onBeforeSwitch(active, {
+      confirm: ctx.ui.confirm,
+      onCommitted: () => widget.update("lastRecall", "committed"),
+    });
   });
 
   // session_shutdown: commit active session, clear recall cache

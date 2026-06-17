@@ -355,7 +355,10 @@ describe("registerLifecycleHooks", () => {
       const ctx = mockCtx();
       const result = await handler({ reason: "resume" }, ctx);
 
-      expect(onBeforeSwitch).toHaveBeenCalledWith("session-1", { confirm: ctx.ui.confirm });
+      expect(onBeforeSwitch).toHaveBeenCalledWith("session-1", expect.objectContaining({
+        confirm: ctx.ui.confirm,
+        onCommitted: expect.any(Function),
+      }));
       expect(result).toBeUndefined(); // onBeforeSwitch returns void/cancel, handler passes through
       expect(onBeforeSwitch).toHaveBeenCalledTimes(1);
     });
