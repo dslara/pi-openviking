@@ -6,7 +6,7 @@ import { relevanceScorer } from "./curate";
 import type { RelationClient } from "../client/open-viking-client";
 import type { FsClient } from "../client/open-viking-client";
 import type { Logger } from "../ports/logger";
-import type { SearchResult } from "../knowledge/model/search-result";
+import type { SearchResult } from "../knowledge/search-result";
 import type { RecallConfig } from "../common/recall-config";
 import { Uri } from "../common/uri";
 

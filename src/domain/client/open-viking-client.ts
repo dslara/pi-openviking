@@ -9,7 +9,7 @@ import type {
   SearchRequest,
   SearchOptions,
 } from "../common/search-query";
-import type { SearchResult } from "../knowledge/model/search-result";
+import type { SearchResult } from "../knowledge/search-result";
 import type {
   Content,
   WriteResult,
@@ -34,7 +34,7 @@ import type { Uri } from "../common/uri";
 import type { ContentLevel } from "../common/content-level";
 import type { SessionId } from "../common/session-id";
 import type { Part } from "../common/part";
-import type { Relation } from "../knowledge/model/relation";
+import type { Relation } from "../knowledge/relation";
 
 // ── Sub-interfaces ──────────────────────────────────────────────────────
 

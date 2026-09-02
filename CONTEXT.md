@@ -99,7 +99,7 @@ TTL, and injects indexed repo list + tool guidance into the system prompt via
 _Avoid_: repo lister, context service
 
 **FsStoreAdapter**:
-A full implementation of the `FsStore` port in `adapters/driven/openviking/fs-store.ts`. `read()` maps level to official OV content endpoints: `level=read` → `/api/v1/content/read?uri=X&offset=Y&limit=Z`, `level=abstract` → `/api/v1/content/abstract?uri=X`, `level=overview` → `/api/v1/content/overview?uri=X`. Abstract/overview endpoints only work on directories — calling them on a file returns 412 FAILED_PRECONDITION which propagates to the caller. `write()` calls `POST /api/v1/content/write` with `wait: false` (async — OV processes embedding in background). Navigation methods (`list`, `tree`, `stat`) call `GET /api/v1/fs/{ls|tree|stat}`. Management methods (`mkdir`, `mv`) use POST with URI payload. `delete()` calls `DELETE /api/v1/fs?uri=` and auto-retries with `recursive=true` on recursive-required errors. `reindex()` calls `POST /api/v1/content/reindex {uri, mode}` with `mode` defaulting to `"vectors_only"`.
+A concrete adapter class in `adapters/driven/openviking/fs-store.ts` (port `FsStore` was deleted in ADR-021 — tools call this via `FsClient`). `read()` maps level to official OV content endpoints: `level=read` → `/api/v1/content/read?uri=X&offset=Y&limit=Z`, `level=abstract` → `/api/v1/content/abstract?uri=X`, `level=overview` → `/api/v1/content/overview?uri=X`. Abstract/overview endpoints only work on directories — calling them on a file returns 412 FAILED_PRECONDITION which propagates to the caller. `write()` calls `POST /api/v1/content/write` with `wait: false` (async — OV processes embedding in background). Navigation methods (`list`, `tree`, `stat`) call `GET /api/v1/fs/{ls|tree|stat}`. Management methods (`mkdir`, `mv`) use POST with URI payload. `delete()` calls `DELETE /api/v1/fs?uri=` and auto-retries with `recursive=true` on recursive-required errors. `reindex()` calls `POST /api/v1/content/reindex {uri, mode}` with `mode` defaulting to `"vectors_only"`.
 
 **FsMapper**:
 Pure functions in `adapters/driven/openviking/mappers/fs-mapper.ts`: `toFsEntry(raw: OVFsEntry)` extracts `uri`, `type` (from `isDir`), `size`, `modTime` and returns domain `FsEntry`; `toFsEntries(raw: OVFsEntry[])` maps arrays; `toWriteResult(raw: OVWriteResponse, expectedUri)` returns `success: true` (HTTP 2xx implies success).
@@ -109,14 +109,14 @@ Pure functions in `adapters/driven/openviking/mappers/search-mapper.ts`: `toSear
 _Avoid_: search parser, search response mapper
 
 **KnowledgeBaseAdapter**:
-An implementation of the `KnowledgeBase` port in `adapters/driven/openviking/knowledge-base.ts`. `find()` calls `POST /api/v1/search/find` (no session). `search()` calls `POST /api/v1/search/search` with optional `session_id`. `glob()` calls `POST /api/v1/search/glob`. `grep()` calls `POST /api/v1/search/grep` with all filter params (`case_insensitive`, `exclude_uri`, `level_limit`, `node_limit`). All methods use `SearchMapper` for response mapping.
+A concrete adapter class in `adapters/driven/openviking/knowledge-base.ts` (port `KnowledgeBase` was deleted in ADR-021 — tools call this via `SearchClient`). `find()` calls `POST /api/v1/search/find` (no session). `search()` calls `POST /api/v1/search/search` with optional `session_id`. `glob()` calls `POST /api/v1/search/glob`. `grep()` calls `POST /api/v1/search/grep` with all filter params (`case_insensitive`, `exclude_uri`, `level_limit`, `node_limit`). All methods use `SearchMapper` for response mapping.
 
 **SessionMapper**:
 Pure functions in `adapters/driven/openviking/mappers/session-mapper.ts`: `toSessionId(raw: OVCreateSessionResponse | OVCommitResponse)` extracts `session_id`; `toCommitResult(raw: OVCommitResponse)` maps to `{ sessionId, taskId?, archiveUri?, archived? }`; `toTaskStatus(raw: OVTaskResponse)` maps task status; `toSessionInfo(raw: OVSessionInfo)` maps full session info, extracting `memoriesExtracted` from `memories_extracted` Record (via `total` key or sum). Also exports `serializePart(part)` and `serializeParts(parts)`.
 _Avoid_: session parser
 
 **SessionStoreAdapter**:
-An implementation of the `SessionStore` port in `adapters/driven/openviking/session-store.ts`. All 10 methods implemented: `create()` → `POST /api/v1/sessions`; `sendMessage()` → `POST /api/v1/sessions/{id}/messages` with serialized `Part[]`; `sendMessages()` → batch endpoint; `commit()` → `POST /api/v1/sessions/{id}/commit` with `keep_recent_count`; `getTaskStatus()` → `GET /api/v1/tasks/{id}`; `listTasks()` → `GET /api/v1/tasks` with optional filters; `sessionUsed()` → `POST /api/v1/sessions/{id}/used`; `deleteSession()` → `DELETE /api/v1/sessions/{id}`; `getSession()` → `GET /api/v1/sessions/{id}`; `listSessions()` → `GET /api/v1/sessions`.
+A concrete adapter class in `adapters/driven/openviking/session-store.ts` (port `SessionStore` was deleted in ADR-021 — tools call this via `SessionClient`). All 10 methods implemented: `create()` → `POST /api/v1/sessions`; `sendMessage()` → `POST /api/v1/sessions/{id}/messages` with serialized `Part[]`; `sendMessages()` → batch endpoint; `commit()` → `POST /api/v1/sessions/{id}/commit` with `keep_recent_count`; `getTaskStatus()` → `GET /api/v1/tasks/{id}`; `listTasks()` → `GET /api/v1/tasks` with optional filters; `sessionUsed()` → `POST /api/v1/sessions/{id}/used`; `deleteSession()` → `DELETE /api/v1/sessions/{id}`; `getSession()` → `GET /api/v1/sessions/{id}`; `listSessions()` → `GET /api/v1/sessions`.
 
 **RelationMapper**:
 Pure functions in `adapters/driven/openviking/mappers/relation-mapper.ts`: `toLinkResult(raw, source, targets, reason?)` constructs a `LinkResult` from domain params; `toRelations(raw)` maps OV graph response (array or `{ relations: [...] }` shape) into domain `Relation[]`.
@@ -126,7 +126,7 @@ All mappers now accept typed OV wire-format inputs (e.g. `OVFindResponse`, `OVSe
 _Avoid_: guard functions, safe-utils
 
 **GraphStoreAdapter**:
-An implementation of the `GraphStore` port in `adapters/driven/openviking/graph-store.ts`. `link()` calls `POST /api/v1/relations/link` with `from_uri`, `to_uris[]`, optional `reason`. `unlink()` calls `DELETE /api/v1/relations/link` with `from_uri`, `to_uri`. `graph()` calls `GET /api/v1/relations?uri=` and maps via `RelationMapper`.
+A concrete adapter class in `adapters/driven/openviking/graph-store.ts` (port `GraphStore` was deleted in ADR-021 — tools call this via `RelationClient`). `link()` calls `POST /api/v1/relations/link` with `from_uri`, `to_uris[]`, optional `reason`. `unlink()` calls `DELETE /api/v1/relations/link` with `from_uri`, `to_uri`. `graph()` calls `GET /api/v1/relations?uri=` and maps via `RelationMapper`.
 
 **Config Cascade**:
 Config resolution order: compiled defaults → env vars (`OV_*`) → `.pi/settings.json` → active Profile (merged in `init()`, not `loadConfig()`). Each source overrides the previous via shallow merge.
@@ -139,7 +139,7 @@ _Avoid_: merge, resolution chain
 A named config preset. One is always active. Four built-in: `default`, `web-dev`, `docs`, `learning`. Carries `name` + `description` + `behavior: ProfileBehavior` (optional, added in F7a). Schema: `ProfileConfigSchema` with `behavior: ProfileBehaviorSchema.default({})`. Built-in profiles carry behavioral overrides (topN, scoreThreshold, searchMode, expandGraph, autoRecall). O `web-dev` profile tem `expandGraph: false` por padrão (contexto focado, sem expandir grafo). targetUri é definido por profile customizado via `.pi/settings.json`, não por placeholder.
 
 **ProfileBehavior**:
-6 optional behavioral fields that override `RecallConfig` when a profile is active. Fields are optional — profile só sobrescreve o que define. Canonical type in `domain/common/profile-config.ts` as `Partial<Pick<RecallConfig, 6 overridable fields>>`. Zod schema in `infrastructure/config/profile-schema.ts`:
+6 optional behavioral fields that override `RecallConfig` when a profile is active. Fields are optional — profile só sobrescreve o que define. Canonical type in `domain/common/profile-config.ts` as `Partial<Pick<RecallConfig, 6 overridable fields>>`. Zod schema in `infrastructure/config.ts` (ProfileBehaviorSchema — consolidado em ADR-021):
 - `targetUri` (string?): escopo de busca. undefined = global.
 - `topN` (number?): max results. undefined = usa default RecallConfig.
 - `scoreThreshold` (number 0-1?): relevância mínima.
@@ -159,7 +159,7 @@ Manages the active profile. Constructor receives `profiles: Record<string, Profi
 Register as singleton in container at init. In F7a, used only at init time (`init()` calls `pm.resolve()` and merges before service construction). In F7b, injected into services for runtime `apply()` support. `activeProfile` lido da config file em F7a; comando `/ov-profile` é F7b.
 
 **AutoDetect** (F7b):
-Minimatch rules-based profile detection. `detect(cwd, rules): string | null`. Rules from config: `{ "pattern": "**/web*/**", "profile": "web-dev" }`. Built-in rules: `**/web*/**` → web-dev, `**/doc*/**` → docs. Runs in `session_start` when `activeProfile = "auto"`.
+Minimatch rules-based profile detection (implemented via regex-based glob matcher with globstar support). `detect(cwd, rules): string | null`. Rules from config: `{ "pattern": "**/web*/**", "profile": "web-dev" }`. Built-in rules: `**/web*/**` → web-dev, `**/doc*/**` → docs. Runs in `session_start` when `activeProfile = "auto"`.
 _Avoid_: config profile, named preset
 
 **Logger Interface**:
@@ -186,7 +186,9 @@ Created via `createOpenVikingClient(adapter)` helper. Tools receive the relevant
 _Avoid_: big client, god object
 
 **SessionSync** *(implemented — `domain/services/session-sync-service.ts`)*:
-Binds `SessionManager` to lifecycle hooks. Wraps commit retry, skip-on-shutdown-commit flag, and auto-commit timer coordination. Depends on `SessionManager` + `OVAdapter` (circuit breaker state) + logger. Replaces inline lifecycle coordination previously in `register-lifecycle-hooks.ts`. Manages `SessionSync` auto-commit interval timer, `dirtySinceLastCommit` flag, and `skipShutdownCommit` flag as instance state — not module-level `let`.
+Binds `SessionManager` to lifecycle hooks. Wraps commit retry, skip-on-shutdown-commit flag, and auto-commit timer coordination. Depends on `SessionManager` + `OVAdapter` (circuit breaker state) + logger. Replaces inline lifecycle coordination previously in `register-lifecycle-hooks.ts`. Manages auto-commit interval timer and `dirtySinceLastCommit` flag as instance state.
+
+The `skipShutdownCommit` flag is a **module-level `let`** in `register-lifecycle-hooks.ts` — set by `session_before_switch` hook on successful commit, consumed by `session_shutdown` to avoid double-commit, reset after consumption. SessionSync does NOT own this flag; it was deliberately kept as module state because it bridges two hooks that don't share an instance.
 _Avoid_: session lifecycle manager
 
 ### Core Domain (future phases)
@@ -236,7 +238,7 @@ A string literal union: `"replace" | "append" | "create"`. Controls overwrite be
 Lives in `domain/common/write-mode.ts`.
 
 **ReindexMode**:
-A string literal union: `"vectors_only" | "full"`. Controls reindex scope for `FsStore.reindex()`. Default `"vectors_only"` rebuilds vector embeddings only; `"full"` rebuilds both scalar and vector indexes. Lives in `domain/ports/fs-store.ts` as an exported type alias.
+A string literal union: `"vectors_only" | "full"`. Controls reindex scope for `FsStoreAdapter.reindex()`. Default `"vectors_only"` rebuilds vector embeddings only; `"full"` rebuilds both scalar and vector indexes. Lives in `domain/client/ov-types.ts` as an exported type alias.
 
 
 
@@ -345,14 +347,14 @@ _Avoid_: ov_delete with glob, delete with confirmation
 **ov_resource** *(implemented — `adapters/driver/pi-tools/ov-resource.ts`)*:
 Pi tool for saving resources. Validates URI prefix `viking://resources/`, delegates to `fsClient.save()` via `FsClient`. TypeBox schema: `{ uri: string, content: string, mode?: "replace"|"append"|"create" }`. Returns JSON result. 6 unit tests. Thin alias of `ov_write` with prefix validation — does not use dedicated OV endpoint. Decline to consolidate into `ov_write` per grill decision: agent discoverability via search benefits from having a named resource tool.
 
-**ResourceStore** *(port — `domain/ports/resource-store.ts`)*:
-Port interface for importing external resources into OpenViking. Single method `importUrl(url, options?, signal?)` → `Promise<ResourceImportResult>`. Options: `targetUri` (custom `viking://` path), `reason` (import motivation), `wait` (block until server processing completes). Return type `ResourceImportResult` carries `status`, `rootUri`, `sourcePath`, optional `errors[]`.
+**ResourceStore** *(port — deleted in ADR-021)*:
+Was the domain port for importing external resources. Interface `importUrl(url, options?, signal?)` → `Promise<ResourceImportResult>`. Port file `domain/ports/resource-store.ts` was deleted. Types (`ResourceImportResult`, `ImportOptions`) live in `domain/client/ov-types.ts`. Adapter class `ResourceStoreAdapter` in `adapters/driven/openviking/resource-store.ts` is called via `ResourceClient` sub-interface of `OpenVikingClient`.
 
 **ResourceStoreAdapter** *(driven adapter — `adapters/driven/openviking/resource-store.ts`)*:
 Implements `ResourceStore` port. `importUrl()` calls `POST /api/v1/resources` with `{ path, to?, reason?, wait? }`. Response parsed via `toResourceImportResult()` in `mappers/resource-mapper.ts`. 11 unit tests.
 
-**SkillStore** *(port — `domain/ports/skill-store.ts`)*:
-Port interface for the OV skills API. Single method `addSkill(data: string | SkillData, options?, signal?)` → `POST /api/v1/skills`. Accepts inline SKILL.md content or structured `SkillData`. Options: `wait`, `timeout`. Returns `AddSkillResult` with `rootUri`, `uri`, `name`, `auxiliaryFiles`. Lives in `domain/ports/skill-store.ts`.
+**SkillStore** *(port — deleted in ADR-021)*:
+Was the domain port for the OV skills API. Method `addSkill(data: string | SkillData, options?, signal?)`. Port file `domain/ports/skill-store.ts` was deleted. Types (`AddSkillResult`, `SkillData`, `AddSkillOptions`) live in `domain/client/ov-types.ts`. Adapter class `SkillStoreAdapter` in `adapters/driven/openviking/skill-store.ts` is called via `SkillClient` sub-interface of `OpenVikingClient`.
 
 **SkillStoreAdapter** *(driven adapter — `adapters/driven/openviking/skill-store.ts`)*:
 Implements `SkillStore` port. `addSkill()` sends `POST /api/v1/skills` with `{ data, wait?, timeout? }`. Response mapped via `toAddSkillResult()` in `mappers/skill-mapper.ts`.

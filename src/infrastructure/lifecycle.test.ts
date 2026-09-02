@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { init, shutdown } from "./lifecycle";
 import { RecallCurator } from "../domain/recall/recall-curator";
 import { RecallService } from "../domain/recall/recall-service";
-import { SessionManager } from "../domain/services/session-service";
-import { ProfileManager } from "../domain/profile/service/ProfileManager";
+import { SessionManager } from "../domain/session/session-service";
+import { ProfileManager } from "../domain/profile/ProfileManager";
 
 const OLD_ENV = process.env;
 

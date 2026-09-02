@@ -1,0 +1,45 @@
+/**
+ * OV adapter factory.
+ * Creates all driven adapters for OV API endpoints.
+ *
+ * See OV 01-overview.md (connection/auth), 02-resources.md, 03-filesystem.md,
+ *     05-sessions.md, 06-retrieval.md, 08-relations.md.
+ */
+
+import type { OVAdapterConfig } from "../../infrastructure/config";
+import type { Logger } from "../../domain/ports/logger";
+import { Transport } from "./transport";
+import { FsStoreAdapter } from "./fs-store";
+import { KnowledgeBaseAdapter } from "./knowledge-base";
+import { SessionStoreAdapter } from "./session-store";
+import { GraphStoreAdapter } from "./graph-store";
+import { ResourceStoreAdapter } from "./resource-store";
+import { SkillStoreAdapter } from "./skill-store";
+
+export interface OVAdapter {
+  knowledgeBase: KnowledgeBaseAdapter;
+  fsStore: FsStoreAdapter;
+  graphStore: GraphStoreAdapter;
+  sessionStore: SessionStoreAdapter;
+  resourceStore: ResourceStoreAdapter;
+  skillStore: SkillStoreAdapter;
+  /** True when the circuit breaker is OPEN — fast fail for recall guard */
+  readonly circuitBreakerOpen: boolean;
+  /** Underlying HTTP transport, shared by all adapters */
+  readonly transport: Transport;
+}
+
+export function createOVAdapter(config: OVAdapterConfig, logger?: Logger): OVAdapter {
+  const transport = new Transport(config, logger);
+
+  return {
+    knowledgeBase: new KnowledgeBaseAdapter(transport),
+    fsStore: new FsStoreAdapter(transport, logger),
+    graphStore: new GraphStoreAdapter(transport),
+    sessionStore: new SessionStoreAdapter(transport, config.commitTimeout),
+    resourceStore: new ResourceStoreAdapter(transport),
+    skillStore: new SkillStoreAdapter(transport),
+    get circuitBreakerOpen() { return transport.isCircuitBreakerOpen(); },
+    transport,
+  };
+}

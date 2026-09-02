@@ -4,7 +4,7 @@ import type { SearchClient } from "../client/open-viking-client";
 import type { RecallCurator } from "./recall-curator";
 import type { RecallConfig } from "../common/recall-config";
 import type { Logger } from "../ports/logger";
-import type { SearchResult } from "../knowledge/model/search-result";
+import type { SearchResult } from "../knowledge/search-result";
 import { Uri } from "../common/uri";
 import { ConnectionError, ValidationError } from "../errors/domain-error";
 

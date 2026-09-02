@@ -1,14 +1,14 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { init } from "./infrastructure/lifecycle";
-import { registerAllTools } from "./adapters/driver/pi-tools/tool-registry";
-import { registerAllCommands } from "./adapters/driver/pi-commands/command-registry";
-import { OVWidget } from "./adapters/driver/ov-widget";
-import { SystemStatusClient } from "./adapters/driven/openviking/system-status";
+import { registerAllTools } from "./adapters/pi-tools/tool-registry";
+import { registerAllCommands } from "./adapters/pi-commands/command-registry";
+import { OVWidget } from "./adapters/ui/ov-widget";
+import { SystemStatusClient } from "./adapters/ov-client/system-status";
 import {
   registerLifecycleHooks,
   handleSessionStart,
   type LifecycleServices,
-} from "./adapters/driver/pi-lifecycle/register-lifecycle-hooks";
+} from "./adapters/pi-lifecycle/register-lifecycle-hooks";
 
 let initialized = false;
 let lifecycleServices: LifecycleServices;

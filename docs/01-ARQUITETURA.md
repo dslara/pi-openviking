@@ -147,18 +147,20 @@ A ordem de criação dos artefatos de domínio segue dependências entre eles:
 | 1 | `domain/common/` — Uri (class), SessionId (class), ContentLevel, WriteMode, FindQuery + SearchRequest (interfaces), Part (discriminated union) | — |
 | 2 | `domain/errors/` — DomainError class + subtipos (NotFoundError, ConnectionError, etc.) | — |
 | 3 | `domain/{knowledge,recall,profile}/model/` — value objects + aggregates | common, errors |
-| 4 | `domain/ports/` — KnowledgeBase, FsStore, GraphStore, SessionStore, Logger, ResourceStore, SkillStore | models (tipos de retorno) |
+| 4 | `domain/ports/` — Logger, SessionMapStore (ports remanescentes). Demais interfaces migraram para `domain/client/open-viking-client.ts` como sub-interfaces (SearchClient, FsClient, SessionClient, RelationClient, ResourceClient, SkillClient) no ADR-021 Flat Hexagon. | models (tipos de retorno) |
 | 5 | `domain/recall/curate.ts` — curate pipeline (pure function) | domain models |
 
 ProfileManager implementado em F7a. ProfileBehavior (6 campos) + AutoDetect em F7b.
 
 ---
 
-## 3. Ports (Interfaces do Domínio)
+## 3. OpenVikingClient — Interface Única (Flat Hexagon)
 
-Todas as ports ficam em `domain/ports/`. Adaptadores concretos em `adapters/driven/`.
+Com ADR-021, as 8 ports de domínio foram substituídas por uma única interface `OpenVikingClient`
+composta de 6 sub-interfaces, definida em `domain/client/open-viking-client.ts`.
+As únicas ports remanescentes em `domain/ports/` são `Logger` e `SessionMapStore`.
 
-### KnowledgeBase — busca semântica e lexical
+### SearchClient — busca semântica e lexical
 
 Dois endpoints de busca OV:
 - `POST /api/v1/search/find` — find(), sem sessão, sem intent analysis, baixa latência
@@ -167,68 +169,57 @@ Dois endpoints de busca OV:
 - `POST /api/v1/search/grep` (uri, pattern, case_insensitive, exclude_uri, level_limit, node_limit)
 
 ```typescript
-interface KnowledgeBase {
-  /** Simple semantic search, no session context. POST /api/v1/search/find */
+interface SearchClient {
   find(query: FindQuery, opts?: SearchOptions, signal?: AbortSignal): Promise<SearchResult>;
-  /** Deep search with session + intent analysis. POST /api/v1/search/search */
   search(request: SearchRequest, opts?: SearchOptions, signal?: AbortSignal): Promise<SearchResult>;
-  /** URI pattern discovery. POST /api/v1/search/glob */
   glob(pattern: string, uri?: string, limit?: number, signal?: AbortSignal): Promise<GlobResult>;
-  /** Content regex search. POST /api/v1/search/grep */
   grep(pattern: string, opts?: GrepOptions, signal?: AbortSignal): Promise<GrepResult>;
 }
 ```
 
-**GrepOptions:**
-- `pattern` — padrão de busca
-- `caseInsensitive?` — case insensitive match
-- `excludeUri?` — URI a excluir
-- `levelLimit?` — profundidade máxima (níveis de diretório)
-- `nodeLimit?` — max resultados
-
-OV: `POST /api/v1/search/grep {uri, pattern, case_insensitive, exclude_uri, level_limit, node_limit}`
-
-### GraphStore — navegação de relações
+### RelationClient — navegação de relações
 
 Mapeamento OV: `POST /api/v1/relations/link`, `DELETE /api/v1/relations/link`, `GET /api/v1/relations?uri=`.
 
 ```typescript
-interface GraphStore {
+interface RelationClient {
   link(source: Uri, targets: Uri | Uri[], reason?: string, signal?: AbortSignal): Promise<LinkResult>;
   unlink(source: Uri, target: Uri, signal?: AbortSignal): Promise<void>;
   graph(uri: Uri, signal?: AbortSignal): Promise<Relation[]>;
 }
 ```
 
-### SessionStore — ciclo de vida de sessão OV
+### SessionClient — ciclo de vida de sessão OV
 
 Mapeamento OV:
-- `POST /api/v1/sessions` — create
-- `POST /api/v1/sessions/{id}/messages` — sendMessage (1 mensagem)
+- `POST /api/v1/sessions` — createSession
+- `POST /api/v1/sessions/{id}/messages` — sendMessage (1 mensagem, com role + Part[])
 - `POST /api/v1/sessions/{id}/messages/batch` — sendMessages (max 100)
-- `POST /api/v1/sessions/{id}/commit` — commit (com `keep_recent_count`)
+- `POST /api/v1/sessions/{id}/commit` — commit (com `keepRecentCount`)
 - `POST /api/v1/sessions/{id}/used` — sessionUsed
 - `GET /api/v1/tasks/{id}` — getTaskStatus
 - `GET /api/v1/tasks` (com filtros) — listTasks
 - `DELETE /api/v1/sessions/{id}` — deleteSession
+- `GET /api/v1/sessions/{id}` — getSession
 
 ```typescript
-interface SessionStore {
-  create(signal?: AbortSignal): Promise<SessionId>;
-  sendMessage(sessionId: SessionId, role: string, content: Part[], signal?: AbortSignal): Promise<void>;
-  sendMessages(sessionId: SessionId, messages: { role: string; content: Part[] }[], signal?: AbortSignal): Promise<void>;
-  commit(sessionId: SessionId, options?: CommitOptions, signal?: AbortSignal): Promise<CommitResult>;
+interface SessionClient {
+  createSession(signal?: AbortSignal): Promise<SessionId>;
+  sendMessage(id: SessionId, role: string, parts: Part[], signal?: AbortSignal): Promise<void>;
+  sendMessages(id: SessionId, msgs: { role: string; content: Part[] }[], signal?: AbortSignal): Promise<void>;
+  commit(id: SessionId, opts?: CommitOptions, signal?: AbortSignal): Promise<CommitResult>;
+  getSession(id: SessionId, signal?: AbortSignal): Promise<SessionInfo>;
   getTaskStatus(taskId: string, signal?: AbortSignal): Promise<TaskStatus>;
-  listTasks(filter?: TaskFilter, signal?: AbortSignal): Promise<TaskStatus[]>;
-  sessionUsed(sessionId: SessionId, contexts: Uri[], signal?: AbortSignal): Promise<void>;
-  deleteSession(sessionId: SessionId, signal?: AbortSignal): Promise<void>;
+  sessionUsed(id: SessionId, contexts: Uri[], signal?: AbortSignal): Promise<void>;
+  deleteSession(id: SessionId, signal?: AbortSignal): Promise<void>;
+  listSessions(signal?: AbortSignal): Promise<SessionInfo[]>;
 }
 ```
 
-### FsStore — operações no filesystem OV (ContentStore fundida)
+### FsClient — operações no filesystem OV
 
-Port única para ler, escrever, navegar e gerenciar o filesystem virtual do OpenViking.
-ContentStore foi fundida nesta port — OV trata content e fs como o mesmo sistema.
+Interface única para ler, escrever, navegar e gerenciar o filesystem virtual do OpenViking.
+ContentStore foi fundida — OV trata content e fs como o mesmo sistema.
 
 Mapeamento OV:
 - Leitura: `GET /api/v1/content/{read|abstract|overview}?uri=X` (abstract/overview apenas diretórios)
@@ -237,55 +228,46 @@ Mapeamento OV:
 - Mutação: `POST /api/v1/fs/mkdir`, `POST /api/v1/fs/mv`, `DELETE /api/v1/fs`
 
 ```typescript
-interface FsStore {
+interface FsClient {
   read(uri: Uri, level?: ContentLevel, offset?: number, limit?: number, signal?: AbortSignal): Promise<Content>;
-  write(uri: Uri, content: string, mode?: WriteMode, signal?: AbortSignal): Promise<WriteResult>;
+  save(uri: Uri, content: string, mode?: WriteMode, signal?: AbortSignal): Promise<WriteResult>;
   list(uri: Uri, recursive?: boolean, signal?: AbortSignal): Promise<FsEntry[]>;
   tree(uri: Uri, signal?: AbortSignal): Promise<FsEntry[]>;
   stat(uri: Uri, signal?: AbortSignal): Promise<FsEntry>;
   mkdir(uri: Uri, signal?: AbortSignal): Promise<void>;
   mv(from: Uri, to: Uri, signal?: AbortSignal): Promise<void>;
   delete(uri: Uri, recursive?: boolean, signal?: AbortSignal): Promise<void>;
-  reindex(uri: Uri, mode?: "vectors_only" | "full", signal?: AbortSignal): Promise<void>;
+  reindex(uri: Uri, mode?: ReindexMode, signal?: AbortSignal): Promise<void>;
 }
 ```
 
-> **ReindexMode**: `"vectors_only" | "full"`. Default `"vectors_only"` rebuilds vector embeddings; `"full"` rebuilds both scalar and vector indexes. Maps to OV `POST /api/v1/content/reindex {uri, mode}`.
+> **ReindexMode**: `"vectors_only" | "full"`. Default `"vectors_only"` rebuilds vector embeddings; `"full"` rebuilds both scalar and vector indexes. Maps to OV `POST /api/v1/content/reindex {uri, mode}`. Defined in `domain/client/ov-types.ts`.
 
 > `read()` aceita `level` que mapeia para as camadas L0/L1/L2 do OV:
 > - `"abstract"` → L0. OV v0.3.24+: `GET /api/v1/content/abstract?uri=X` (diretórios apenas, retorna 412 em files)
 > - `"overview"` → L1. OV v0.3.24+: `GET /api/v1/content/overview?uri=X` (diretórios apenas, retorna 412 em files)
 > - `"read"` → L2 (conteúdo completo). OV: `GET /api/v1/content/read?uri=&offset=&limit=`
 >
-> Os endpoints `/api/v1/content/{abstract,overview}` existem e funcionam para diretórios.
-> Para arquivos individuais retornam 412 FAILED_PRECONDITION — erro propagado ao caller,
-> não silenciado. Use search API para abstract/overview de arquivos específicos.
-> `offset` e `limit` aplicam-se apenas ao nível `"read"`.
->
 > `offset` (linha inicial, default 0) e `limit` (linhas, default -1) aplicam-se apenas ao nível `"read"`.
 >
-> `write()` não expõe `wait` no domínio — detalhe de transporte resolvido no adapter
+> `save()` não expõe `wait` no domínio — detalhe de transporte resolvido no adapter
 > via `wait: false` (assíncrono — OV processa embedding em background).
-> OV `POST /api/v1/content/write` aceita `wait: bool` e `timeout: float`.
->
+
 > **Nota sobre scopes OV:** OV organiza conteúdo em 4 scopes públicos sob `viking://`:
 > `resources/` (documentos), `user/{user_id}/` (memórias de usuário), `agent/{agent_id}/` (memórias/experiências do agent),
 > `session/{user_space}/{session_id}/` (dados de sessão). O extension mapeia Pi sessions → OV sessions.
 > Scopes `temp/` e `queue/` são internos, não acessíveis via API pública.
 
-**Tipos de suporte (definidos em `domain/common/`):**
+### Shared Types (domain/common/ + domain/client/ov-types.ts)
 
 ```typescript
 // domain/common/content-level.ts
-// Mapeia para camadas OV: L0 (abstract, ~100 tokens) / L1 (overview, ~2k tokens) / L2 (read, full)
 type ContentLevel = "abstract" | "overview" | "read";
 
 // domain/common/write-mode.ts
 type WriteMode = "replace" | "append" | "create";
 
 // domain/common/search-query.ts
-// Dois types separados — OV tem endpoints distintos (ver decisão F2 em CONTEXT.md).
-// SearchMode removido: KnowledgeBase.find() vs KnowledgeBase.search() resolve o mode.
 interface FindQuery {
   query: string;
   limit?: number;
@@ -314,15 +296,14 @@ interface ToolPart {
 }
 interface ContextPart { type: "context"; uri: string; contextType: "memory" | "resource" | "skill"; abstract: string }
 type Part = TextPart | ToolPart | ContextPart;
+
+// domain/client/ov-types.ts
+export type ReindexMode = "vectors_only" | "full";
+// Demais tipos: Content, WriteResult, FsEntry, GlobResult, GrepResult, CommitResult,
+// SessionInfo, TaskStatus, LinkResult, ResourceImportResult, AddSkillResult, SkillData
 ```
 
-> **Nota:** `ResourceKind` e `SearchMode` foram removidos — escrita de conteúdo textual é via `write()`,
-> adição de resources via `POST /api/v1/resources` (adaptador OV, não port).
-> OV v3 não possui endpoint `reindex`. `write()` sempre atualiza semântica/vectors automaticamente.
-> `FindQuery`/`SearchRequest` e `Part` vivem em `domain/common/` por serem consumidos por múltiplas ports
-> e adaptadores. Não são private de port nenhuma.
-
-### Logger — logging estruturado
+### Logger — port remanescente em `domain/ports/`
 
 ```typescript
 type LogLevel = "debug" | "info" | "warn" | "error";
@@ -336,7 +317,7 @@ interface Logger {
 }
 ```
 
-> Logger é síncrono por design — não precisa de `AbortSignal`.
+> Logger é síncrono por design — não precisa de `AbortSignal`. Única port de domínio remanescente junto com `SessionMapStore`.
 
 ---
 
@@ -369,7 +350,7 @@ class RecallService {
 
 Recall is controlled by a toggle command (`/ov recall on` / `/ov recall off`).
 No intent detection — user decides when recall fires.
-`searchMode` comes from `RecallConfig` (default `'find'`), overridable via profile.
+`searchMode` comes from `RecallConfig` (default `'search'` — `z.enum(["find", "search"]).default("search")` em `infrastructure/config.ts`), overridable via profile.
 
 ### 4.3 Middleware Pipeline — REMOVIDO
 
@@ -554,8 +535,7 @@ src/
 │       │   ├── session-store.ts   # ✅ SessionStoreAdapter (create/send/commit/tasks/lifecycle)
 │       │   ├── graph-store.ts     # ✅ GraphStoreAdapter (link/unlink/graph)
 │       │   └── mappers/
-│       │       ├── error-mapper.ts    # ✅ toDomainError()
-│       │       ├── content-mapper.ts  # ✅ toContent()
+│       │       ├── ov-mappers.ts      # ✅ toDomainError() + toContent() (consolidados em ov-mappers.ts)
 │       │       ├── fs-mapper.ts       # ✅ toFsEntry/toFsEntries/toWriteResult
 │       │       ├── search-mapper.ts   # ✅ toSearchResult/toGlobResult/toGrepResult
 │       │       ├── session-mapper.ts  # ✅ toSessionId/toCommitResult/toTaskStatus + PartSerializer

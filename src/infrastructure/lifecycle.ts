@@ -1,15 +1,15 @@
 import { loadConfig, mergeBehaviorIntoRecall } from "./config";
-import { FileLogger } from "../adapters/driven/logger/file-logger";
-import { createOVAdapter, type OVAdapter } from "../adapters/driven/openviking/adapter";
-import { OpenVikingClientAdapter } from "../adapters/driven/openviking/client/client-adapter";
+import { FileLogger } from "../adapters/logging/file-logger";
+import { createOVAdapter, type OVAdapter } from "../adapters/ov-client/adapter";
+import { OpenVikingClientAdapter } from "../adapters/ov-client/client-adapter";
 import { RecallCurator } from "../domain/recall/recall-curator";
 import { GraphExpander } from "../domain/recall/graph-expander";
 import { relevanceScorer, temporalScorer } from "../domain/recall/curate";
 import { RecallService } from "../domain/recall/recall-service";
-import { SessionManager } from "../domain/services/session-service";
-import { SessionSync } from "../domain/services/session-sync-service";
+import { SessionManager } from "../domain/session/session-service";
+import { SessionSync } from "../domain/session/session-sync-service";
 
-import { ProfileManager } from "../domain/profile/service/ProfileManager";
+import { ProfileManager } from "../domain/profile/ProfileManager";
 import { RepoContext } from "./repo-context";
 import type { Logger } from "../domain/ports/logger";
 import type { FsClient, OpenVikingClient } from "../domain/client/open-viking-client";
