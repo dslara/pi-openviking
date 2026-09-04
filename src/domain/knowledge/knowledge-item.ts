@@ -3,6 +3,7 @@ export interface KnowledgeItem {
   text: string;
   abstract?: string;
   overview?: string;
+  content?: string;
   score?: number;
   category?: string;
   level?: number;

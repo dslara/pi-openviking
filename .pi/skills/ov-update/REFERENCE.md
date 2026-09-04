@@ -1,6 +1,6 @@
 # OV Doc URLs Reference
 
-All URLs use `main` branch. When importing for a specific release, replace `main` with the tag (e.g. `v0.3.23`).
+All URLs use `main` branch. When importing for a specific release, replace `main` with the tag (e.g. `v0.4.17.1`).
 
 ## README
 
@@ -8,7 +8,7 @@ All URLs use `main` branch. When importing for a specific release, replace `main
 |------|-----|
 | README.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/README.md` |
 
-## Concepts (13 docs)
+## Concepts (15 docs)
 
 | # | Path | URL |
 |---|------|-----|
@@ -25,8 +25,10 @@ All URLs use `main` branch. When importing for a specific release, replace `main
 | 11 | concepts/11-multi-tenant.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/concepts/11-multi-tenant.md` |
 | 12 | concepts/12-metrics.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/concepts/12-metrics.md` |
 | 13 | concepts/13-privacy.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/concepts/13-privacy.md` |
+| 14 | concepts/14-multi-write-storage.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/concepts/14-multi-write-storage.md` |
+| 15 | concepts/15-vikingbot.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/concepts/15-vikingbot.md` |
 
-## API Reference (11 docs)
+## API Reference (22 docs)
 
 | # | Path | URL |
 |---|------|-----|
@@ -40,7 +42,18 @@ All URLs use `main` branch. When importing for a specific release, replace `main
 | 8 | api/08-admin.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/08-admin.md` |
 | 9 | api/09-metrics.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/09-metrics.md` |
 | 10 | api/10-privacy.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/10-privacy.md` |
-| 11 | api/99-api-doc-writing-guide.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/99-api-doc-writing-guide.md` |
+| 11 | api/11-snapshot.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/11-snapshot.md` |
+| 12 | api/12-content.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/12-content.md` |
+| 13 | api/14-ovpack.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/14-ovpack.md` |
+| 14 | api/15-watches.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/15-watches.md` |
+| 15 | api/16-memory.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/16-memory.md` |
+| 16 | api/17-tasks.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/17-tasks.md` |
+| 17 | api/18-observer.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/18-observer.md` |
+| 18 | api/19-agent-evolution.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/19-agent-evolution.md` |
+| 19 | api/20-webdav.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/20-webdav.md` |
+| 20 | api/22-openviking-assets.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/22-openviking-assets.md` |
+| 21 | api/24-vikingbot.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/24-vikingbot.md` |
+| 22 | api/99-api-doc-writing-guide.md | `https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/en/api/99-api-doc-writing-guide.md` |
 
 ## Target URIs in OV
 

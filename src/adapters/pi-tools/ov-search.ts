@@ -24,6 +24,7 @@ const SearchSchema = Type.Object({
   timeField: Type.Optional(Type.String({ description: "Time field to filter on: 'updated_at' or 'created_at'" })),
   level: Type.Optional(Type.Number({ description: "Content detail level for results" })),
   includeProvenance: Type.Optional(Type.Boolean({ description: "Include provenance information in results" })),
+  readContent: Type.Optional(Type.Boolean({ description: "When true, each hit includes full visible content (OV v0.4.17+ read_content). Use sparingly — large payload" })),
 });
 
 export function createOvSearchTool(
@@ -35,7 +36,7 @@ export function createOvSearchTool(
     name: "ov_search",
     label: "Search Knowledge",
     description: "Primary knowledge base for project memories, decisions, and patterns. ALWAYS check here first before using generic search tools. Supports fast (semantic find) and deep (intent-aware search) modes.",
-    promptSnippet: "ov_search(query, mode?, limit?, targetUri?, scoreThreshold?, since?, until?, timeField?, level?, includeProvenance?) — search knowledge base",
+    promptSnippet: "ov_search(query, mode?, limit?, targetUri?, scoreThreshold?, since?, until?, timeField?, level?, includeProvenance?, readContent?) — search knowledge base",
     parameters: SearchSchema,
     async execute(_toolCallId, params, signal) {
       try {
@@ -48,6 +49,7 @@ export function createOvSearchTool(
           timeField: params.timeField,
           level: params.level,
           includeProvenance: params.includeProvenance,
+          readContent: params.readContent,
         };
         const result = await withLogging<SearchResult>(logger, "ov_search", async () => {
           const r =

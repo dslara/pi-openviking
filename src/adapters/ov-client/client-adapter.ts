@@ -93,8 +93,12 @@ export class OpenVikingClientAdapter
     return this.adapter.fsStore.write(uri, content, mode, signal);
   }
 
-  mkdir(uri: Parameters<FsClient["mkdir"]>[0], signal?: AbortSignal) {
-    return this.adapter.fsStore.mkdir(uri, signal);
+  mkdir(
+    uri: Parameters<FsClient["mkdir"]>[0],
+    description?: string | AbortSignal,
+    signal?: AbortSignal,
+  ) {
+    return this.adapter.fsStore.mkdir(uri, description as string | AbortSignal, signal);
   }
 
   mv(

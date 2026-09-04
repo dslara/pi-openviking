@@ -133,13 +133,23 @@ export class FsStoreAdapter {
     return toFsEntry(raw, uri.value);
   }
 
-  async mkdir(uri: Uri, signal?: AbortSignal): Promise<void> {
-    const body = JSON.stringify({ uri: uri.value });
+  async mkdir(uri: Uri, descriptionOrSignal?: string | AbortSignal, signal?: AbortSignal): Promise<void> {
+    let description: string | undefined;
+    let sig: AbortSignal | undefined;
+    if (descriptionOrSignal instanceof AbortSignal) {
+      sig = descriptionOrSignal;
+    } else {
+      description = descriptionOrSignal as string | undefined;
+      sig = signal;
+    }
+    const body = description
+      ? JSON.stringify({ uri: uri.value, description })
+      : JSON.stringify({ uri: uri.value });
     await this.transport.request<unknown>(
       "FsStore.mkdir",
       "/api/v1/fs/mkdir",
       { method: "POST", body },
-      signal,
+      sig,
     );
   }
 

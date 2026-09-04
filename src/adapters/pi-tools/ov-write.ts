@@ -17,6 +17,7 @@ const WriteSchema = Type.Object({
       { description: 'Write mode for save action: "replace" (default), "append", "create"' },
     ),
   ),
+  description: Type.Optional(Type.String({ description: "Directory description for mkdir (OV v0.4.17+ L0 semantic)" })),
 });
 
 export function createOvWriteTool(client: FsClient): ToolDefinition<typeof WriteSchema> {
@@ -24,7 +25,7 @@ export function createOvWriteTool(client: FsClient): ToolDefinition<typeof Write
     name: "ov_write",
     label: "Write / Modify Content",
     description: "Write or modify content in the OpenViking knowledge base. Supports save, mkdir, and mv actions.",
-    promptSnippet: 'ov_write(action, uri, content?, targetUri?, mode?) — write/mkdir/mv',
+    promptSnippet: 'ov_write(action, uri, content?, targetUri?, mode?, description?) — write/mkdir/mv',
     parameters: WriteSchema,
     async execute(_toolCallId, params, signal) {
       try {
@@ -39,7 +40,11 @@ export function createOvWriteTool(client: FsClient): ToolDefinition<typeof Write
             );
             break;
           case "mkdir":
-            await client.mkdir(new Uri(params.uri!), signal ?? undefined);
+            await client.mkdir(
+              new Uri(params.uri!),
+              (params as { description?: string }).description ?? undefined,
+              signal ?? undefined,
+            );
             result = "ok";
             break;
           case "mv": {

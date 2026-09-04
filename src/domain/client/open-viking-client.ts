@@ -76,7 +76,7 @@ export interface FsClient {
     mode?: WriteMode,
     signal?: AbortSignal,
   ): Promise<WriteResult>;
-  mkdir(uri: Uri, signal?: AbortSignal): Promise<void>;
+  mkdir(uri: Uri, description?: string | AbortSignal, signal?: AbortSignal): Promise<void>;
   mv(from: Uri, to: Uri, signal?: AbortSignal): Promise<void>;
   list(
     uri: Uri,

@@ -25,6 +25,7 @@ export interface OVMatchedContext {
   match_reason: string;
   abstract: string;
   overview?: string | null;
+  content?: string | null;
   relations?: { relation: string; uri: string }[];
 }
 
@@ -47,6 +48,7 @@ export interface OVFindRequest {
   level?: string;
   filter?: Record<string, unknown>;
   include_provenance?: boolean;
+  read_content?: boolean;
   peer_id?: string;
   telemetry?: boolean | Record<string, unknown>;
 }

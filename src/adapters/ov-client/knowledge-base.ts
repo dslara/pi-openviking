@@ -26,6 +26,7 @@ export class KnowledgeBaseAdapter {
     if (opts?.timeField !== undefined) body.time_field = opts.timeField;
     if (opts?.level !== undefined) body.level = opts.level;
     if (opts?.includeProvenance !== undefined) body.include_provenance = opts.includeProvenance;
+    if (opts?.readContent !== undefined) body.read_content = opts.readContent;
 
     const raw = await this.transport.request<OVFindResponse>(
       "KnowledgeBase.find",
@@ -49,6 +50,7 @@ export class KnowledgeBaseAdapter {
     if (opts?.timeField !== undefined) body.time_field = opts.timeField;
     if (opts?.level !== undefined) body.level = opts.level;
     if (opts?.includeProvenance !== undefined) body.include_provenance = opts.includeProvenance;
+    if (opts?.readContent !== undefined) body.read_content = opts.readContent;
 
     const raw = await this.transport.request<OVFindResponse>(
       "KnowledgeBase.search",

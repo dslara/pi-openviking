@@ -174,7 +174,7 @@ describe("OpenVikingClientAdapter", () => {
 
       await client.mkdir(uri);
 
-      expect(adapter.fsStore.mkdir).toHaveBeenCalledWith(uri, undefined);
+      expect(adapter.fsStore.mkdir).toHaveBeenCalledWith(uri, undefined, undefined);
     });
 
     it("mv delegates to fsStore.mv", async () => {

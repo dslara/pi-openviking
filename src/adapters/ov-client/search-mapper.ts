@@ -16,6 +16,7 @@ function toKnowledgeItem(raw: OVMatchedContext): KnowledgeItem {
     text: raw.abstract || "",
     abstract: raw.abstract,
     overview: raw.overview ?? undefined,
+    content: raw.content ?? undefined,
     score: raw.score,
     category: raw.category,
     level: raw.level,
@@ -30,6 +31,7 @@ function toResourceItem(raw: OVMatchedContext): ResourceItem {
     uri: raw.uri,
     score: raw.score,
     abstract: raw.abstract,
+    content: raw.content ?? undefined,
   };
 }
 
@@ -38,6 +40,7 @@ function toSkillItem(raw: OVMatchedContext): SkillItem {
     uri: raw.uri,
     score: raw.score,
     abstract: raw.abstract,
+    content: raw.content ?? undefined,
   };
 }
 
