@@ -3,20 +3,10 @@ import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync } from "node:f
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { init, shutdown } from "./lifecycle";
-import { FileLogger } from "../adapters/driven/logger/file-logger";
 import { RecallCurator } from "../domain/recall/recall-curator";
 import { RecallService } from "../domain/recall/recall-service";
-import { SessionService } from "../domain/services/session-service";
-import { SearchService } from "../domain/services/search-service";
-import { FsStoreService } from "../domain/services/fs-store-service";
-import { ProfileManager } from "../domain/profile/service/ProfileManager";
-import type { Logger } from "../domain/ports/logger";
-import type { KnowledgeBase } from "../domain/ports/knowledge-base";
-import type { FsStore } from "../domain/ports/fs-store";
-import type { GraphStore } from "../domain/ports/graph-store";
-import type { SessionStore } from "../domain/ports/session-store";
-import type { ResourceStore } from "../domain/ports/resource-store";
-import type { SkillStore } from "../domain/ports/skill-store";
+import { SessionManager } from "../domain/session/session-service";
+import { ProfileManager } from "../domain/profile/ProfileManager";
 
 const OLD_ENV = process.env;
 
@@ -37,26 +27,12 @@ describe("init", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("returns config, logger and container", async () => {
+  it("returns config, logger and services", async () => {
     const result = await init(tmpDir);
     expect(result).toHaveProperty("config");
     expect(result).toHaveProperty("logger");
-    expect(result).toHaveProperty("container");
-  });
-
-  it("container resolves config token", async () => {
-    const { container } = await init(tmpDir);
-    const config = container.resolve("config");
-    expect(config).toBeDefined();
-    expect(typeof config).toBe("object");
-  });
-
-  it("container resolves logger as FileLogger", async () => {
-    const { container } = await init(tmpDir);
-    const logger = container.resolve<Logger>("logger");
-    expect(logger).toBeInstanceOf(FileLogger);
-    expect(typeof logger.info).toBe("function");
-    expect(typeof logger.isEnabled).toBe("function");
+    expect(result).toHaveProperty("adapter");
+    expect(result).toHaveProperty("ovClient");
   });
 
   it("logger uses resolved config — OV_LOG_PATH controls output file", async () => {
@@ -71,147 +47,29 @@ describe("init", () => {
     expect(content).toContain("custom path test");
   });
 
-  it("container resolves knowledgeBase adapter", async () => {
-    const { container } = await init(tmpDir);
-    const kb = container.resolve<KnowledgeBase>("knowledgeBase");
-    expect(kb).toBeDefined();
-    expect(typeof kb.find).toBe("function");
-    expect(typeof kb.search).toBe("function");
-  });
-
-  it("container resolves fsStore adapter", async () => {
-    const { container } = await init(tmpDir);
-    const fs = container.resolve<FsStore>("fsStore");
-    expect(fs).toBeDefined();
-    expect(typeof fs.read).toBe("function");
-    expect(typeof fs.write).toBe("function");
-  });
-
-  it("container resolves graphStore adapter", async () => {
-    const { container } = await init(tmpDir);
-    const gs = container.resolve<GraphStore>("graphStore");
-    expect(gs).toBeDefined();
-    expect(typeof gs.link).toBe("function");
-    expect(typeof gs.graph).toBe("function");
-  });
-
-  it("container resolves sessionStore adapter", async () => {
-    const { container } = await init(tmpDir);
-    const ss = container.resolve<SessionStore>("sessionStore");
-    expect(ss).toBeDefined();
-    expect(typeof ss.create).toBe("function");
-    expect(typeof ss.commit).toBe("function");
-  });
-
-  it("adapter instances are singletons (same reference on second resolve)", async () => {
-    const { container } = await init(tmpDir);
-    const kb1 = container.resolve("knowledgeBase");
-    const kb2 = container.resolve("knowledgeBase");
-    expect(kb1).toBe(kb2);
-  });
-
-  // ── F4 services ─────────────────────────────────────────────────────────────
-
-  it("container resolves recallCurator as RecallCurator instance", async () => {
-    const { container } = await init(tmpDir);
-    const curator = container.resolve<RecallCurator>("recallCurator");
-    expect(curator).toBeInstanceOf(RecallCurator);
-    expect(typeof curator.curate).toBe("function");
-  });
-
-  it("container resolves sessionService as SessionService instance", async () => {
-    const { container } = await init(tmpDir);
-    const svc = container.resolve<SessionService>("sessionService");
-    expect(svc).toBeInstanceOf(SessionService);
-    expect(typeof svc.createAndSet).toBe("function");
-  });
-
-  it("container resolves recallService as RecallService instance", async () => {
-    const { container } = await init(tmpDir);
-    const svc = container.resolve<RecallService>("recallService");
-    expect(svc).toBeInstanceOf(RecallService);
-    expect(typeof svc.recall).toBe("function");
-  });
-
-  it("F4 services are singletons (same reference on second resolve)", async () => {
-    const { container } = await init(tmpDir);
-    const c1 = container.resolve("recallCurator");
-    const c2 = container.resolve("recallCurator");
-    expect(c1).toBe(c2);
-
-    const s1 = container.resolve("sessionService");
-    const s2 = container.resolve("sessionService");
-    expect(s1).toBe(s2);
-
-    const r1 = container.resolve("recallService");
-    const r2 = container.resolve("recallService");
-    expect(r1).toBe(r2);
-  });
-
   it("recallService.recall returns empty result when KB returns empty", async () => {
-    const { container } = await init(tmpDir);
-    const svc = container.resolve<RecallService>("recallService");
+    const { recallService } = await init(tmpDir);
     // enabled=true but OV not running → ConnectionError caught → empty result
-    const result = await svc.recall("test query");
+    const result = await recallService.recall("test query");
     expect(result).toEqual({ items: [], tokens: 0, formatted: "", total: 0, timedOut: false });
   });
 
   it("sessionService is wired to sessionStore", async () => {
-    const { container } = await init(tmpDir);
-    const svc = container.resolve<SessionService>("sessionService");
-    expect(svc).toBeInstanceOf(SessionService);
-    expect(typeof svc.createAndSet).toBe("function");
-    expect(typeof svc.commit).toBe("function");
-    expect(svc.getActive()).toBeNull();
-  });
-
-  // ── F5 services ─────────────────────────────────────────────────────────────
-
-  it("container resolves searchService as SearchService instance", async () => {
-    const { container } = await init(tmpDir);
-    const svc = container.resolve<SearchService>("searchService");
-    expect(svc).toBeInstanceOf(SearchService);
-    expect(typeof svc.search).toBe("function");
-    expect(typeof svc.glob).toBe("function");
-    expect(typeof svc.grep).toBe("function");
-  });
-
-  it("searchService is singleton", async () => {
-    const { container } = await init(tmpDir);
-    const s1 = container.resolve("searchService");
-    const s2 = container.resolve("searchService");
-    expect(s1).toBe(s2);
-  });
-
-  // ── F7a — ProfileManager ───────────────────────────────────────────────────
-
-  it("container resolves profileManager as ProfileManager instance", async () => {
-    const { container } = await init(tmpDir);
-    const pm = container.resolve<ProfileManager>("profileManager");
-    expect(pm).toBeInstanceOf(ProfileManager);
-    expect(typeof pm.getActive).toBe("function");
-    expect(typeof pm.resolve).toBe("function");
-    expect(typeof pm.apply).toBe("function");
-    expect(typeof pm.list).toBe("function");
-  });
-
-  it("profileManager is singleton", async () => {
-    const { container } = await init(tmpDir);
-    const p1 = container.resolve("profileManager");
-    const p2 = container.resolve("profileManager");
-    expect(p1).toBe(p2);
+    const { sessionService } = await init(tmpDir);
+    expect(sessionService).toBeInstanceOf(SessionManager);
+    expect(typeof sessionService.createAndSet).toBe("function");
+    expect(typeof sessionService.commit).toBe("function");
+    expect(sessionService.getActive()).toBeNull();
   });
 
   it("profileManager has correct activeProfile from config", async () => {
-    const { container } = await init(tmpDir);
-    const pm = container.resolve<ProfileManager>("profileManager");
-    expect(pm.getActive()).toBe("default");
+    const { profileManager } = await init(tmpDir);
+    expect(profileManager.getActive()).toBe("default");
   });
 
   it("profileManager resolves default profile with correct behavior", async () => {
-    const { container } = await init(tmpDir);
-    const pm = container.resolve<ProfileManager>("profileManager");
-    const behavior = pm.resolve("default");
+    const { profileManager } = await init(tmpDir);
+    const behavior = profileManager.resolve("default");
     expect(behavior.topN).toBe(3);
     expect(behavior.scoreThreshold).toBe(0.5);
     expect(behavior.searchMode).toBe("search");
@@ -219,8 +77,7 @@ describe("init", () => {
   });
 
   it("merged recall config reflects profile behavior override", async () => {
-    const { container } = await init(tmpDir);
-    const config = container.resolve<import("./config/schema").PiOVConfig>("config");
+    const { config } = await init(tmpDir);
     // Default profile sets topN=3, but RecallConfig default is topN=8
     // So merged config should have topN=3 from profile
     expect(config.recall.topN).toBe(3);
@@ -229,37 +86,89 @@ describe("init", () => {
     expect(config.recall.autoRecall).toBe(true);
   });
 
-  it("container resolves fsStoreService as FsStoreService instance", async () => {
-    const { container } = await init(tmpDir);
-    const svc = container.resolve<FsStoreService>("fsStoreService");
-    expect(svc).toBeInstanceOf(FsStoreService);
-    expect(typeof svc.save).toBe("function");
-    expect(typeof svc.mkdir).toBe("function");
-    expect(typeof svc.mv).toBe("function");
-    expect(typeof svc.read).toBe("function");
-    expect(typeof svc.list).toBe("function");
-    expect(typeof svc.delete).toBe("function");
+  it("returns configured ovClient directly from init", async () => {
+    const { ovClient } = await init(tmpDir);
+    expect(typeof ovClient.read).toBe("function");
+    expect(typeof ovClient.save).toBe("function");
+    expect(typeof ovClient.mkdir).toBe("function");
+    expect(typeof ovClient.mv).toBe("function");
+    expect(typeof ovClient.list).toBe("function");
+    expect(typeof ovClient.tree).toBe("function");
+    expect(typeof ovClient.stat).toBe("function");
+    expect(typeof ovClient.delete).toBe("function");
+    expect(typeof ovClient.reindex).toBe("function");
   });
 
-  it("fsStoreService is singleton", async () => {
-    const { container } = await init(tmpDir);
-    const s1 = container.resolve("fsStoreService");
-    const s2 = container.resolve("fsStoreService");
-    expect(s1).toBe(s2);
+  it("returns configured adapter directly from init", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(adapter).toBeDefined();
+    expect(typeof adapter.knowledgeBase).toBe("object");
   });
 
-  it("container resolves resourceStore adapter", async () => {
-    const { container } = await init(tmpDir);
-    const store = container.resolve<ResourceStore>("resourceStore");
-    expect(store).toBeDefined();
-    expect(typeof store.importUrl).toBe("function");
+  it("returns configured knowledgeBase via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.knowledgeBase.find).toBe("function");
+    expect(typeof adapter.knowledgeBase.search).toBe("function");
   });
 
-  it("container resolves skillStore adapter", async () => {
-    const { container } = await init(tmpDir);
-    const store = container.resolve<SkillStore>("skillStore");
-    expect(store).toBeDefined();
-    expect(typeof store.addSkill).toBe("function");
+  it("returns configured fsStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.fsStore.read).toBe("function");
+  });
+
+  it("returns configured graphStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.graphStore.link).toBe("function");
+    expect(typeof adapter.graphStore.graph).toBe("function");
+  });
+
+  it("returns configured sessionStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.sessionStore.commit).toBe("function");
+  });
+
+  it("returns configured resourceStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.resourceStore.importUrl).toBe("function");
+  });
+
+  it("returns configured skillStore via adapter", async () => {
+    const { adapter } = await init(tmpDir);
+    expect(typeof adapter.skillStore.addSkill).toBe("function");
+  });
+
+  it("returns configured profileManager directly from init", async () => {
+    const { profileManager } = await init(tmpDir);
+    expect(profileManager).toBeInstanceOf(ProfileManager);
+    expect(typeof profileManager.getActive).toBe("function");
+    expect(typeof profileManager.resolve).toBe("function");
+  });
+
+  it("returns configured recallCurator directly from init", async () => {
+    const { recallCurator } = await init(tmpDir);
+    expect(recallCurator).toBeInstanceOf(RecallCurator);
+    expect(typeof recallCurator.curate).toBe("function");
+  });
+
+  it("returns configured sessionService directly from init", async () => {
+    const { sessionService } = await init(tmpDir);
+    expect(sessionService).toBeInstanceOf(SessionManager);
+    expect(typeof sessionService.createAndSet).toBe("function");
+  });
+
+  it("returns configured recallService directly from init", async () => {
+    const { recallService } = await init(tmpDir);
+    expect(recallService).toBeInstanceOf(RecallService);
+    expect(typeof recallService.recall).toBe("function");
+  });
+
+  it("direct services are same references (singleton contract)", async () => {
+    const r1 = await init(tmpDir);
+    expect(r1.recallCurator).toBe(r1.recallCurator);
+    expect(r1.sessionService).toBe(r1.sessionService);
+    expect(r1.recallService).toBe(r1.recallService);
+    expect(r1.profileManager).toBe(r1.profileManager);
+    expect(r1.ovClient).toBe(r1.ovClient);
   });
 });
 

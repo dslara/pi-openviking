@@ -1,4 +1,4 @@
-import type { SearchResult } from "../knowledge/model/search-result";
+import type { SearchResult } from "../knowledge/search-result";
 
 export interface CuratedItem {
   uri: string;

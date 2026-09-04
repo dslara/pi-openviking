@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { curate, estimateTokens, relevanceScorer, temporalScorer } from "./curate";
 import type { CuratedItem } from "./curate";
-import type { SearchResult } from "../knowledge/model/search-result";
+import type { SearchResult } from "../knowledge/search-result";
 
 describe("estimateTokens", () => {
   it("returns ~ text.length / 4", () => {

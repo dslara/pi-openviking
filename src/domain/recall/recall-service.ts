@@ -1,4 +1,4 @@
-import type { KnowledgeBase } from "../ports/knowledge-base";
+import type { SearchClient } from "../client/open-viking-client";
 import type { RecallCurator } from "./recall-curator";
 import type { CuratedItem, CuratedResult } from "./curate";
 import type { RecallConfig } from "../common/recall-config";
@@ -21,7 +21,7 @@ export class RecallService {
   private cooldownTurns = 0;
 
   constructor(
-    private readonly kb: KnowledgeBase,
+    private readonly kb: SearchClient,
     private readonly curator: RecallCurator,
     private readonly config: RecallConfig,
     private readonly logger: Logger,

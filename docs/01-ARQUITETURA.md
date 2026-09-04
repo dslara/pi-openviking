@@ -10,11 +10,11 @@
 
 | Fase | Status | Artefatos |
 |------|--------|-----------|
-| **F1 Foundation** | ✅ Completo | ConfigSchema, Cascade, Loader, DI Container, Logger (interface + FileLogger + NullLogger), Lifecycle, PathResolver |
+| **F1 Foundation** | ✅ Completo | ConfigSchema, Cascade, Logger (interface + FileLogger + NullLogger), Lifecycle, PathResolver. DI Container removido em ADR-021 — dependências criadas diretamente em `init()`. |
 | **F2 Domain + Ports** | ✅ Completo | `domain/common/` ✅ · `domain/errors/` ✅ · `domain/knowledge/model/` ✅ · `domain/recall/model/` ✅ · 8 port interfaces ✅ · `domain/recall/curate.ts` (curation) ✅ · Prototype deleted ✅ |
 | **F3 OV Adapter** | ✅ Completo | Transport + 6 mappers + 6 port implementations (FsStore, KnowledgeBase, SessionStore, GraphStore, ResourceStore, SkillStore) + adapter factory + DI wiring + smoke test. |
-| **F4 Operations** | ✅ Completo | RecallConfig schema + scorers + curate pipeline + RecallCurator + RecallService + SessionService + lifecycle wiring (3 F4 singletons) + smoke tests. 17 singletons total no container. |
-| **F5 Tools + Commands** | ✅ Completo (F5.1–F5.5 ✅) | F5.1 ✅: Pipeline + SearchService + 3 search tools. F5.2 ✅: FsStoreService (merged former WriteService + ReadService + FsService) + ov_write + ov_read. F5.3 ✅: ov_recall tool. F5.4 ✅: 9 slash commands. F5.5 ✅: Wiring (guard pattern + tool/command barrels) + OVWidget. 14 tools + 9 commands + widget operacionais. Pendente: status bar. |
+| **F4 Operations** | ✅ Completo | RecallConfig schema + scorers + curate pipeline + RecallCurator + RecallService + SessionManager + SessionSync + lifecycle wiring + smoke tests. Sem container — dependências criadas diretamente em `init()`. |
+| **F5 Tools + Commands** | ✅ Completo (F5.1–F5.5 ✅) | F5.1 ✅: OpenVikingClient + SearchClient + 3 search tools (pipeline/SearchService eliminados em ADR-021). F5.2 ✅: FsClient + ov_write + ov_read (FsStoreService eliminado). F5.3 ✅: ov_recall tool. F5.4 ✅: 9 slash commands. F5.5 ✅: Wiring (guard pattern + tool/command barrels) + OVWidget. 14 tools + 9 commands + widget operacionais. |
 | **F6 Context Hook + Infra** | ✅ Completo | ADR-019: `context` hook replace `before_agent_start` p/ recall ✅ · Cache por query hash ✅ · SessionMapStore (port + FileSessionMapStore) ✅ · RepoContext (TTL cache + system prompt) ✅ · AutoCommit (`pollCommit()` + setInterval) ✅ · `autoCommitIntervalMs` config ✅ |
 
 > Este documento descreve a **arquitetura alvo**. Componentes marcados como (futuro) ainda não existem.
@@ -40,15 +40,18 @@ flowchart TB
         UI_HOOKS["UI Hooks\nsetStatus, autocomplete,\nnotify — registra no Pi"]
     end
 
-    subgraph Ports["🚪 Portas (Interfaces)"]
+    subgraph Client["🧩 OpenVikingClient (Flat Hexagon)"]
         direction TB
-        PORT_KB["KnowledgeBase\nfind / search / glob / grep"]
-        PORT_FS["FsStore\nread / write / list / tree / stat\nmkdir / mv / delete / reindex"]
-        PORT_GRAPH["GraphStore\nlink / unlink / graph"]
-        PORT_SESSION["SessionStore\ncreate / send / commit / ..."]
-        PORT_RESOURCE["ResourceStore\nimportUrl"]
-        PORT_SKILL["SkillStore\naddSkill"]
-        PORT_MAP["SessionMapStore\nload / save"]
+        CLIENT_SEARCH["SearchClient\nfind / search / glob / grep"]
+        CLIENT_FS["FsClient\nread / save / list / tree / stat\nmkdir / mv / delete / reindex"]
+        CLIENT_SESSION["SessionClient\ncreateSession / sendMessage / commit\ngetSession / getTaskStatus / ..."]
+        CLIENT_RELATION["RelationClient\nlink / unlink / graph"]
+        CLIENT_RESOURCE["ResourceClient\nimportUrl"]
+        CLIENT_SKILL["SkillClient\naddSkill"]
+    end
+
+    subgraph Ports["🚪 Portas Internas (Adapters)"]
+        direction TB
         PORT_LOGGER["Logger\ndebug / info / warn / error"]
     end
 
@@ -59,16 +62,11 @@ flowchart TB
         DOMAIN_PROFILE["Profile Context\nProfileConfig (value object),\nProfileManager, AutoDetect"]
     end
 
-    subgraph DomainSvc["🎯 Domain Services (F4)"]
+    subgraph DomainSvc["🎯 Domain Services (F4 + ADR-021)"]
         direction TB
         RECALL_SVC["RecallService\ntoggle → KB → curator → result"]
-        SESSION_SVC["SessionService\nactive session + commit + poll"]
-    end
-
-    subgraph App["⚙️ Aplicação"]
-        direction TB
-        APP_SVC["Application Services\nsearch, write, session,\nrecall, resource, skill"]
-        APP_MW["Middleware Pipeline\nLogging (cache adiado → F3+)"]
+        SESSION_MGR["SessionManager\nactive session + commit + poll"]
+        SESSION_SYNC["SessionSync\nlifecycle coordination\n+ auto-commit timer"]
     end
 
     subgraph Impl["🔌 Adaptadores (Driven)"]
@@ -81,60 +79,51 @@ flowchart TB
 
     subgraph Infra["🏗️ Infraestrutura"]
         direction TB
-        DI["DI Container\nManual (21 linhas)"]
         CONFIG["Config Cascade\ndefaults → env → file → profile"]
         REPO_CTX["RepoContext\nTTL cache + system prompt"]
-        AUTOCOMMIT["AutoCommit\nsetInterval + pollCommit()"]
         LIFECYCLE["Lifecycle\ninit() / shutdown()"]
     end
 
     PI --> TOOL_REGISTRY
-    PI -->|pi.on()| APP_SVC
+    PI -->|pi.on()| DOMAIN_SVC
     USER --> CMD_REGISTRY
     USER --> UI_HOOKS
 
-    TOOL_REGISTRY --> APP_SVC
-    CMD_REGISTRY --> APP_SVC
-    UI_HOOKS --> APP_SVC
+    TOOL_REGISTRY --> CLIENT_SEARCH
+    TOOL_REGISTRY --> CLIENT_FS
+    TOOL_REGISTRY --> CLIENT_SESSION
+    TOOL_REGISTRY --> CLIENT_SKILL
+    TOOL_REGISTRY --> CLIENT_RESOURCE
 
-    APP_SVC --> DOMAIN_KNOW
-    APP_SVC --> DOMAIN_RECALL
-    APP_SVC --> DOMAIN_PROFILE
-    APP_SVC -.-> APP_MW
+    CMD_REGISTRY --> CLIENT_FS
+    CMD_REGISTRY --> CLIENT_SEARCH
+    CMD_REGISTRY --> SESSION_MGR
 
-    RECALL_SVC --> PORT_KB
+    UI_HOOKS --> RECALL_SVC
+    UI_HOOKS --> SESSION_MGR
+    UI_HOOKS --> SESSION_SYNC
+
+    RECALL_SVC --> PORT_LOGGER
     RECALL_SVC --> DOMAIN_RECALL
-    SESSION_SVC --> PORT_SESSION
+    SESSION_MGR --> CLIENT_SESSION
+    SESSION_SYNC --> SESSION_MGR
 
-    APP_SVC --> PORT_KB
-    APP_SVC --> PORT_FS
-    APP_SVC --> PORT_GRAPH
-    APP_SVC --> PORT_SESSION
-    APP_SVC --> PORT_RESOURCE
-    APP_SVC --> PORT_SKILL
-    APP_SVC --> PORT_MAP
-
-    SESSION_SVC --> PORT_MAP
-    APP_SVC --> PORT_LOGGER
-
-    OV_ADAPTER --> PORT_KB
-    OV_ADAPTER --> PORT_FS
-    OV_ADAPTER --> PORT_GRAPH
-    OV_ADAPTER --> PORT_SESSION
-    OV_ADAPTER --> PORT_RESOURCE
-    OV_ADAPTER --> PORT_SKILL
     OV_ADAPTER --> OV_TRANSPORT
+    OV_ADAPTER -.->|delegates to| CLIENT_SEARCH
+    OV_ADAPTER -.->|delegates to| CLIENT_FS
+    OV_ADAPTER -.->|delegates to| CLIENT_SESSION
+    OV_ADAPTER -.->|delegates to| CLIENT_RELATION
+    OV_ADAPTER -.->|delegates to| CLIENT_RESOURCE
+    OV_ADAPTER -.->|delegates to| CLIENT_SKILL
     OV_TRANSPORT -->|HTTP| OV
 
     LOG_IMPL --> PORT_LOGGER
 
-    DI --> OV_ADAPTER
-    DI --> LOG_IMPL
-    DI --> RECALL_SVC
-    DI --> SESSION_SVC
-    DI --> APP_SVC
-    LIFECYCLE --> DI
-    CONFIG --> DI
+    LIFECYCLE --> CONFIG
+    LIFECYCLE --> LOG_IMPL
+    LIFECYCLE --> OV_ADAPTER
+    LIFECYCLE --> SESSION_MGR
+    LIFECYCLE --> RECALL_SVC
 ```
 
 > **Nota sobre EventBus:** removido em F5 Review — dead code sem subscribers.
@@ -158,18 +147,20 @@ A ordem de criação dos artefatos de domínio segue dependências entre eles:
 | 1 | `domain/common/` — Uri (class), SessionId (class), ContentLevel, WriteMode, FindQuery + SearchRequest (interfaces), Part (discriminated union) | — |
 | 2 | `domain/errors/` — DomainError class + subtipos (NotFoundError, ConnectionError, etc.) | — |
 | 3 | `domain/{knowledge,recall,profile}/model/` — value objects + aggregates | common, errors |
-| 4 | `domain/ports/` — KnowledgeBase, FsStore, GraphStore, SessionStore, Logger, ResourceStore, SkillStore | models (tipos de retorno) |
+| 4 | `domain/ports/` — Logger, SessionMapStore (ports remanescentes). Demais interfaces migraram para `domain/client/open-viking-client.ts` como sub-interfaces (SearchClient, FsClient, SessionClient, RelationClient, ResourceClient, SkillClient) no ADR-021 Flat Hexagon. | models (tipos de retorno) |
 | 5 | `domain/recall/curate.ts` — curate pipeline (pure function) | domain models |
 
 ProfileManager implementado em F7a. ProfileBehavior (6 campos) + AutoDetect em F7b.
 
 ---
 
-## 3. Ports (Interfaces do Domínio)
+## 3. OpenVikingClient — Interface Única (Flat Hexagon)
 
-Todas as ports ficam em `domain/ports/`. Adaptadores concretos em `adapters/driven/`.
+Com ADR-021, as 8 ports de domínio foram substituídas por uma única interface `OpenVikingClient`
+composta de 6 sub-interfaces, definida em `domain/client/open-viking-client.ts`.
+As únicas ports remanescentes em `domain/ports/` são `Logger` e `SessionMapStore`.
 
-### KnowledgeBase — busca semântica e lexical
+### SearchClient — busca semântica e lexical
 
 Dois endpoints de busca OV:
 - `POST /api/v1/search/find` — find(), sem sessão, sem intent analysis, baixa latência
@@ -178,68 +169,57 @@ Dois endpoints de busca OV:
 - `POST /api/v1/search/grep` (uri, pattern, case_insensitive, exclude_uri, level_limit, node_limit)
 
 ```typescript
-interface KnowledgeBase {
-  /** Simple semantic search, no session context. POST /api/v1/search/find */
+interface SearchClient {
   find(query: FindQuery, opts?: SearchOptions, signal?: AbortSignal): Promise<SearchResult>;
-  /** Deep search with session + intent analysis. POST /api/v1/search/search */
   search(request: SearchRequest, opts?: SearchOptions, signal?: AbortSignal): Promise<SearchResult>;
-  /** URI pattern discovery. POST /api/v1/search/glob */
   glob(pattern: string, uri?: string, limit?: number, signal?: AbortSignal): Promise<GlobResult>;
-  /** Content regex search. POST /api/v1/search/grep */
   grep(pattern: string, opts?: GrepOptions, signal?: AbortSignal): Promise<GrepResult>;
 }
 ```
 
-**GrepOptions:**
-- `pattern` — padrão de busca
-- `caseInsensitive?` — case insensitive match
-- `excludeUri?` — URI a excluir
-- `levelLimit?` — profundidade máxima (níveis de diretório)
-- `nodeLimit?` — max resultados
-
-OV: `POST /api/v1/search/grep {uri, pattern, case_insensitive, exclude_uri, level_limit, node_limit}`
-
-### GraphStore — navegação de relações
+### RelationClient — navegação de relações
 
 Mapeamento OV: `POST /api/v1/relations/link`, `DELETE /api/v1/relations/link`, `GET /api/v1/relations?uri=`.
 
 ```typescript
-interface GraphStore {
+interface RelationClient {
   link(source: Uri, targets: Uri | Uri[], reason?: string, signal?: AbortSignal): Promise<LinkResult>;
   unlink(source: Uri, target: Uri, signal?: AbortSignal): Promise<void>;
   graph(uri: Uri, signal?: AbortSignal): Promise<Relation[]>;
 }
 ```
 
-### SessionStore — ciclo de vida de sessão OV
+### SessionClient — ciclo de vida de sessão OV
 
 Mapeamento OV:
-- `POST /api/v1/sessions` — create
-- `POST /api/v1/sessions/{id}/messages` — sendMessage (1 mensagem)
+- `POST /api/v1/sessions` — createSession
+- `POST /api/v1/sessions/{id}/messages` — sendMessage (1 mensagem, com role + Part[])
 - `POST /api/v1/sessions/{id}/messages/batch` — sendMessages (max 100)
-- `POST /api/v1/sessions/{id}/commit` — commit (com `keep_recent_count`)
+- `POST /api/v1/sessions/{id}/commit` — commit (com `keepRecentCount`)
 - `POST /api/v1/sessions/{id}/used` — sessionUsed
 - `GET /api/v1/tasks/{id}` — getTaskStatus
 - `GET /api/v1/tasks` (com filtros) — listTasks
 - `DELETE /api/v1/sessions/{id}` — deleteSession
+- `GET /api/v1/sessions/{id}` — getSession
 
 ```typescript
-interface SessionStore {
-  create(signal?: AbortSignal): Promise<SessionId>;
-  sendMessage(sessionId: SessionId, role: string, content: Part[], signal?: AbortSignal): Promise<void>;
-  sendMessages(sessionId: SessionId, messages: { role: string; content: Part[] }[], signal?: AbortSignal): Promise<void>;
-  commit(sessionId: SessionId, options?: CommitOptions, signal?: AbortSignal): Promise<CommitResult>;
+interface SessionClient {
+  createSession(signal?: AbortSignal): Promise<SessionId>;
+  sendMessage(id: SessionId, role: string, parts: Part[], signal?: AbortSignal): Promise<void>;
+  sendMessages(id: SessionId, msgs: { role: string; content: Part[] }[], signal?: AbortSignal): Promise<void>;
+  commit(id: SessionId, opts?: CommitOptions, signal?: AbortSignal): Promise<CommitResult>;
+  getSession(id: SessionId, signal?: AbortSignal): Promise<SessionInfo>;
   getTaskStatus(taskId: string, signal?: AbortSignal): Promise<TaskStatus>;
-  listTasks(filter?: TaskFilter, signal?: AbortSignal): Promise<TaskStatus[]>;
-  sessionUsed(sessionId: SessionId, contexts: Uri[], signal?: AbortSignal): Promise<void>;
-  deleteSession(sessionId: SessionId, signal?: AbortSignal): Promise<void>;
+  sessionUsed(id: SessionId, contexts: Uri[], signal?: AbortSignal): Promise<void>;
+  deleteSession(id: SessionId, signal?: AbortSignal): Promise<void>;
+  listSessions(signal?: AbortSignal): Promise<SessionInfo[]>;
 }
 ```
 
-### FsStore — operações no filesystem OV (ContentStore fundida)
+### FsClient — operações no filesystem OV
 
-Port única para ler, escrever, navegar e gerenciar o filesystem virtual do OpenViking.
-ContentStore foi fundida nesta port — OV trata content e fs como o mesmo sistema.
+Interface única para ler, escrever, navegar e gerenciar o filesystem virtual do OpenViking.
+ContentStore foi fundida — OV trata content e fs como o mesmo sistema.
 
 Mapeamento OV:
 - Leitura: `GET /api/v1/content/{read|abstract|overview}?uri=X` (abstract/overview apenas diretórios)
@@ -248,55 +228,46 @@ Mapeamento OV:
 - Mutação: `POST /api/v1/fs/mkdir`, `POST /api/v1/fs/mv`, `DELETE /api/v1/fs`
 
 ```typescript
-interface FsStore {
+interface FsClient {
   read(uri: Uri, level?: ContentLevel, offset?: number, limit?: number, signal?: AbortSignal): Promise<Content>;
-  write(uri: Uri, content: string, mode?: WriteMode, signal?: AbortSignal): Promise<WriteResult>;
+  save(uri: Uri, content: string, mode?: WriteMode, signal?: AbortSignal): Promise<WriteResult>;
   list(uri: Uri, recursive?: boolean, signal?: AbortSignal): Promise<FsEntry[]>;
   tree(uri: Uri, signal?: AbortSignal): Promise<FsEntry[]>;
   stat(uri: Uri, signal?: AbortSignal): Promise<FsEntry>;
   mkdir(uri: Uri, signal?: AbortSignal): Promise<void>;
   mv(from: Uri, to: Uri, signal?: AbortSignal): Promise<void>;
   delete(uri: Uri, recursive?: boolean, signal?: AbortSignal): Promise<void>;
-  reindex(uri: Uri, mode?: "vectors_only" | "full", signal?: AbortSignal): Promise<void>;
+  reindex(uri: Uri, mode?: ReindexMode, signal?: AbortSignal): Promise<void>;
 }
 ```
 
-> **ReindexMode**: `"vectors_only" | "full"`. Default `"vectors_only"` rebuilds vector embeddings; `"full"` rebuilds both scalar and vector indexes. Maps to OV `POST /api/v1/content/reindex {uri, mode}`.
+> **ReindexMode**: `"vectors_only" | "full"`. Default `"vectors_only"` rebuilds vector embeddings; `"full"` rebuilds both scalar and vector indexes. Maps to OV `POST /api/v1/content/reindex {uri, mode}`. Defined in `domain/client/ov-types.ts`.
 
 > `read()` aceita `level` que mapeia para as camadas L0/L1/L2 do OV:
 > - `"abstract"` → L0. OV v0.3.24+: `GET /api/v1/content/abstract?uri=X` (diretórios apenas, retorna 412 em files)
 > - `"overview"` → L1. OV v0.3.24+: `GET /api/v1/content/overview?uri=X` (diretórios apenas, retorna 412 em files)
 > - `"read"` → L2 (conteúdo completo). OV: `GET /api/v1/content/read?uri=&offset=&limit=`
 >
-> Os endpoints `/api/v1/content/{abstract,overview}` existem e funcionam para diretórios.
-> Para arquivos individuais retornam 412 FAILED_PRECONDITION — erro propagado ao caller,
-> não silenciado. Use search API para abstract/overview de arquivos específicos.
-> `offset` e `limit` aplicam-se apenas ao nível `"read"`.
->
 > `offset` (linha inicial, default 0) e `limit` (linhas, default -1) aplicam-se apenas ao nível `"read"`.
 >
-> `write()` não expõe `wait` no domínio — detalhe de transporte resolvido no adapter
+> `save()` não expõe `wait` no domínio — detalhe de transporte resolvido no adapter
 > via `wait: false` (assíncrono — OV processa embedding em background).
-> OV `POST /api/v1/content/write` aceita `wait: bool` e `timeout: float`.
->
+
 > **Nota sobre scopes OV:** OV organiza conteúdo em 4 scopes públicos sob `viking://`:
 > `resources/` (documentos), `user/{user_id}/` (memórias de usuário), `agent/{agent_id}/` (memórias/experiências do agent),
 > `session/{user_space}/{session_id}/` (dados de sessão). O extension mapeia Pi sessions → OV sessions.
 > Scopes `temp/` e `queue/` são internos, não acessíveis via API pública.
 
-**Tipos de suporte (definidos em `domain/common/`):**
+### Shared Types (domain/common/ + domain/client/ov-types.ts)
 
 ```typescript
 // domain/common/content-level.ts
-// Mapeia para camadas OV: L0 (abstract, ~100 tokens) / L1 (overview, ~2k tokens) / L2 (read, full)
 type ContentLevel = "abstract" | "overview" | "read";
 
 // domain/common/write-mode.ts
 type WriteMode = "replace" | "append" | "create";
 
 // domain/common/search-query.ts
-// Dois types separados — OV tem endpoints distintos (ver decisão F2 em CONTEXT.md).
-// SearchMode removido: KnowledgeBase.find() vs KnowledgeBase.search() resolve o mode.
 interface FindQuery {
   query: string;
   limit?: number;
@@ -325,15 +296,14 @@ interface ToolPart {
 }
 interface ContextPart { type: "context"; uri: string; contextType: "memory" | "resource" | "skill"; abstract: string }
 type Part = TextPart | ToolPart | ContextPart;
+
+// domain/client/ov-types.ts
+export type ReindexMode = "vectors_only" | "full";
+// Demais tipos: Content, WriteResult, FsEntry, GlobResult, GrepResult, CommitResult,
+// SessionInfo, TaskStatus, LinkResult, ResourceImportResult, AddSkillResult, SkillData
 ```
 
-> **Nota:** `ResourceKind` e `SearchMode` foram removidos — escrita de conteúdo textual é via `write()`,
-> adição de resources via `POST /api/v1/resources` (adaptador OV, não port).
-> OV v3 não possui endpoint `reindex`. `write()` sempre atualiza semântica/vectors automaticamente.
-> `FindQuery`/`SearchRequest` e `Part` vivem em `domain/common/` por serem consumidos por múltiplas ports
-> e adaptadores. Não são private de port nenhuma.
-
-### Logger — logging estruturado
+### Logger — port remanescente em `domain/ports/`
 
 ```typescript
 type LogLevel = "debug" | "info" | "warn" | "error";
@@ -347,7 +317,7 @@ interface Logger {
 }
 ```
 
-> Logger é síncrono por design — não precisa de `AbortSignal`.
+> Logger é síncrono por design — não precisa de `AbortSignal`. Única port de domínio remanescente junto com `SessionMapStore`.
 
 ---
 
@@ -380,26 +350,16 @@ class RecallService {
 
 Recall is controlled by a toggle command (`/ov recall on` / `/ov recall off`).
 No intent detection — user decides when recall fires.
-`searchMode` comes from `RecallConfig` (default `'find'`), overridable via profile.
+`searchMode` comes from `RecallConfig` (default `'search'` — `z.enum(["find", "search"]).default("search")` em `infrastructure/config.ts`), overridable via profile.
 
-### 4.3 Middleware Pipeline — Cross-cutting concerns
+### 4.3 Middleware Pipeline — REMOVIDO
 
-Pipeline genérico (`Pipeline<T>`) empilhando middlewares em tool-handler level.
-Services não sabem de middleware — tool handler chama `pipeline.execute(() => service.method())`.
+Pipeline genérico (`Pipeline<T>`) e `LoggingMiddleware` foram removidos em ADR-021 (Flat Hexagon).
+Cada tool handler agora usa inline try/catch + logger. A abstração de 140 linhas não se justificava
+para um único middleware — tool-handler-level cross-cutting concerns foram movidos para o Transport
+(circuit breaker, retry, error mapping) e para o `context` hook (caching de recall).
 
-```
-Request → LoggingMiddleware → Handler → Response
-
-# Cache middleware: adiado. Implementar após OV adapter (F3+) quando cache existir.
-```
-
-**Design (F5):**
-- `Pipeline` recebe handler assíncrono e aplica middlewares em cadeia
-- Logging middleware: mede duração, loga tool executada
-- ToolContext (estado compartilhado entre middlewares) **não criado em F5** — adicionado quando cache middleware precisar interceptar chamadas idempotentes
-- Uso nas tools: `pipeline.execute(() => searchService.search(params))`
-
-**Arquivo:** `domain/pipeline/pipeline.ts` + `domain/pipeline/logging-middleware.ts`
+**Arquivos eliminados:** `domain/pipeline/` (diretório inteiro removido).
 
 ### 4.4 Event Bus — REMOVIDO
 
@@ -450,7 +410,7 @@ flowchart TD
 
 ### 5.2 Session Sync
 
-Evento `message_end` chega via `pi.on()` e chama SessionService direto.
+Evento `message_end` chega via `pi.on()` e chama SessionManager direto.
 EventBus de domínio não transporta eventos de infra.
 
 **session_before_switch**: dispara antes de `/new` ou `/resume`. Commita sessão OV ativa.
@@ -461,7 +421,7 @@ Sucesso → seta flag `skipShutdownCommit` para evitar double-commit no `session
 **Resume/Fork re-hydrate**: quando `session_start` chega com `reason: "resume"` ou `"fork"`,
 o handler lê as últimas 50 entradas de `ctx.sessionManager.getBranch()`, filtra
 `user`/`assistant`, mapeia via `agentMessageToParts()` e envia em batch via
-`sessionService.sendMessages()`.
+`sessionManager.sendMessages()`.
 
 ### 5.3 system/status — Observability
 
@@ -505,10 +465,11 @@ src/
 │   │   ├── curate.ts          # ✅ Curation pipeline + scorers + Scorer type
 │   │   ├── recall-curator.ts  # ✅ RecallCurator wrapper over curate()
 │   │   └── recall-service.ts  # ✅ RecallService: toggle → KB → curator → RecallResult
+│   ├── client/                # ✅ OpenVikingClient port (Flat Hexagon)
+│   │   └── open-viking-client.ts # ✅ 6 sub-interfaces: SearchClient, FsClient, SessionClient, RelationClient, ResourceClient, SkillClient
 │   ├── services/              # ✅ Domain services com estado
-│   │   ├── session-service.ts  # ✅ SessionService: active session + commit + polling
-│   │   ├── search-service.ts  # ✅ SearchService: find/search/glob/grep delegation
-│   │   └── fs-store-service.ts # ✅ FsStoreService: read/save/mkdir/mv/list/tree/stat/delete/reindex → FsStore
+│   │   ├── session-service.ts  # ✅ SessionManager: active session + commit + polling (renamed from SessionService in ADR-021)
+│   │   └── session-sync-service.ts # ✅ SessionSync: lifecycle coordination + auto-commit timer (added in ADR-021)
 │   ├── profile/               # (futuro F7) Contexto: perfis de comportamento
 │   │   ├── model/             # ProfileConfig, AutoDetectRule
 │   │   └── service/           # ProfileManager, ProfileResolver, AutoDetect
@@ -522,7 +483,7 @@ src/
 │   └── skill-store.ts       # ✅ SkillStore + AddSkillResult
 │   └── errors/                # ✅ DomainError, NotFoundError, ConnectionError, ValidationError
 │
-├── application/               # (não utilizado — SearchService em domain/services/, Pipeline em domain/pipeline/)
+├── application/               # (não utilizado — pass-through services eliminados em ADR-021)
 │
 ├── adapters/
 │   ├── driver/pi-tools/       # ✅ F5.1–F5.6: 14 tools registradas
@@ -574,8 +535,7 @@ src/
 │       │   ├── session-store.ts   # ✅ SessionStoreAdapter (create/send/commit/tasks/lifecycle)
 │       │   ├── graph-store.ts     # ✅ GraphStoreAdapter (link/unlink/graph)
 │       │   └── mappers/
-│       │       ├── error-mapper.ts    # ✅ toDomainError()
-│       │       ├── content-mapper.ts  # ✅ toContent()
+│       │       ├── ov-mappers.ts      # ✅ toDomainError() + toContent() (consolidados em ov-mappers.ts)
 │       │       ├── fs-mapper.ts       # ✅ toFsEntry/toFsEntries/toWriteResult
 │       │       ├── search-mapper.ts   # ✅ toSearchResult/toGlobResult/toGrepResult
 │       │       ├── session-mapper.ts  # ✅ toSessionId/toCommitResult/toTaskStatus + PartSerializer
@@ -586,22 +546,21 @@ src/
 │           └── null-logger.ts # ✅ NullLogger (testes/silent mode)
 │
 ├── infrastructure/
-│   ├── config/
-│   │   ├── schema.ts          # ✅ ConfigSchema raiz (Zod) + RecallConfigSchema (F4)
-│   │   ├── logger-schema.ts   # ✅ LoggerConfigSchema
-│   │   ├── cascade.ts         # ✅ Config Cascade: defaults → env → file → profile
-│   │   ├── loader.ts          # ✅ Leitor .pi/settings.json
-│   │   └── profile-schema.ts  # ✅ ProfileSchema + ProfileBehaviorSchema
-│   ├── di/
-│   │   └── container.ts       # ✅ DI Container manual (21 linhas, 17 singletons)
-│   ├── lifecycle.ts           # ✅ init() + shutdown() — wires F1–F7b (17 singletons)
+│   ├── config.ts              # ✅ ConfigSchema (Zod) + RecallConfigSchema + loadConfig() + mergeBehaviorIntoRecall() — consolidated from 5 files to 1 file in ADR-021
+│   ├── config.test.ts         # ✅ Config tests
+│   ├── lifecycle.ts           # ✅ init() + shutdown() — creates all services directly (no container)
 │   ├── lifecycle.test.ts      # ✅ 22 smoke tests (F1–F3 adapters + F4 services + F5)
+│   ├── repo-context.ts        # ✅ RepoContext — TTL cache + system prompt
+│   ├── repo-context.test.ts   # ✅ RepoContext tests
 │   └── path-resolver.ts       # ✅ PathResolver utilitário
 │
-├── _legacy/                   # (removido em F3 — 2026-05-27)
 ├── index.ts                   # ✅ F5: init → resolve → registerAll → listen
                                # Guard initialized, bootstrap único,
                                # tools + commands registrados uma vez.
+├── adapters/driven/openviking/client/
+│   ├── client-adapter.ts       # ✅ OpenVikingClientAdapter — delegates to OVAdapter sub-adapters
+│   ├── client-adapter.test.ts  # ✅ Client adapter tests
+│   └── client-adapter.integration.test.ts # ✅ Integration tests
 ├── adapters/driver/ov-widget.ts  # ✅ OVWidget — 2-line status widget via setWidget()
 ├── adapters/driver/pi-lifecycle/ # ✅ F6: register-lifecycle-hooks.ts + message-mapper.ts
 ```
@@ -609,9 +568,9 @@ src/
 **Legenda:** ✅ existe agora | 🔧 F5 (em planejamento/implementação) | (futuro) ainda não implementado
 
 > F2 — domain/common/ (#47), domain/errors/ + knowledge/recall models (#48), 6 port interfaces (#49) implementados 2026-05-27.
-> F3 ✅ — Issues #52–#58: Transport + 6 mappers + 4 port implementations + adapter factory + DI wiring + smoke test concluídos 2026-05-27.
-> F4 ✅ — Issues #61–#66: RecallConfig + scorers + curate pipeline + RecallCurator + RecallService + SessionService + lifecycle wiring concluídos 2026-05-29.
-> F5 ✅ — F5.1 ✅ (issue #68): Pipeline + SearchService + 3 search tools + index.ts wiring. F5.2 ✅ (issue #69): FsStoreService (merged WriteService + ReadService + FsService) + ov_write + ov_read. F5.3 ✅ (issue #70): ov_recall tool. F5.4 ✅ (issue #71): 6 slash commands. F5.5 ✅ (issue #72): Wiring (guard pattern + barrels) + OVWidget. Pendente: status bar.
+> F3 ✅ — Issues #52–#58: Transport + 6 mappers + 4 port implementations + adapter factory + smoke test concluídos 2026-05-27. DI wiring removed in ADR-021.
+> F4 ✅ — Issues #61–#66: RecallConfig + scorers + curate pipeline + RecallCurator + RecallService + SessionManager + lifecycle wiring concluídos 2026-05-29. SessionSync added in ADR-021.
+> F5 ✅ — F5.1 ✅ (issue #68, refactored ADR-021): OpenVikingClient + SearchClient + 3 search tools (pipeline/SearchService eliminados). F5.2 ✅ (issue #69, refactored ADR-021): FsClient + ov_write + ov_read (FsStoreService eliminado). F5.3 ✅ (issue #70): ov_recall tool. F5.4 ✅ (issue #71): 9 slash commands. F5.5 ✅ (issue #72): Wiring (guard pattern + barrels) + OVWidget.
 
 ---
 
@@ -622,5 +581,5 @@ src/
 3. **Autonomia progressiva** — off → propose → auto
 4. **Silent by default** — Nunca pergunte o que pode ser inferido
 5. **Graceful degradation** — OV offline não quebra o Pi
-6. **Pipeline de middlewares** — Cross-cutting concerns empilháveis
+6. ~~**Pipeline de middlewares** — Removido em ADR-021. Cross-cutting concerns de tool-handler foram movidos para Transport (circuit breaker, retry) e context hook (caching). Cada tool handler usa inline try/catch + logger.
 7. **Cascading config** — Default → env → file → profile → inline

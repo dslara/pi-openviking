@@ -1,5 +1,4 @@
-import type { GraphStore } from "../ports/graph-store";
-import type { FsStore } from "../ports/fs-store";
+import type { RelationClient, FsClient } from "../client/open-viking-client";
 import type { Logger } from "../ports/logger";
 import type { CuratedItem } from "./curate";
 import { Uri } from "../common/uri";
@@ -11,8 +10,8 @@ export interface GraphExpanderConfig {
 
 export class GraphExpander {
   constructor(
-    private readonly graphStore: GraphStore,
-    private readonly fsStore: FsStore,
+    private readonly relations: RelationClient,
+    private readonly fs: FsClient,
     private readonly config: GraphExpanderConfig,
     private readonly logger: Logger,
   ) {}
@@ -35,7 +34,7 @@ export class GraphExpander {
     const candidates: { uri: string; reason: string; seedScore: number }[] = [];
 
     for (const s of qualified) {
-      const relations = await this.graphStore.graph(new Uri(s.uri));
+      const relations = await this.relations.graph(new Uri(s.uri));
       for (const r of relations) {
         if (seen.has(r.uri)) continue; // dedup across seeds + other relations
         seen.add(r.uri);
@@ -58,7 +57,7 @@ export class GraphExpander {
 
     // Read content in parallel
     const reads = candidates.map(c =>
-      this.fsStore.read(new Uri(c.uri), "abstract").then(content => ({
+      this.fs.read(new Uri(c.uri), "abstract").then(content => ({
         ...c,
         body: content.body,
       })),

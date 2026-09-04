@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { RecallService } from "./recall-service";
-import type { KnowledgeBase } from "../ports/knowledge-base";
+import type { SearchClient } from "../client/open-viking-client";
 import type { RecallCurator } from "./recall-curator";
 import type { RecallConfig } from "../common/recall-config";
 import type { Logger } from "../ports/logger";
-import type { SearchResult } from "../knowledge/model/search-result";
+import type { SearchResult } from "../knowledge/search-result";
 import { Uri } from "../common/uri";
 import { ConnectionError, ValidationError } from "../errors/domain-error";
 
@@ -36,7 +36,7 @@ function makeLogger(): Logger & { warns: string[] } {
   };
 }
 
-function makeKB(): KnowledgeBase {
+function makeKB(): SearchClient {
   return {
     find: vi.fn(),
     search: vi.fn(),

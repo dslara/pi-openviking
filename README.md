@@ -3,6 +3,7 @@
 Pi extension for [OpenViking](https://github.com/openviking) — long-term memory and context database for AI coding agents.
 
 > **Status:** Production-ready. Active development.
+> **Architecture:** [Flat Hexagon](docs/adr/0021-flat-hexagon-architecture.md) — single `OpenVikingClient` port with 6 sub-interfaces, no DI container, no middleware pipeline.
 
 ## What it does
 
@@ -38,14 +39,14 @@ Pi is stateless between sessions. pi-openviking gives it persistent memory:
 | Command | Action |
 |---------|--------|
 | `/ov-start` | Create a new OV session. |
-| `/ov-reindex <uri> [--mode vectors_only\|full]` | Rebuild vector embeddings for a URI (e.g. after delete). |
+| `/ov-profile {show\|list\|apply <name>\|detect}` | Manage behavioral profiles. |
+| `/ov-reindex <uri> [--mode vectors_only\|full]` | Rebuild vector embeddings for a URI. |
 | `/ov-commit [--wait]` | Commit session to OV (triggers memory extraction). `--wait` polls until done. |
 | `/ov-search <query>` | Semantic search, human-readable. |
 | `/ov-tree [uri]` | Browse `viking://` filesystem as a tree. |
 | `/ov-delete <uri>` | Delete a `viking://` entry. |
 | `/ov-recall <on\|off>` | Toggle auto-recall. |
 | `/ov-status` | Show connection, session, recall toggle, profile, scope. |
-| `/ov-profile {show\|list\|apply <name>\|detect}` | Manage behavioral profiles. |
 
 ## Auto-recall
 
@@ -138,9 +139,11 @@ OpenViking starts on `http://localhost:1933`.
 ### Verify
 
 ```bash
-curl http://localhost:1933/ready
-# → 200 OK
+curl http://localhost:1933/api/v1/sessions
+# → JSON response (or 401 if auth required — server is up)
 ```
+
+> Note: `/ready` is known to return 503 during initial startup — use `/api/v1/sessions` as a more reliable health indicator.
 
 ### Stop
 
@@ -157,7 +160,7 @@ Data persists in `~/.openviking/data` across restarts.
 | Auto-recall not working | `/ov-recall` is on? Server healthy? Logs at `~/.pi/agent/pi-openviking.log` |
 | Requests rejected | Circuit breaker OPEN — wait 30s for auto-recovery or restart OV |
 | Commit does nothing | Fire-and-forget by design. Use `/ov-commit --wait` to poll |
-| Server unreachable | `curl http://localhost:1933/ready` |
+| Server unreachable | `curl http://localhost:1933/api/v1/sessions` |
 
 ## Related docs
 

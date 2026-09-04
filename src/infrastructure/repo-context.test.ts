@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RepoContext } from "./repo-context";
-import type { FsStore } from "../domain/ports/fs-store";
+import type { FsClient } from "../domain/client/open-viking-client";
 import { Uri } from "../domain/common/uri";
 
-function mockFsStore(entries: Array<{ uri: string; type: string; size: number; modTime: number }>): FsStore {
+function mockFsClient(entries: Array<{ uri: string; type: string; size: number; modTime: number }>): FsClient {
   return {
     list: vi.fn().mockResolvedValue(entries.map(e => ({
       uri: new Uri(e.uri),
@@ -12,7 +12,7 @@ function mockFsStore(entries: Array<{ uri: string; type: string; size: number; m
       modTime: String(e.modTime),
     }))),
     read: vi.fn(),
-    write: vi.fn(),
+    save: vi.fn(),
     tree: vi.fn(),
     stat: vi.fn(),
     mkdir: vi.fn(),
@@ -23,10 +23,10 @@ function mockFsStore(entries: Array<{ uri: string; type: string; size: number; m
 }
 
 describe("RepoContext", () => {
-  let fsStore: FsStore;
+  let fsStore: FsClient;
 
   beforeEach(() => {
-    fsStore = mockFsStore([]);
+    fsStore = mockFsClient([]);
   });
 
   it("returns empty string when no resources indexed", async () => {
@@ -36,7 +36,7 @@ describe("RepoContext", () => {
   });
 
   it("returns formatted snippet when resources exist", async () => {
-    fsStore = mockFsStore([
+    fsStore = mockFsClient([
       { uri: "viking://resources/pi-openviking", type: "directory", size: 0, modTime: 0 },
       { uri: "viking://resources/README.md", type: "file", size: 1234, modTime: 1717000000000 },
     ]);
@@ -55,7 +55,7 @@ describe("RepoContext", () => {
     const listMock = vi.fn().mockResolvedValue([
       { uri: "viking://resources/doc.md", type: "file", size: 100, modTime: 0 },
     ]);
-    fsStore = { ...mockFsStore([]), list: listMock };
+    fsStore = { ...mockFsClient([]), list: listMock };
 
     const ctx = new RepoContext(fsStore, undefined, { ttlMs: 60_000 });
 
@@ -70,7 +70,7 @@ describe("RepoContext", () => {
     const listMock = vi.fn().mockResolvedValue([
       { uri: "viking://resources/doc.md", type: "file", size: 100, modTime: 0 },
     ]);
-    fsStore = { ...mockFsStore([]), list: listMock };
+    fsStore = { ...mockFsClient([]), list: listMock };
 
     const ctx = new RepoContext(fsStore, undefined, { ttlMs: 0 }); // zero TTL = always refetch
 
@@ -81,7 +81,7 @@ describe("RepoContext", () => {
   });
 
   it("returns empty string on list error", async () => {
-    fsStore = { ...mockFsStore([]), list: vi.fn().mockRejectedValue(new Error("OV unavailable")) };
+    fsStore = { ...mockFsClient([]), list: vi.fn().mockRejectedValue(new Error("OV unavailable")) };
     const ctx = new RepoContext(fsStore);
     const snippet = await ctx.getSystemPromptSnippet();
     expect(snippet).toBe("");
@@ -91,7 +91,7 @@ describe("RepoContext", () => {
     const listMock = vi.fn().mockResolvedValue([
       { uri: "viking://resources/doc.md", type: "file", size: 100, modTime: 0 },
     ]);
-    fsStore = { ...mockFsStore([]), list: listMock };
+    fsStore = { ...mockFsClient([]), list: listMock };
 
     const ctx = new RepoContext(fsStore, undefined, { ttlMs: 60_000 });
 

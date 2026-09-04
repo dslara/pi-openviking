@@ -1,23 +1,14 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { init } from "./infrastructure/lifecycle";
-import type { SearchService } from "./domain/services/search-service";
-import type { FsStoreService } from "./domain/services/fs-store-service";
-import type { RecallService } from "./domain/recall/recall-service";
-import type { SessionService } from "./domain/services/session-service";
-import type { OVAdapter } from "./adapters/driven/openviking/adapter";
-import type { KnowledgeBase } from "./domain/ports/knowledge-base";
-import type { SkillStore } from "./domain/ports/skill-store";
-import type { ResourceStore } from "./domain/ports/resource-store";
-import type { ProfileManager } from "./domain/profile/service/ProfileManager";
-import { registerAllTools } from "./adapters/driver/pi-tools/tool-registry";
-import { registerAllCommands } from "./adapters/driver/pi-commands/command-registry";
-import { OVWidget } from "./adapters/driver/ov-widget";
-import { SystemStatusClient } from "./adapters/driven/openviking/system-status";
+import { registerAllTools } from "./adapters/pi-tools/tool-registry";
+import { registerAllCommands } from "./adapters/pi-commands/command-registry";
+import { OVWidget } from "./adapters/ui/ov-widget";
+import { SystemStatusClient } from "./adapters/ov-client/system-status";
 import {
   registerLifecycleHooks,
   handleSessionStart,
   type LifecycleServices,
-} from "./adapters/driver/pi-lifecycle/register-lifecycle-hooks";
+} from "./adapters/pi-lifecycle/register-lifecycle-hooks";
 
 let initialized = false;
 let lifecycleServices: LifecycleServices;
@@ -27,32 +18,38 @@ export default async function openVikingExtension(pi: ExtensionAPI): Promise<voi
     // One-time initialization (guard prevents re-init on fork/resume/reload)
     if (!initialized) {
       const result = await init(ctx.cwd);
-      const { config, logger, container, repoContext } = result;
+      const {
+        config,
+        logger,
+        repoContext,
+        adapter,
+        ovClient,
+        profileManager,
+        sessionService,
+        recallService,
+      } = result;
 
       // Create shared widget instance (Driver adapter, not DI-registered)
       const widget = new OVWidget();
 
-      // Resolve all services from DI container
-      const searchService = container.resolve<SearchService>("searchService");
-      const fsStoreService = container.resolve<FsStoreService>("fsStoreService");
-      const recallService = container.resolve<RecallService>("recallService");
-      const sessionService = container.resolve<SessionService>("sessionService");
-      const knowledgeBase = container.resolve<KnowledgeBase>("knowledgeBase");
-      const profileManager = container.resolve<ProfileManager>("profileManager");
-      const adapter = container.resolve<OVAdapter>("adapter");
-
       const systemStatus = new SystemStatusClient(adapter.transport);
 
       // Register tools and commands (once per process)
-      const skillStore = container.resolve<SkillStore>("skillStore");
-      const resourceStore = container.resolve<ResourceStore>("resourceStore");
-      registerAllTools(pi, { searchService, fsStoreService, recallService, resourceStore, skillStore, sessionService }, logger);
+
+      registerAllTools(pi, {
+        searchClient: ovClient,
+        recallConfig: config.recall,
+        fsClient: ovClient,
+        recallService,
+        resourceClient: ovClient,
+        skillClient: ovClient,
+        sessionService,
+      }, logger);
       registerAllCommands(pi, {
         recallService,
         sessionService,
-        searchService,
-        fsStoreService,
-        knowledgeBase,
+        searchClient: ovClient,
+        fsClient: ovClient,
         profileManager,
         autoDetectRules: config.profile.autoDetectRules,
         ovConfig: config.ov,
@@ -72,6 +69,7 @@ export default async function openVikingExtension(pi: ExtensionAPI): Promise<voi
         repoContext,
         autoCommitIntervalMs: config.ov.autoCommitIntervalMs,
         autoDetectRules: config.profile.autoDetectRules,
+        sessionSync: result.sessionSync,
       };
       registerLifecycleHooks(pi, lifecycleServices);
 

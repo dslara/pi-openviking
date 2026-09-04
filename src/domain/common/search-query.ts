@@ -38,4 +38,5 @@ export interface SearchOptions {
   timeField?: string;
   level?: number;
   includeProvenance?: boolean;
+  readContent?: boolean;
 }

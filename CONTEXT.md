@@ -40,13 +40,15 @@ An implementation of a Port, living in `src/adapters/`. **Driven** adapters impl
 _Avoid_: implementation, plugin
 
 **Infrastructure**:
-Cross-cutting concerns: config loading, DI container, lifecycle wiring. Lives under `src/infrastructure/`.
+Cross-cutting concerns: config loading, lifecycle wiring. Lives under `src/infrastructure/`. DI container was removed in ADR-021 — dependencies are created directly in `init()`.
 _Avoid_: framework, wiring layer
 
 ### Foundation (Config & DI)
 
 **Config Schema**:
 The Zod schema that defines, validates, and provides defaults for all plugin configuration. Single source of truth. Exports `PiOVConfig` type inferred via `z.infer`. Domain-facing config interfaces live in `domain/common/` as plain TypeScript interfaces (`RecallConfig`, `ProfileConfig`, `ProfileBehavior`). Infra Zod schemas export inferred types under distinct names (`RecallConfigSchemaType`, `ProfileConfigSchemaType`).
+
+Consolidated from 5 files to 1 file (`src/infrastructure/config.ts`) in ADR-021 (Flat Hexagon). The infra `config/` directory with separate `schema.ts`, `cascade.ts`, `loader.ts`, `profile-schema.ts`, `logger-schema.ts` was flattened into a single file. All schemas (logger, profile, circuit breaker, OV adapter, recall) plus `loadConfig()` and `mergeBehaviorIntoRecall()` live in one place.
 _Avoid_: schema, config definition
 
 **OVAdapterConfig**:
@@ -97,7 +99,7 @@ TTL, and injects indexed repo list + tool guidance into the system prompt via
 _Avoid_: repo lister, context service
 
 **FsStoreAdapter**:
-A full implementation of the `FsStore` port in `adapters/driven/openviking/fs-store.ts`. `read()` maps level to official OV content endpoints: `level=read` → `/api/v1/content/read?uri=X&offset=Y&limit=Z`, `level=abstract` → `/api/v1/content/abstract?uri=X`, `level=overview` → `/api/v1/content/overview?uri=X`. Abstract/overview endpoints only work on directories — calling them on a file returns 412 FAILED_PRECONDITION which propagates to the caller. `write()` calls `POST /api/v1/content/write` with `wait: false` (async — OV processes embedding in background). Navigation methods (`list`, `tree`, `stat`) call `GET /api/v1/fs/{ls|tree|stat}`. Management methods (`mkdir`, `mv`) use POST with URI payload. `delete()` calls `DELETE /api/v1/fs?uri=` and auto-retries with `recursive=true` on recursive-required errors. `reindex()` calls `POST /api/v1/content/reindex {uri, mode}` with `mode` defaulting to `"vectors_only"`.
+A concrete adapter class in `adapters/driven/openviking/fs-store.ts` (port `FsStore` was deleted in ADR-021 — tools call this via `FsClient`). `read()` maps level to official OV content endpoints: `level=read` → `/api/v1/content/read?uri=X&offset=Y&limit=Z`, `level=abstract` → `/api/v1/content/abstract?uri=X`, `level=overview` → `/api/v1/content/overview?uri=X`. Abstract/overview endpoints only work on directories — calling them on a file returns 412 FAILED_PRECONDITION which propagates to the caller. `write()` calls `POST /api/v1/content/write` with `wait: false` (async — OV processes embedding in background). Navigation methods (`list`, `tree`, `stat`) call `GET /api/v1/fs/{ls|tree|stat}`. Management methods (`mkdir`, `mv`) use POST with URI payload. `delete()` calls `DELETE /api/v1/fs?uri=` and auto-retries with `recursive=true` on recursive-required errors. `reindex()` calls `POST /api/v1/content/reindex {uri, mode}` with `mode` defaulting to `"vectors_only"`.
 
 **FsMapper**:
 Pure functions in `adapters/driven/openviking/mappers/fs-mapper.ts`: `toFsEntry(raw: OVFsEntry)` extracts `uri`, `type` (from `isDir`), `size`, `modTime` and returns domain `FsEntry`; `toFsEntries(raw: OVFsEntry[])` maps arrays; `toWriteResult(raw: OVWriteResponse, expectedUri)` returns `success: true` (HTTP 2xx implies success).
@@ -107,14 +109,14 @@ Pure functions in `adapters/driven/openviking/mappers/search-mapper.ts`: `toSear
 _Avoid_: search parser, search response mapper
 
 **KnowledgeBaseAdapter**:
-An implementation of the `KnowledgeBase` port in `adapters/driven/openviking/knowledge-base.ts`. `find()` calls `POST /api/v1/search/find` (no session). `search()` calls `POST /api/v1/search/search` with optional `session_id`. `glob()` calls `POST /api/v1/search/glob`. `grep()` calls `POST /api/v1/search/grep` with all filter params (`case_insensitive`, `exclude_uri`, `level_limit`, `node_limit`). All methods use `SearchMapper` for response mapping.
+A concrete adapter class in `adapters/driven/openviking/knowledge-base.ts` (port `KnowledgeBase` was deleted in ADR-021 — tools call this via `SearchClient`). `find()` calls `POST /api/v1/search/find` (no session). `search()` calls `POST /api/v1/search/search` with optional `session_id`. `glob()` calls `POST /api/v1/search/glob`. `grep()` calls `POST /api/v1/search/grep` with all filter params (`case_insensitive`, `exclude_uri`, `level_limit`, `node_limit`). All methods use `SearchMapper` for response mapping.
 
 **SessionMapper**:
 Pure functions in `adapters/driven/openviking/mappers/session-mapper.ts`: `toSessionId(raw: OVCreateSessionResponse | OVCommitResponse)` extracts `session_id`; `toCommitResult(raw: OVCommitResponse)` maps to `{ sessionId, taskId?, archiveUri?, archived? }`; `toTaskStatus(raw: OVTaskResponse)` maps task status; `toSessionInfo(raw: OVSessionInfo)` maps full session info, extracting `memoriesExtracted` from `memories_extracted` Record (via `total` key or sum). Also exports `serializePart(part)` and `serializeParts(parts)`.
 _Avoid_: session parser
 
 **SessionStoreAdapter**:
-An implementation of the `SessionStore` port in `adapters/driven/openviking/session-store.ts`. All 10 methods implemented: `create()` → `POST /api/v1/sessions`; `sendMessage()` → `POST /api/v1/sessions/{id}/messages` with serialized `Part[]`; `sendMessages()` → batch endpoint; `commit()` → `POST /api/v1/sessions/{id}/commit` with `keep_recent_count`; `getTaskStatus()` → `GET /api/v1/tasks/{id}`; `listTasks()` → `GET /api/v1/tasks` with optional filters; `sessionUsed()` → `POST /api/v1/sessions/{id}/used`; `deleteSession()` → `DELETE /api/v1/sessions/{id}`; `getSession()` → `GET /api/v1/sessions/{id}`; `listSessions()` → `GET /api/v1/sessions`.
+A concrete adapter class in `adapters/driven/openviking/session-store.ts` (port `SessionStore` was deleted in ADR-021 — tools call this via `SessionClient`). All 10 methods implemented: `create()` → `POST /api/v1/sessions`; `sendMessage()` → `POST /api/v1/sessions/{id}/messages` with serialized `Part[]`; `sendMessages()` → batch endpoint; `commit()` → `POST /api/v1/sessions/{id}/commit` with `keep_recent_count`; `getTaskStatus()` → `GET /api/v1/tasks/{id}`; `listTasks()` → `GET /api/v1/tasks` with optional filters; `sessionUsed()` → `POST /api/v1/sessions/{id}/used`; `deleteSession()` → `DELETE /api/v1/sessions/{id}`; `getSession()` → `GET /api/v1/sessions/{id}`; `listSessions()` → `GET /api/v1/sessions`.
 
 **RelationMapper**:
 Pure functions in `adapters/driven/openviking/mappers/relation-mapper.ts`: `toLinkResult(raw, source, targets, reason?)` constructs a `LinkResult` from domain params; `toRelations(raw)` maps OV graph response (array or `{ relations: [...] }` shape) into domain `Relation[]`.
@@ -124,7 +126,7 @@ All mappers now accept typed OV wire-format inputs (e.g. `OVFindResponse`, `OVSe
 _Avoid_: guard functions, safe-utils
 
 **GraphStoreAdapter**:
-An implementation of the `GraphStore` port in `adapters/driven/openviking/graph-store.ts`. `link()` calls `POST /api/v1/relations/link` with `from_uri`, `to_uris[]`, optional `reason`. `unlink()` calls `DELETE /api/v1/relations/link` with `from_uri`, `to_uri`. `graph()` calls `GET /api/v1/relations?uri=` and maps via `RelationMapper`.
+A concrete adapter class in `adapters/driven/openviking/graph-store.ts` (port `GraphStore` was deleted in ADR-021 — tools call this via `RelationClient`). `link()` calls `POST /api/v1/relations/link` with `from_uri`, `to_uris[]`, optional `reason`. `unlink()` calls `DELETE /api/v1/relations/link` with `from_uri`, `to_uri`. `graph()` calls `GET /api/v1/relations?uri=` and maps via `RelationMapper`.
 
 **Config Cascade**:
 Config resolution order: compiled defaults → env vars (`OV_*`) → `.pi/settings.json` → active Profile (merged in `init()`, not `loadConfig()`). Each source overrides the previous via shallow merge.
@@ -137,7 +139,7 @@ _Avoid_: merge, resolution chain
 A named config preset. One is always active. Four built-in: `default`, `web-dev`, `docs`, `learning`. Carries `name` + `description` + `behavior: ProfileBehavior` (optional, added in F7a). Schema: `ProfileConfigSchema` with `behavior: ProfileBehaviorSchema.default({})`. Built-in profiles carry behavioral overrides (topN, scoreThreshold, searchMode, expandGraph, autoRecall). O `web-dev` profile tem `expandGraph: false` por padrão (contexto focado, sem expandir grafo). targetUri é definido por profile customizado via `.pi/settings.json`, não por placeholder.
 
 **ProfileBehavior**:
-6 optional behavioral fields that override `RecallConfig` when a profile is active. Fields are optional — profile só sobrescreve o que define. Canonical type in `domain/common/profile-config.ts` as `Partial<Pick<RecallConfig, 6 overridable fields>>`. Zod schema in `infrastructure/config/profile-schema.ts`:
+6 optional behavioral fields that override `RecallConfig` when a profile is active. Fields are optional — profile só sobrescreve o que define. Canonical type in `domain/common/profile-config.ts` as `Partial<Pick<RecallConfig, 6 overridable fields>>`. Zod schema in `infrastructure/config.ts` (ProfileBehaviorSchema — consolidado em ADR-021):
 - `targetUri` (string?): escopo de busca. undefined = global.
 - `topN` (number?): max results. undefined = usa default RecallConfig.
 - `scoreThreshold` (number 0-1?): relevância mínima.
@@ -157,7 +159,7 @@ Manages the active profile. Constructor receives `profiles: Record<string, Profi
 Register as singleton in container at init. In F7a, used only at init time (`init()` calls `pm.resolve()` and merges before service construction). In F7b, injected into services for runtime `apply()` support. `activeProfile` lido da config file em F7a; comando `/ov-profile` é F7b.
 
 **AutoDetect** (F7b):
-Minimatch rules-based profile detection. `detect(cwd, rules): string | null`. Rules from config: `{ "pattern": "**/web*/**", "profile": "web-dev" }`. Built-in rules: `**/web*/**` → web-dev, `**/doc*/**` → docs. Runs in `session_start` when `activeProfile = "auto"`.
+Minimatch rules-based profile detection (implemented via regex-based glob matcher with globstar support). `detect(cwd, rules): string | null`. Rules from config: `{ "pattern": "**/web*/**", "profile": "web-dev" }`. Built-in rules: `**/web*/**` → web-dev, `**/doc*/**` → docs. Runs in `session_start` when `activeProfile = "auto"`.
 _Avoid_: config profile, named preset
 
 **Logger Interface**:
@@ -169,13 +171,25 @@ JSON lines output via `appendFileSync`. Rotates by size (10MB) and age (7 days),
 _Avoid_: file logging, persistent logger
 
 **DI Container**:
-Manual dependency injection container (21 lines). Registers dependencies by string token; supports singleton and factory lifetime. Throws clear error on unregistered token.
-_Avoid_: container, ioc
+Removed in ADR-021 (Flat Hexagon). Dependencies are created directly in `init()` (`infrastructure/lifecycle.ts`) via `new Class(...)` — no container, no token registry, no service locator. `init()` returns a plain object with all wired instances. Constructors receive only the concrete dependencies they need, never a container.
+_Avoid_: container, ioc, service locator
 
 **Lifecycle**:
-The `init()` (async, creates logger + container + wires everything) and `shutdown()` (sync, resets state, zero I/O) entry points for the Foundation layer.
-Single `init()` in `infrastructure/lifecycle.ts`. Registers 17 singletons: config, logger, adapter, knowledgeBase, fsStore, graphStore, sessionStore, resourceStore, skillStore, profileManager, graphExpander (conditional), recallCurator, sessionService, recallService, searchService, fsStoreService, repoContext. Scorers `[relevanceScorer, temporalScorer]` wired in F4. GraphExpander injected when `expandGraph` is enabled. 27 lifecycle smoke tests.
+The `init()` (async, creates logger + wires everything) and `shutdown()` (sync, resets state, zero I/O) entry points for the Foundation layer.
+Single `init()` in `infrastructure/lifecycle.ts`. No container — creates services and adapters directly via `new Class(...)` and returns them in a plain object. Registrations: config, logger, adapter, knowledgeBase, fsStore, graphStore, sessionStore, resourceStore, skillStore, ovClient, profileManager, graphExpander (conditional), recallCurator, sessionService, recallService, sessionSync, repoContext. Scorers `[relevanceScorer, temporalScorer]` wired in F4. GraphExpander injected when `expandGraph` is enabled. Pipeline removed per ADR-021 — handlers call services directly.
 _Avoid_: bootstrap lifecycle, module lifecycle
+
+**OpenVikingClient** *(domain port + adapter — added in ADR-021 Flat Hexagon)*:
+Single port interface that composes 6 sub-interfaces: `SearchClient`, `FsClient`, `SessionClient`, `RelationClient`, `ResourceClient`, `SkillClient`. Interface defined in `src/domain/client/open-viking-client.ts`. Adapter implementation in `src/adapters/driven/openviking/client/client-adapter.ts` delegates each sub-interface method to the corresponding `OVAdapter` port implementation (KnowledgeBase → SearchClient, FsStore → FsClient, SessionStore → SessionClient, GraphStore → RelationClient, ResourceStore → ResourceClient, SkillStore → SkillClient).
+
+Created via `createOpenVikingClient(adapter)` helper. Tools receive the relevant sub-interface directly — not the full `OpenVikingClient`. Eliminates the 8 separate port pass-through services that existed before.
+_Avoid_: big client, god object
+
+**SessionSync** *(implemented — `domain/services/session-sync-service.ts`)*:
+Binds `SessionManager` to lifecycle hooks. Wraps commit retry, skip-on-shutdown-commit flag, and auto-commit timer coordination. Depends on `SessionManager` + `OVAdapter` (circuit breaker state) + logger. Replaces inline lifecycle coordination previously in `register-lifecycle-hooks.ts`. Manages auto-commit interval timer and `dirtySinceLastCommit` flag as instance state.
+
+The `skipShutdownCommit` flag is a **module-level `let`** in `register-lifecycle-hooks.ts` — set by `session_before_switch` hook on successful commit, consumed by `session_shutdown` to avoid double-commit, reset after consumption. SessionSync does NOT own this flag; it was deliberately kept as module state because it bridges two hooks that don't share an instance.
+_Avoid_: session lifecycle manager
 
 ### Core Domain (future phases)
 
@@ -195,13 +209,7 @@ Thin wrapper class over the pure `curate()` function. Constructor takes `RecallC
 Optionally traverses OV relations from seed KnowledgeItems to inject related resources into context.
 Injected into RecallService as optional (`GraphExpander?`). Absent until F8 — no-op when undefined.
 
-**Middleware Pipeline** *(implemented — `domain/pipeline/pipeline.ts`)*:
-Generic `Pipeline<T>` class that wraps async handlers with a middleware chain. Middlewares compose in last-registered = outermost-wraps order. Supports optional `AbortSignal` passthrough. 5 tests.
 
-**LoggingMiddleware** *(implemented — `domain/pipeline/logging-middleware.ts`)*:
-Factory function `loggingMiddleware(label, logger)` that measures handler duration and logs via the Logger port. Logs `info` on success, `error` on failure, with `durationMs` in context. Transparent — does not modify results. 2 tests.
-
-Applied at tool-handler level (F5), not inside services (F4). Services are plain classes; tool handlers call `pipeline.execute(() => service.method(params), signal)` to wrap. ToolContext (shared state between middlewares) deferred — added when cache middleware needs it.
 
 ### Shared Types (shared kernel)
 
@@ -230,7 +238,7 @@ A string literal union: `"replace" | "append" | "create"`. Controls overwrite be
 Lives in `domain/common/write-mode.ts`.
 
 **ReindexMode**:
-A string literal union: `"vectors_only" | "full"`. Controls reindex scope for `FsStore.reindex()`. Default `"vectors_only"` rebuilds vector embeddings only; `"full"` rebuilds both scalar and vector indexes. Lives in `domain/ports/fs-store.ts` as an exported type alias.
+A string literal union: `"vectors_only" | "full"`. Controls reindex scope for `FsStoreAdapter.reindex()`. Default `"vectors_only"` rebuilds vector embeddings only; `"full"` rebuilds both scalar and vector indexes. Lives in `domain/client/ov-types.ts` as an exported type alias.
 
 
 
@@ -283,77 +291,76 @@ Canonical interface in `domain/common/recall-config.ts`. Zod schema in `infrastr
 Env vars: `OV_TOP_N`, `OV_SCORE_THRESHOLD`, `OV_TARGET_URI`, `OV_EXPAND_GRAPH`, `OV_SEARCH_MODE`.
 ProfileBehavior (6 fields) overrides RecallConfig via merge. Defined in `domain/common/profile-config.ts` as `Partial<Pick<RecallConfig, 6 overridable fields>>`.
 
-**SessionService** *(implemented — `domain/services/session-service.ts`)*:
-Stateful service that manages the OV session lifecycle. Owns the active session — callers get the current session via `getActive()` rather than tracking it externally. Depends on `SessionStore` port + `SessionServiceConfig { commitTimeout, pollInterval? }`.
+**SessionManager** *(implemented — `domain/services/session-service.ts`)*:
+Renamed from SessionService in ADR-021 (Flat Hexagon). Stateful service that manages the OV session lifecycle. Owns the active session — callers get the current session via `getActive()` rather than tracking it externally. Depends on `SessionClient` (sub-interface of `OpenVikingClient`) + `SessionManagerConfig { commitTimeout, pollInterval? }`.
 
-Methods: `createAndSet(): Promise<SessionId>`, `getActive(): SessionId | null`, `sendMessage(sessionId, role, parts)`, `sendMessages(sessionId, messages)` (batch — delegates to `POST /api/v1/sessions/{id}/messages/batch`, max 100 per call), `commit(sessionId, options?): Promise<CommitResult>`, `waitForCommit(taskId, timeout?): Promise<TaskStatus>`, `deleteSession(sessionId)`.`, `getSession(sessionId)`, `sessionUsed(sessionId, contexts)`.
+Methods: `createAndSet(): Promise<SessionId>`, `getActive(): SessionId | null`, `sendMessage(sessionId, role, parts)`, `sendMessages(sessionId, messages)` (batch — delegates to `POST /api/v1/sessions/{id}/messages/batch`, max 100 per call), `commit(sessionId, options?): Promise<CommitResult>`, `waitForCommit(taskId, timeout?): Promise<TaskStatus>`, `deleteSession(sessionId)`, `getSession(sessionId)`, `sessionUsed(sessionId, contexts)`.
 
-Active session is instance-level private state. `createAndSet()` creates via port and stores as active; subsequent calls replace the previous active. `commit()` returns `{ taskId }` immediately — no polling. `waitForCommit()` polls `getTaskStatus()` at `pollInterval` (default 1s) until `completed`/`failed` or timeout (defaults to `commitTimeout` from config, overridable per-call). Throws on timeout.
+Active session is instance-level private state. `createAndSet()` creates via `SessionClient.createSession()` and stores as active; subsequent calls replace the previous active. `commit()` returns `{ taskId }` immediately — no polling. `waitForCommit()` polls `getTaskStatus()` at `pollInterval` (default 1s) until `completed`/`failed` or timeout. Throws on timeout.
 Bindings: `pi.on('session_start')` → `createAndSet()`.
-_Avoid_: session manager, session handler
+_Avoid_: session handler
 
-**FsStoreService** *(implemented — `domain/services/fs-store-service.ts`)*:
-Unified thin service wrapping the `FsStore` port for all content operations — reads, writes, filesystem navigation, and management. Merges the former WriteService, ReadService, and FsService into one class with 9 methods: `save(uri, content, mode?, signal?)` → `fsStore.write()`, `mkdir(uri, signal?)` → `fsStore.mkdir()`, `mv(from, to, signal?)` → `fsStore.mv()`, `read(uri, level?, offset?, limit?, signal?)` → `fsStore.read()`, `list(uri, recursive?, signal?)` → `fsStore.list()`, `tree(uri, signal?)` → `fsStore.tree()`, `stat(uri, signal?)` → `fsStore.stat()`, `delete(uri, recursive?, signal?)` → `fsStore.delete()`, `reindex(uri, mode?, signal?)` → `fsStore.reindex()`. Constructor takes `FsStore`. Accepts raw string URIs, wraps them in `Uri` value objects internally. 12 tests. Consolidation done in commit cbdbe5a. 
-_Avoid_: write handler, read handler, fs handler
+**FsStoreService**:
+Eliminated in ADR-021 (Flat Hexagon). Tools call the `FsStore` port directly via the `FsClient` sub-interface of `OpenVikingClient`. No pass-through service layer between tools and the `FsStore` adapter.
 _Avoid_: fs handler, fs service
 
-**SearchService** *(implemented — `domain/services/search-service.ts`)*:
-Thin application service delegating to the `KnowledgeBase` port. Three methods: `search(params, signal?)` routes `mode` param (`fast` → `kb.find()`, `deep` → `kb.search()`, `auto` → `RecallConfig.searchMode`); `glob(pattern, uri?, limit?, signal?)` delegates directly; `grep(pattern, opts?, signal?)` delegates directly. Constructor takes `KnowledgeBase`, `RecallConfig`, `Logger`. 7 tests. Registered as singleton in lifecycle.
+**SearchService**:
+Eliminated in ADR-021 (Flat Hexagon). Tools call the `KnowledgeBase` port directly via the `SearchClient` sub-interface of `OpenVikingClient`. No pass-through service layer between tools and the `KnowledgeBase` adapter.
 
-**F4 scope (revised)**: Domain logic only (scorers, ~~IntentDetector~~, RecallCurator) + RecallService + SessionService + RecallConfig interface in domain/common/ + lifecycle wiring. IntentDetector eliminated — recall is a toggle command. Lifecycle wiring in `init()` creates and registers RecallCurator (with scorers), SessionService (wired to SessionStore), RecallService (wired to KB + curator, enabled=true), SearchService (wired to KB + config). FsStoreService born in F5.2 (as separate WriteService/ReadService/FsService), consolidated in cbdbe5a.
+**F4 scope (revised)**: Domain logic only (scorers, ~~IntentDetector~~, RecallCurator) + RecallService + SessionManager + RecallConfig interface in domain/common/ + lifecycle wiring. IntentDetector eliminated — recall is a toggle command. Lifecycle wiring in `init()` creates and registers RecallCurator (with scorers), SessionManager (wired to SessionClient), RecallService (wired to KB + curator, enabled=true). SearchService and FsStoreService eliminated in ADR-021 — tools call ports directly.
 
 ### Tools (F5.1 — first vertical slice)
 
 **ov_search** *(implemented — `adapters/driver/pi-tools/ov-search.ts`)*:
-Pi tool registered via `pi.registerTool()`. TypeBox schema: `{ query: string, mode?: "auto"|"fast"|"deep", limit?: number, targetUri?: string, scoreThreshold?: number, since?: string, until?: string, timeField?: string, level?: number, includeProvenance?: boolean }`. Handler calls `pipeline.execute(() => searchService.search(params), signal)`. Advanced params are passed through as `SearchOptions` to the OV API. Returns JSON-formatted `SearchResult`. Error message on failure. 10 unit tests + 2 integration tests.
+Pi tool registered via `pi.registerTool()`. TypeBox schema: `{ query: string, mode?: "auto"|"fast"|"deep", limit?: number, targetUri?: string, scoreThreshold?: number, since?: string, until?: string, timeField?: string, level?: number, includeProvenance?: boolean }`. Handler calls `searchClient.search()` or `searchClient.find()` directly via the `SearchClient` sub-interface of `OpenVikingClient`. Pipeline removed per ADR-021 — inline try/catch + logger only. Advanced params passed through as `SearchOptions` to OV API. Returns JSON-formatted `SearchResult`. Error message on failure. 10 unit tests + 2 integration tests.
 
 **ov_glob** *(implemented — `adapters/driver/pi-tools/ov-glob.ts`)*:
-Pi tool for URI pattern discovery. Schema: `{ pattern: string, uri?: string, limit?: number }`. Handler wraps `searchService.glob()` via pipeline. Returns `GlobResult` as JSON. 2 unit tests + 1 integration test.
+Pi tool for URI pattern discovery. Schema: `{ pattern: string, uri?: string, limit?: number }`. Handler calls `searchClient.glob()` directly via `SearchClient`. Returns `GlobResult` as JSON. 2 unit tests + 1 integration test.
 
 **ov_grep** *(implemented — `adapters/driver/pi-tools/ov-grep.ts`)*:
-Pi tool for content regex search. Schema: `{ pattern: string, uri?: string, caseInsensitive?: boolean, levelLimit?: number, nodeLimit?: number }`. Handler wraps `searchService.grep()` via pipeline. Returns `GrepResult` as JSON. 2 unit tests + 1 integration test.
+Pi tool for content regex search. Schema: `{ pattern: string, uri?: string, caseInsensitive?: boolean, levelLimit?: number, nodeLimit?: number }`. Handler calls `searchClient.grep()` directly via `SearchClient`. Returns `GrepResult` as JSON. 2 unit tests + 1 integration test.
 
 
 
 **ov_write** *(implemented — `adapters/driver/pi-tools/ov-write.ts`)*:
-Pi tool for content mutations. Single tool with `action` enum to minimize prompt surface area. TypeBox schema: `{ action: "save"|"mkdir"|"mv", uri: string, content?: string, targetUri?: string, mode?: "replace"|"append"|"create" }`. Handler routes action to `FsStoreService` method via `pipeline.execute()`. Returns JSON result or error. 6 unit tests + 3 integration tests. Born in F5.2 (issue #69), refactored in cbdbe5a.
+Pi tool for content mutations. Single tool with `action` enum to minimize prompt surface area. TypeBox schema: `{ action: "save"|"mkdir"|"mv", uri: string, content?: string, targetUri?: string, mode?: "replace"|"append"|"create" }`. Handler calls `fsClient.save()`/`fsClient.mkdir()`/`fsClient.mv()` directly via `FsClient` (sub-interface of `OpenVikingClient`). Pipeline removed per ADR-021 — inline try/catch + logger only. Returns JSON result or error. 6 unit tests + 3 integration tests.
 
 **ov_read** *(implemented — `adapters/driver/pi-tools/ov-read.ts`)*:
-Pi tool for reading content at three depth levels. TypeBox schema: `{ uri: string, level?: "abstract"|"overview"|"read", offset?: number, limit?: number }`. Handler wraps `FsStoreService.read()` via pipeline. Returns raw `body` string (not JSON) for direct consumption. 4 unit tests + 1 integration test. Born in F5.2 (issue #69), refactored in cbdbe5a.
+Pi tool for reading content at three depth levels. TypeBox schema: `{ uri: string, level?: "abstract"|"overview"|"read", offset?: number, limit?: number }`. Handler calls `fsClient.read()` directly via `FsClient`. Returns raw `body` string (not JSON) for direct consumption. 4 unit tests + 1 integration test.
 
 **ov_recall** *(implemented — `adapters/driver/pi-tools/ov-recall.ts`)*:
-Pi tool for explicit recall trigger. TypeBox schema: `{ prompt: string, limit?: number }`. Handler calls `pipeline.execute(() => recallService.recall(params.prompt), signal)`. Returns `RecallResult.formatted` text (items with URI + content). On empty result, returns informative message. Errors caught and reported. 4 unit tests + 1 integration test. Born in F5.3 (issue #70).
+Pi tool for explicit recall trigger. TypeBox schema: `{ prompt: string, limit?: number }`. Handler calls `recallService.recall(params.prompt)` directly — inline try/catch + logger, no pipeline. Returns `RecallResult.formatted` text (items with URI + content). On empty result, returns informative message. Errors caught and reported. 4 unit tests + 1 integration test.
 
 **ov_list** *(implemented — `adapters/driver/pi-tools/ov-list.ts`)*:
-Pi tool for flat directory listing. TypeBox schema: `{ uri: string, recursive?: boolean }`. Handler wraps `FsStoreService.list()` via pipeline. Returns JSON array of `FsEntry` (uri, type, size?, modTime?). No formatting — raw data for agent programmatic use.
+Pi tool for flat directory listing. TypeBox schema: `{ uri: string, recursive?: boolean }`. Handler calls `fsClient.list()` directly via `FsClient`. Returns JSON array of `FsEntry` (uri, type, size?, modTime?). No formatting — raw data for agent programmatic use.
 
 **ov_tree** *(implemented — `adapters/driver/pi-tools/ov-tree.ts`)*:
-Pi tool for recursive tree listing. TypeBox schema: `{ uri: string }`. Handler wraps `FsStoreService.tree()` via pipeline. Returns JSON array of `FsEntry` (uri, type). Raw data, no indentation — agent parses paths to infer hierarchy.
+Pi tool for recursive tree listing. TypeBox schema: `{ uri: string }`. Handler calls `fsClient.tree()` directly via `FsClient`. Returns JSON array of `FsEntry` (uri, type). Raw data, no indentation — agent parses paths to infer hierarchy.
 
 **ov_stat** *(implemented — `adapters/driver/pi-tools/ov-stat.ts`)*:
-Pi tool for URI metadata. TypeBox schema: `{ uri: string }`. Handler wraps `FsStoreService.stat()` via pipeline. Returns single `FsEntry` as JSON object (uri, type, size?, modTime?).
+Pi tool for URI metadata. TypeBox schema: `{ uri: string }`. Handler calls `fsClient.stat()` directly via `FsClient`. Returns single `FsEntry` as JSON object (uri, type, size?, modTime?).
 
 **ov_delete** *(implemented — `adapters/driver/pi-tools/ov-delete.ts`)*:
-Pi tool for resource deletion. TypeBox schema: `{ uri: string, recursive?: boolean }`. Handler wraps `FsStoreService.delete()` via pipeline. No confirmation — agent owns its tool calls. Returns success/error message. No glob support — agent composes with `ov_glob` for batch delete. Contrasts with `/ov-delete` command which shows `ctx.ui.confirm()`.
+Pi tool for resource deletion. TypeBox schema: `{ uri: string, recursive?: boolean }`. Handler calls `fsClient.delete()` directly via `FsClient`. No confirmation — agent owns its tool calls. Returns success/error message. No glob support — agent composes with `ov_glob` for batch delete. Contrasts with `/ov-delete` command which shows `ctx.ui.confirm()`.
 _Avoid_: ov_delete with glob, delete with confirmation
 
 **ov_resource** *(implemented — `adapters/driver/pi-tools/ov-resource.ts`)*:
-Pi tool for saving resources. Validates URI prefix `viking://resources/`, delegates to `FsStoreService.save()`. TypeBox schema: `{ uri: string, content: string, mode?: "replace"|"append"|"create" }`. Returns JSON result. 6 unit tests. Thin alias of `ov_write` with prefix validation — does not use dedicated OV endpoint. Decline to consolidate into `ov_write` per grill decision: agent discoverability via search benefits from having a named resource tool.
+Pi tool for saving resources. Validates URI prefix `viking://resources/`, delegates to `fsClient.save()` via `FsClient`. TypeBox schema: `{ uri: string, content: string, mode?: "replace"|"append"|"create" }`. Returns JSON result. 6 unit tests. Thin alias of `ov_write` with prefix validation — does not use dedicated OV endpoint. Decline to consolidate into `ov_write` per grill decision: agent discoverability via search benefits from having a named resource tool.
 
-**ResourceStore** *(port — `domain/ports/resource-store.ts`)*:
-Port interface for importing external resources into OpenViking. Single method `importUrl(url, options?, signal?)` → `Promise<ResourceImportResult>`. Options: `targetUri` (custom `viking://` path), `reason` (import motivation), `wait` (block until server processing completes). Return type `ResourceImportResult` carries `status`, `rootUri`, `sourcePath`, optional `errors[]`.
+**ResourceStore** *(port — deleted in ADR-021)*:
+Was the domain port for importing external resources. Interface `importUrl(url, options?, signal?)` → `Promise<ResourceImportResult>`. Port file `domain/ports/resource-store.ts` was deleted. Types (`ResourceImportResult`, `ImportOptions`) live in `domain/client/ov-types.ts`. Adapter class `ResourceStoreAdapter` in `adapters/driven/openviking/resource-store.ts` is called via `ResourceClient` sub-interface of `OpenVikingClient`.
 
 **ResourceStoreAdapter** *(driven adapter — `adapters/driven/openviking/resource-store.ts`)*:
 Implements `ResourceStore` port. `importUrl()` calls `POST /api/v1/resources` with `{ path, to?, reason?, wait? }`. Response parsed via `toResourceImportResult()` in `mappers/resource-mapper.ts`. 11 unit tests.
 
-**SkillStore** *(port — `domain/ports/skill-store.ts`)*:
-Port interface for the OV skills API. Single method `addSkill(data: string | SkillData, options?, signal?)` → `POST /api/v1/skills`. Accepts inline SKILL.md content or structured `SkillData`. Options: `wait`, `timeout`. Returns `AddSkillResult` with `rootUri`, `uri`, `name`, `auxiliaryFiles`. Lives in `domain/ports/skill-store.ts`.
+**SkillStore** *(port — deleted in ADR-021)*:
+Was the domain port for the OV skills API. Method `addSkill(data: string | SkillData, options?, signal?)`. Port file `domain/ports/skill-store.ts` was deleted. Types (`AddSkillResult`, `SkillData`, `AddSkillOptions`) live in `domain/client/ov-types.ts`. Adapter class `SkillStoreAdapter` in `adapters/driven/openviking/skill-store.ts` is called via `SkillClient` sub-interface of `OpenVikingClient`.
 
 **SkillStoreAdapter** *(driven adapter — `adapters/driven/openviking/skill-store.ts`)*:
 Implements `SkillStore` port. `addSkill()` sends `POST /api/v1/skills` with `{ data, wait?, timeout? }`. Response mapped via `toAddSkillResult()` in `mappers/skill-mapper.ts`.
 
 **ov_session** *(implemented — `adapters/driver/pi-tools/ov-session.ts`)*:
-Pi tool for querying OV session metadata. Uses `SessionService.getSession()` to return message count, commit count, memories extracted. Accepts optional `sessionId` (defaults to active session). TypeBox schema: `{ sessionId?: string }`.
+Pi tool for querying OV session metadata. Uses `sessionManager.getSession()` to return message count, commit count, memories extracted. Accepts optional `sessionId` (defaults to active session). TypeBox schema: `{ sessionId?: string }`.
 
 **ov_skill** *(implemented — `adapters/driver/pi-tools/ov-skill.ts`)*:
 Pi tool for saving skills. Calls `SkillStore.addSkill()` directly (no service — pass-through eliminated). Accepts SKILL.md content or structured SkillData. TypeBox schema with optional `wait`, `name`, `description`, `allowedTools`, `tags`. Returns JSON with `rootUri`, `uri`, `name`. 6 unit tests.
@@ -362,7 +369,7 @@ Pi tool for saving skills. Calls `SkillStore.addSkill()` directly (no service �
 Pi tool for importing external URLs as OV resources. Calls `ResourceStore.importUrl()` directly (no service — pass-through eliminated). TypeBox schema: `{ url: string, targetUri?: string, reason?: string, wait?: boolean }`. Returns JSON with `status`, `rootUri`, `sourcePath`. OV server-side parses Markdown, PDF, HTML, Word, images, and more. 6 unit tests.
 _Avoid_: add_resource, import tool
 
-**Tool factory pattern**: Each tool is a `create*Tool(svc, pipeline)` function returning `ToolDefinition` via `defineTool()`. `index.ts` wires typed pipelines with `LoggingMiddleware` and passes service or port directly to each factory. Most tools receive a domain service; `ov_skill` and `ov_import` receive the port directly (`SkillStore`, `ResourceStore`) — their services were pass-through with no logic, eliminated per ADR-017 precedent. Write/Read tools follow same pattern — `Pipeline<unknown>` for writes (varied return types), `Pipeline<Content>` for reads.
+**Tool factory pattern**: Each tool is a `create*Tool(client, ...)` function receiving the relevant `OpenVikingClient` sub-interface (e.g. `SearchClient`, `FsClient`, `SessionClient`). Pipeline removed per ADR-021 — tools use inline try/catch + logger. Most tools receive a sub-interface of `OpenVikingClient`; `ov_skill` and `ov_import` receive the port directly (`SkillStore`, `ResourceStore`) — their services were pass-through with no logic, eliminated per ADR-017 precedent.
 
 ### GraphExpander (F8.2)
 
@@ -382,28 +389,28 @@ Injected into `RecallCurator`. Expands recall results by traversing OV relations
 
 ### Commands (F5.4 — slash commands)
 
-**Command factory pattern**: Each command is a `create*Command(svc, ...)` function returning an options object compatible with `pi.registerCommand()`. The barrel export `command-registry.ts` provides `registerAllCommands(pi, services)` that registers all 9 commands in one call. Commands bypass the middleware pipeline and call services directly. All commands live in `adapters/driver/pi-commands/`. 34 unit tests total.
+**Command factory pattern**: Each command is a `create*Command(svc, ...)` function returning an options object compatible with `pi.registerCommand()`. The barrel export `command-registry.ts` provides `registerAllCommands(pi, services)` that registers all 9 commands in one call. Commands call services directly — no middleware (pipeline removed per ADR-021). All commands live in `adapters/driver/pi-commands/`. 34 unit tests total.
 
 **`/ov-recall on|off`** *(implemented — `adapters/driver/pi-commands/ov-recall-command.ts`)*:
 Toggles `RecallService.setEnabled()`. Validates arg is `on` or `off`, shows usage on invalid input. Provides argument completions (`on`, `off`). Notifies user of new state. 6 tests.
 
 **`/ov-status`** *(implemented — `adapters/driver/pi-commands/ov-status-command.ts`)*:
-Reads current state from `config.ov.endpoint`, `sessionService.getActive()`, `recallService.isEnabled()`, `config.recall.targetUri`, and `config.recall.searchMode`. Formats and displays via `ctx.ui.notify()`. Shows `"(global)"` when no target URI set. Shows `"none"` when no active session. 2 tests.
+Reads current state from `config.ov.endpoint`, `sessionManager.getActive()`, `recallService.isEnabled()`, `config.recall.targetUri`, and `config.recall.searchMode`. Formats and displays via `ctx.ui.notify()`. Shows `"(global)"` when no target URI set. Shows `"none"` when no active session. 2 tests.
 
 **`/ov-tree [uri]`** *(implemented — `adapters/driver/pi-commands/ov-tree-command.ts`)*:
-Calls `fsStoreService.tree(uriStr)` with parsed `Uri` validation. Defaults to `viking://` when no URI provided. Formats result as indented tree with 📁 (directory) and 📄 (file) icons. Shows `"(empty)"` for empty result. Validates URI, shows error on failure. 5 tests.
+Calls `fsClient.tree(uriStr)` directly via `FsClient`. Defaults to `viking://` when no URI provided. Formats result as indented tree with 📁 (directory) and 📄 (file) icons. Shows `"(empty)"` for empty result. Validates URI, shows error on failure. 5 tests.
 
 **`/ov-commit [--wait]`** *(implemented — `adapters/driver/pi-commands/ov-commit-command.ts`)*:
-Calls `sessionService.commit(activeSessionId)`. Shows warning if no active session. When `--wait` flag passed and `taskId` returned, calls `sessionService.waitForCommit(taskId)` and shows task status (completed/failed). 5 tests.
+Calls `sessionManager.commit(activeSessionId)`. Shows warning if no active session. When `--wait` flag passed and `taskId` returned, calls `sessionManager.waitForCommit(taskId)` and shows task status (completed/failed). 5 tests.
 
 **`/ov-search <query>`** *(implemented — `adapters/driver/pi-commands/ov-search-command.ts`)*:
-Calls `searchService.search({ query, mode: "fast" })`. Formats results as readable lines with URI, score (3 decimal places), and abstract. Shows memories, resources, and skills sections. Shows `"No results found."` for empty results. Shows usage on empty query. 6 tests.
+Calls `searchClient.search()` or `searchClient.find()` directly via `SearchClient`. Formats results as readable lines with URI, score (3 decimal places), and abstract. Shows memories, resources, and skills sections. Shows `"No results found."` for empty results. Shows usage on empty query. 6 tests.
 
 **`/ov-delete <uri>`** *(implemented — `adapters/driver/pi-commands/ov-delete-command.ts`)*:
-Shows `ctx.ui.confirm()` confirmation dialog before calling `fsStoreService.delete(input)`. Validates URI. Cancels gracefully on user rejection. Supports glob patterns via `kb.glob()`. Shows error on failure. 5 tests.
+Shows `ctx.ui.confirm()` confirmation dialog before calling `fsClient.delete(input)` via `FsClient`. Validates URI. Cancels gracefully on user rejection. Supports glob patterns via `searchClient.glob()`. Shows error on failure. 5 tests.
 
 **`/ov-reindex <uri> [--mode vectors_only|full]`** *(implemented — `adapters/driver/pi-commands/ov-reindex-command.ts`)*:
-Calls `fsStoreService.reindex(uriStr, mode, signal)`. Rebuilds vector embeddings for a URI (default `vectors_only`). Validates URI, shows error on failure. Provides argument completions for `--mode`. 5 tests.
+Calls `fsClient.reindex(uriStr, mode)` via `FsClient`. Rebuilds vector embeddings for a URI (default `vectors_only`). Validates URI, shows error on failure. Provides argument completions for `--mode`. 5 tests.
 
 ### OVWidget (F5.5)
 
@@ -423,7 +430,7 @@ The widget exposes `attach(ui)` (binds to a UI context and renders immediately),
 An `initialized` flag ensures `init()` runs once per process.
 
 **On first `session_start`:**
-- Guard runs `init()`, resolves services from DI container
+- Guard runs `init()`, which creates all services and adapters directly (no DI container)
 - Calls `registerAllTools()` and `registerAllCommands()`
 - Creates the shared `OVWidget`
 - Registers 5 F6 lifecycle hooks (`context`, `before_agent_start`, `message_end`, `turn_end`, `session_shutdown`, `session_start`)
@@ -431,10 +438,10 @@ An `initialized` flag ensures `init()` runs once per process.
 **On every `session_start`** (including fork/resume/reload):
 - Widget attached to current UI context
 - Health check removed — circuit breaker detects failures via real requests
-- OV session created via `SessionService.createAndSet()`
+- OV session created via `SessionManager.createAndSet()`
 - If OV is unavailable, widget shows `🔴 disconnected`, operation continues gracefully
 
-**Tool barrel** (`adapters/driver/pi-tools/tool-registry.ts`): `registerAllTools(pi, services, logger)` creates typed Pipelines with LoggingMiddleware for each tool and registers all 12 in one call.
+**Tool barrel** (`adapters/driver/pi-tools/tool-registry.ts`): `registerAllTools(pi, services, logger)` registers all 14 tools with inline error handling — no Pipeline, no LoggingMiddleware (removed per ADR-021).
 
 **F5 complete**: 14 tools (ov_search, ov_glob, ov_grep, ov_write, ov_read, ov_recall, ov_list, ov_tree, ov_stat, ov_delete, ov_resource, ov_skill, ov_import, ov_session) + 9 commands (ov-recall, ov-status, ov-tree, ov-commit, ov-search, ov-delete, ov-profile, ov-start, ov-reindex) + OVWidget. Status bar pending.
 
@@ -443,10 +450,10 @@ An `initialized` flag ensures `init()` runs once per process.
 **F6 hooks** (in `index.ts`, no `application/` layer):
 7 Pi lifecycle hooks that wire the domain services to the agent lifecycle:
 
-- **`context`** → `RecallService.recall(prompt, sessionService.getActive())`. Injects as custom message `{ customType: "memory_context", display: false }` with `<relevant-memories>` XML block appended after the user message. Fires before each LLM call. Cache by query hash prevents redundant OV traffic on subsequent calls in same turn; cache hit also calls `widget.update("lastRecall", cached.stats)`. Circuit breaker OPEN or recall disabled → clears `lastRecall` via `widget.update("lastRecall", "")`. Cache invalidated on new user message. See ADR-019.
+- **`context`** → `RecallService.recall(prompt, sessionManager.getActive())`. Injects as custom message `{ customType: "memory_context", display: false }` with `<relevant-memories>` XML block appended after the user message. Fires before each LLM call. Cache by query hash prevents redundant OV traffic on subsequent calls in same turn; cache hit also calls `widget.update("lastRecall", cached.stats)`. Circuit breaker OPEN or recall disabled → clears `lastRecall` via `widget.update("lastRecall", "")`. Cache invalidated on new user message. See ADR-019.
 - **`session_before_switch`** → Commits active OV session before `/new` or `/resume`. Retries once on failure (500ms backoff). If retry also fails, prompts user via `ctx.ui.confirm()`. User cancel → returns `{ cancel: true }`. On success → sets module-level `skipShutdownCommit` flag so `session_shutdown` skips its own commit (no double-commit).
 - **`session_shutdown`** → Checks `skipShutdownCommit` flag first. If set, skips commit and resets flag. Otherwise commits active session with retry (C3). Clears auto-commit timer + recall cache.
-- **`message_end`** → `SessionService.sendMessage(sessionId, role, parts)` via MessageMapper. Syncs `user` messages only (assistant goes via `turn_end`). Tool calls preserved structurally — not flattened to text.
+- **`message_end`** → `SessionManager.sendMessage(sessionId, role, parts)` via MessageMapper. Syncs `user` messages only (assistant goes via `turn_end`). Tool calls preserved structurally — not flattened to text.
 - **`turn_end`** → Merges assistant parts with tool results via `buildTurnParts()`, sends full turn via `sendMessage()`.
 - **`session_start`** → widget attach/update + session creation + re-hydration on resume/fork.
 - **`before_agent_start`** → `RepoContext.getSystemPromptSnippet()`. Injects resource index into `systemPrompt` with TTL cache. No output when no repos indexed.
@@ -463,7 +470,7 @@ Pure function `agentMessageToParts(msg: AgentMessage): Part[]`. Converts Pi `Age
 - **Uri** and **SessionId** live in a shared kernel (`domain/common/`), not inside any single bounded context. Every context imports from `common/`; no context imports from another context.
 - **"Logger"** can refer either to the **Logger Interface** in `domain/ports/` or the **File Logger** implementation in `adapters/driven/`. Prefer the qualified name.
 - **"Config"** without qualification refers to the plugin's configuration managed by the **Config Schema**. Not to be confused with Pi's own settings (`.pi/settings.json`) or OV's server configuration.
-- **"application/"** layer is empty and will remain empty. Application services live in `domain/services/` (SessionService, SearchService, FsStoreService). Middleware pipeline lives in `domain/pipeline/`. Lifecycle hooks live in `index.ts`. No F6 tasks create an `application/` directory.
+- **"application/"** layer is empty and will remain empty. Pass-through application services (SessionService, SearchService, FsStoreService) were eliminated in ADR-021 — tools call ports directly. Middleware pipeline was also eliminated — handlers use inline try/catch + logger. Lifecycle hooks live in `index.ts`. No F6 tasks create an `application/` directory.
 
 ## Phase 2 Complete (v0.3.x)
 
@@ -488,7 +495,7 @@ Usado pelo comando `/ov-status` para mostrar status vivo do servidor OV ("live" 
 
 ### Re-hydrate em resume/fork
 
-Quando `session_start` é emitido com `reason: "resume"` ou `"fork"`, o handler lê as últimas 50 entradas de `ctx.sessionManager.getBranch()`, filtra `user`/`assistant`, mapeia via `agentMessageToParts()`, e envia em batch via `sessionService.sendMessages()`. Chunks de 50 em 50.
+Quando `session_start` é emitido com `reason: "resume"` ou `"fork"`, o handler lê as últimas 50 entradas de `ctx.sessionManager.getBranch()`, filtra `user`/`assistant`, mapeia via `agentMessageToParts()`, e envia em batch via `sessionManager.sendMessages()` (via `SessionSync`). Chunks de 50 em 50.
 
 ## Deferred (aguardando demanda)
 
@@ -512,11 +519,11 @@ Quando `session_start` é emitido com `reason: "resume"` ou `"fork"`, o handler 
 >
 > **Dev:** "So if I add a new config field, I only touch the Config Schema?"
 >
-> **Domain expert:** "The Config Schema is the single source of truth. Update the Zod definition, and the `PiOVConfig` type updates automatically via `z.infer`. The DI Container resolves the validated config as a singleton — every module receives config through the container, not by importing it directly."
+> **Domain expert:** "The Config Schema is the single source of truth. Update the Zod definition, and the `PiOVConfig` type updates automatically via `z.infer`. The validated config is used directly by `init()` to create services — no container indirection."
 >
 > **Dev:** "Can I swap the File Logger for a different implementation?"
 >
-> **Domain expert:** "Yes — that's the point of the Port interface. The domain code depends only on Logger Interface. As long as the new implementation satisfies that contract, register it in the DI Container and the rest of the system doesn't change."
+> **Domain expert:** "Yes — that's the point of the Port interface. The domain code depends only on Logger Interface. As long as the new implementation satisfies that contract, pass it to `init()` and the rest of the system doesn't change."
 >
 > **Dev:** "Will Recall Service need to import anything from OV?"
 >

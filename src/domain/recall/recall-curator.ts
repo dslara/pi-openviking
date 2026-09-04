@@ -1,6 +1,6 @@
 import { curate, estimateTokens } from "./curate";
 import type { CuratedItem, CuratedResult, Scorer } from "./curate";
-import type { SearchResult } from "../knowledge/model/search-result";
+import type { SearchResult } from "../knowledge/search-result";
 import type { RecallConfig } from "../common/recall-config";
 import type { Logger } from "../ports/logger";
 import type { GraphExpander } from "./graph-expander";

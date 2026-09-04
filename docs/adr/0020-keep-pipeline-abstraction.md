@@ -1,3 +1,5 @@
+> **Superseded by ADR-021 (2026-06-14).** Pipeline was removed — each tool handler now has inline try/catch + logger. See ADR-021 for rationale.
+
 # ADR-020: Keep Pipeline abstraction despite single middleware
 
 After architectural review, we considered flattening Pipeline<T> (tool-registry.ts ×14 pattern of `new Pipeline().use(loggingMiddleware)` → inline try/catch + logger.info/error in each tool handler). We chose to keep it.

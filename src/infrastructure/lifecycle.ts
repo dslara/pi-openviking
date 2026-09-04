@@ -1,24 +1,32 @@
-import { DIContainer } from "../infrastructure/di/container";
-import { loadConfig, mergeBehaviorIntoRecall } from "../infrastructure/config/cascade";
-import { FileLogger } from "../adapters/driven/logger/file-logger";
-import { createOVAdapter } from "../adapters/driven/openviking/adapter";
+import { loadConfig, mergeBehaviorIntoRecall } from "./config";
+import { FileLogger } from "../adapters/logging/file-logger";
+import { createOVAdapter, type OVAdapter } from "../adapters/ov-client/adapter";
+import { OpenVikingClientAdapter } from "../adapters/ov-client/client-adapter";
 import { RecallCurator } from "../domain/recall/recall-curator";
 import { GraphExpander } from "../domain/recall/graph-expander";
 import { relevanceScorer, temporalScorer } from "../domain/recall/curate";
 import { RecallService } from "../domain/recall/recall-service";
-import { SessionService } from "../domain/services/session-service";
-import { SearchService } from "../domain/services/search-service";
-import { FsStoreService } from "../domain/services/fs-store-service";
-import { ProfileManager } from "../domain/profile/service/ProfileManager";
+import { SessionManager } from "../domain/session/session-service";
+import { SessionSync } from "../domain/session/session-sync-service";
+
+import { ProfileManager } from "../domain/profile/ProfileManager";
 import { RepoContext } from "./repo-context";
 import type { Logger } from "../domain/ports/logger";
-import type { PiOVConfig } from "../infrastructure/config/schema";
+import type { FsClient, OpenVikingClient } from "../domain/client/open-viking-client";
+import type { PiOVConfig } from "./config";
 
 export async function init(cwd: string): Promise<{
   config: PiOVConfig;
   logger: Logger;
-  container: DIContainer;
+  adapter: OVAdapter;
+  ovClient: OpenVikingClient;
+  profileManager: ProfileManager;
+  graphExpander: GraphExpander | undefined;
+  recallCurator: RecallCurator;
+  sessionService: SessionManager;
+  recallService: RecallService;
   repoContext: RepoContext;
+  sessionSync: SessionSync;
 }> {
   const config = loadConfig(cwd);
 
@@ -28,27 +36,18 @@ export async function init(cwd: string): Promise<{
   }
 
   const logger = new FileLogger(config.logger);
-  const container = new DIContainer();
-
-  container.register("config", () => config, true);
-  container.register("logger", () => logger, true);
 
   // Create OV adapter and register all port implementations
   const adapter = createOVAdapter(config.ov, logger);
-  container.register("adapter", () => adapter, true);
-  container.register("knowledgeBase", () => adapter.knowledgeBase, true);
-  container.register("fsStore", () => adapter.fsStore, true);
-  container.register("graphStore", () => adapter.graphStore, true);
-  container.register("sessionStore", () => adapter.sessionStore, true);
-  container.register("resourceStore", () => adapter.resourceStore, true);
-  container.register("skillStore", () => adapter.skillStore, true);
+
+  // F# — Flat Hexagon: OpenVikingClient adapter (delegates to above ports)
+  const clientAdapter = new OpenVikingClientAdapter(adapter);
 
   // F7a — ProfileManager: create, resolve active profile, merge into recall config
   const profileManager = new ProfileManager(
     config.profile.profiles,
     config.profile.activeProfile,
   );
-  container.register("profileManager", () => profileManager, true);
 
   config.recall = mergeBehaviorIntoRecall(
     config.recall,
@@ -58,8 +57,8 @@ export async function init(cwd: string): Promise<{
   // F4 — domain services
   const graphExpander = config.recall.expandGraph
     ? new GraphExpander(
-        adapter.graphStore,
-        adapter.fsStore,
+        clientAdapter,
+        clientAdapter,
         {
           expandGraphMaxRatio: config.recall.expandGraphMaxRatio,
           expandGraphMinSeedScore: config.recall.expandGraphMinSeedScore,
@@ -67,39 +66,41 @@ export async function init(cwd: string): Promise<{
         logger,
       )
     : undefined;
-  container.register("graphExpander", () => graphExpander, true);
 
   const recallCurator = new RecallCurator(config.recall, [relevanceScorer, temporalScorer], logger, graphExpander);
-  container.register("recallCurator", () => recallCurator, true);
 
-  const sessionService = new SessionService(adapter.sessionStore, {
+  const sessionService = new SessionManager(clientAdapter, {
     commitTimeout: config.ov.commitTimeout,
   });
-  container.register("sessionService", () => sessionService, true);
+
+  const sessionSync = new SessionSync(sessionService, adapter, logger);
 
   const recallService = new RecallService(
-    adapter.knowledgeBase,
+    clientAdapter,
     recallCurator,
     config.recall,
     logger,
     true,
   );
-  container.register("recallService", () => recallService, true);
-
-  // F5 — application services
-  const searchService = new SearchService(adapter.knowledgeBase, config.recall, logger);
-  container.register("searchService", () => searchService, true);
-
-  const fsStoreService = new FsStoreService(adapter.fsStore);
-  container.register("fsStoreService", () => fsStoreService, true);
 
   // SkillStore and ResourceStore are registered via adapter above — no pass-through service needed
 
   // RepoContext: lists viking://resources/ with TTL cache for system prompt injection
-  const repoContext = new RepoContext(adapter.fsStore, logger);
-  container.register("repoContext", () => repoContext, true);
+  const repoContext = new RepoContext(clientAdapter, logger);
 
-  return { config, logger, container, repoContext };
+  return {
+    config,
+    logger,
+    adapter,
+    ovClient: clientAdapter,
+    profileManager,
+    graphExpander,
+    recallCurator,
+    sessionService,
+    sessionSync,
+    recallService,
+    repoContext,
+  };
 }
 
 export function shutdown(): void {

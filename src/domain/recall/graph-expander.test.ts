@@ -1,11 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { GraphExpander } from "./graph-expander";
-import type { GraphStore } from "../ports/graph-store";
-import type { FsStore } from "../ports/fs-store";
+import type { RelationClient, FsClient } from "../client/open-viking-client";
+import type { ContentLevel } from "../common/content-level";
 import type { Logger } from "../ports/logger";
 import type { CuratedItem } from "./curate";
 import { Uri } from "../common/uri";
-import type { ContentLevel } from "../common/content-level";
 
 function makeConfig(overrides?: Partial<{ expandGraphMaxRatio: number; expandGraphMinSeedScore: number }>) {
   return {
@@ -25,26 +24,30 @@ function makeLogger(): Logger {
   };
 }
 
-function makeGraphStore(): GraphStore {
-  return {
-    link: vi.fn(),
-    unlink: vi.fn(),
-    graph: vi.fn(),
-  };
+class MockGraphStore implements RelationClient {
+  link = vi.fn();
+  unlink = vi.fn();
+  graph = vi.fn();
 }
 
-function makeFsStore(): FsStore {
-  return {
-    read: vi.fn(),
-    write: vi.fn(),
-    list: vi.fn(),
-    tree: vi.fn(),
-    stat: vi.fn(),
-    mkdir: vi.fn(),
-    mv: vi.fn(),
-    delete: vi.fn(),
-    reindex: vi.fn(),
-  };
+class MockFsStore implements FsClient {
+  read = vi.fn();
+  save = vi.fn();
+  mkdir = vi.fn();
+  mv = vi.fn();
+  list = vi.fn();
+  tree = vi.fn();
+  stat = vi.fn();
+  delete = vi.fn();
+  reindex = vi.fn();
+}
+
+function makegraphStore(): RelationClient {
+  return new MockGraphStore();
+}
+
+function makefsStore(): FsClient {
+  return new MockFsStore();
 }
 
 function seed(uri: string, score: number): CuratedItem {
@@ -58,8 +61,8 @@ function content(uri: string, body: string): { uri: Uri; body: string; level: Co
 describe("GraphExpander", () => {
   it("returns empty when seeds array is empty", async () => {
     const expander = new GraphExpander(
-      makeGraphStore(),
-      makeFsStore(),
+      makegraphStore(),
+      makefsStore(),
       makeConfig(),
       makeLogger(),
     );
@@ -76,8 +79,8 @@ describe("GraphExpander", () => {
     ];
 
     const expander = new GraphExpander(
-      makeGraphStore(),
-      makeFsStore(),
+      makegraphStore(),
+      makefsStore(),
       makeConfig({ expandGraphMinSeedScore: 0.4 }),
       makeLogger(),
     );
@@ -92,19 +95,19 @@ describe("GraphExpander", () => {
       seed("viking://seed1", 0.9),
     ];
 
-    const graphStore = makeGraphStore();
-    vi.mocked(graphStore.graph).mockResolvedValue([
+    const mockGraphStore = makegraphStore();
+    vi.mocked(mockGraphStore.graph).mockResolvedValue([
       { uri: "viking://rel1", reason: "related topic" },
     ]);
 
-    const fsStore = makeFsStore();
-    vi.mocked(fsStore.read).mockResolvedValue(
+    const mockFsStore = makefsStore();
+    vi.mocked(mockFsStore.read).mockResolvedValue(
       content("viking://rel1", "abstract text for rel1"),
     );
 
     const expander = new GraphExpander(
-      graphStore,
-      fsStore,
+      mockGraphStore,
+      mockFsStore,
       makeConfig(),
       makeLogger(),
     );
@@ -124,20 +127,20 @@ describe("GraphExpander", () => {
       seed("viking://rel1", 0.8), // rel1 is both a seed and a relation target
     ];
 
-    const graphStore = makeGraphStore();
-    vi.mocked(graphStore.graph).mockResolvedValue([
+    const mockGraphStore = makegraphStore();
+    vi.mocked(mockGraphStore.graph).mockResolvedValue([
       { uri: "viking://rel1", reason: "duplicate target" },
       { uri: "viking://rel2", reason: "unique target" },
     ]);
 
-    const fsStore = makeFsStore();
-    vi.mocked(fsStore.read).mockResolvedValue(
+    const mockFsStore = makefsStore();
+    vi.mocked(mockFsStore.read).mockResolvedValue(
       content("viking://rel2", "only this gets read"),
     );
 
     const expander = new GraphExpander(
-      graphStore,
-      fsStore,
+      mockGraphStore,
+      mockFsStore,
       makeConfig(),
       makeLogger(),
     );
@@ -153,19 +156,19 @@ describe("GraphExpander", () => {
       seed("viking://seed1", 0.9),
     ];
 
-    const graphStore = makeGraphStore();
-    vi.mocked(graphStore.graph).mockResolvedValue([
+    const mockGraphStore = makegraphStore();
+    vi.mocked(mockGraphStore.graph).mockResolvedValue([
       { uri: "viking://rel1", reason: "short" },
       { uri: "viking://rel2", reason: "also short" },
     ]);
 
-    const fsStore = makeFsStore();
+    const mockFsStore = makefsStore();
     // Each read returns enough content to exceed a tiny budget
-    vi.mocked(fsStore.read).mockResolvedValue(
+    vi.mocked(mockFsStore.read).mockResolvedValue(
       content("viking://rel1", "a"),
     );
     // Mock second call for rel2
-    vi.mocked(fsStore.read).mockResolvedValueOnce(
+    vi.mocked(mockFsStore.read).mockResolvedValueOnce(
       content("viking://rel1", "a"),
     ).mockResolvedValueOnce(
       content("viking://rel2", "b"),
@@ -173,8 +176,8 @@ describe("GraphExpander", () => {
 
     // maxRatio=0.01, original=4000 → graphBudget=40, too small for 2 items (60+ each)
     const expander = new GraphExpander(
-      graphStore,
-      fsStore,
+      mockGraphStore,
+      mockFsStore,
       makeConfig({ expandGraphMaxRatio: 0.01 }),
       makeLogger(),
     );
@@ -195,21 +198,21 @@ describe("GraphExpander", () => {
       seed("viking://seed1", 0.9),
     ];
 
-    const graphStore = makeGraphStore();
-    vi.mocked(graphStore.graph).mockResolvedValue([
+    const mockGraphStore = makegraphStore();
+    vi.mocked(mockGraphStore.graph).mockResolvedValue([
       { uri: "viking://short", reason: "x" },
       { uri: "viking://long", reason: "this is a much longer reason string" },
     ]);
 
-    const fsStore = makeFsStore();
-    vi.mocked(fsStore.read)
+    const mockFsStore = makefsStore();
+    vi.mocked(mockFsStore.read)
       .mockResolvedValueOnce(content("viking://short", "short content"))
       .mockResolvedValueOnce(content("viking://long", "longer content that matters"));
 
     // maxRatio=0.001 so only 1 item fits
     const expander = new GraphExpander(
-      graphStore,
-      fsStore,
+      mockGraphStore,
+      mockFsStore,
       makeConfig({ expandGraphMaxRatio: 0.001 }),
       makeLogger(),
     );

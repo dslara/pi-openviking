@@ -1,11 +1,12 @@
+import type { Content } from "../client/ov-types";
 import { describe, it, expect, vi } from "vitest";
 import { GraphExpander } from "./graph-expander";
 import { RecallCurator } from "./recall-curator";
 import { relevanceScorer } from "./curate";
-import type { GraphStore } from "../ports/graph-store";
-import type { FsStore, Content } from "../ports/fs-store";
+import type { RelationClient } from "../client/open-viking-client";
+import type { FsClient } from "../client/open-viking-client";
 import type { Logger } from "../ports/logger";
-import type { SearchResult } from "../knowledge/model/search-result";
+import type { SearchResult } from "../knowledge/search-result";
 import type { RecallConfig } from "../common/recall-config";
 import { Uri } from "../common/uri";
 
@@ -69,7 +70,7 @@ describe("GraphExpander + RecallCurator integration", () => {
   });
 
   it("appends graph items when expandGraph is enabled and graph has relations", async () => {
-    const graphStore: GraphStore = {
+    const graphStore: RelationClient = {
       link: vi.fn(),
       unlink: vi.fn(),
       graph: vi.fn().mockResolvedValue([
@@ -77,9 +78,9 @@ describe("GraphExpander + RecallCurator integration", () => {
       ]),
     };
 
-    const fsStore: FsStore = {
+    const fsStore: FsClient = {
       read: vi.fn().mockResolvedValue(content("viking://rel1", "Related architecture content here")),
-      write: vi.fn(),
+      save: vi.fn(),
       list: vi.fn(),
       tree: vi.fn(),
       stat: vi.fn(),
@@ -128,15 +129,15 @@ describe("GraphExpander + RecallCurator integration", () => {
   });
 
   it("handles empty graph gracefully", async () => {
-    const graphStore: GraphStore = {
+    const graphStore: RelationClient = {
       link: vi.fn(),
       unlink: vi.fn(),
       graph: vi.fn().mockResolvedValue([]),
     };
 
-    const fsStore: FsStore = {
+    const fsStore: FsClient = {
       read: vi.fn(),
-      write: vi.fn(),
+      save: vi.fn(),
       list: vi.fn(),
       tree: vi.fn(),
       stat: vi.fn(),
